@@ -37,4 +37,11 @@ export const works: readonly Work[] = [
       "カードの最小幅や余白から、画面幅ごとの列数とCSS Gridコードを生成します。",
     href: "/works/05-responsive-grid-planner",
   },
+  {
+    number: 6,
+    title: "SVG Motion Studio",
+    description:
+      "SVG本体を変更せず、内蔵または任意のSVGへ用途別CSSアニメーションを設定・生成します。",
+    href: "/works/06-svg-motion-studio",
+  },
 ];
