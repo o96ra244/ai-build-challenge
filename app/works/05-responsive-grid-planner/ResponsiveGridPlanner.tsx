@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, RefObject, useRef, useState } from "react";
+import { useState } from "react";
 
 import {
   calculateBreakpoints,
@@ -44,13 +44,6 @@ export function ResponsiveGridPlanner() {
   const [previewWidth, setPreviewWidth] = useState(INITIAL_PREVIEW_WIDTH);
   const [errors, setErrors] = useState<FieldErrors>({});
   const [announcement, setAnnouncement] = useState("");
-  const refs: Record<NumericFieldName, RefObject<HTMLInputElement | null>> = {
-    minimumCardWidth: useRef<HTMLInputElement>(null),
-    gap: useRef<HTMLInputElement>(null),
-    maximumColumns: useRef<HTMLInputElement>(null),
-    horizontalGutter: useRef<HTMLInputElement>(null),
-    cardCount: useRef<HTMLInputElement>(null),
-  };
 
   const result = calculateGridResult(settings, previewWidth);
   const breakpoints = calculateBreakpoints(settings);
@@ -65,40 +58,37 @@ export function ResponsiveGridPlanner() {
   );
 
   function updateInput(field: NumericFieldName, value: string) {
-    setInputs((current) => ({ ...current, [field]: value }));
-    setErrors((current) => ({ ...current, [field]: undefined }));
-  }
-
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+    const nextInputs = { ...inputs, [field]: value };
     const validations = Object.fromEntries(
-      FIELD_ORDER.map((field) => [field, validateIntegerInput(inputs[field], FIELD_DEFINITIONS[field])]),
+      FIELD_ORDER.map((fieldName) => [
+        fieldName,
+        validateIntegerInput(nextInputs[fieldName], FIELD_DEFINITIONS[fieldName]),
+      ]),
     ) as Record<NumericFieldName, ReturnType<typeof validateIntegerInput>>;
     const nextErrors: FieldErrors = {};
 
-    for (const field of FIELD_ORDER) {
-      const validation = validations[field];
-      if (!validation.valid) nextErrors[field] = validation.error;
+    for (const fieldName of FIELD_ORDER) {
+      const validation = validations[fieldName];
+      if (!validation.valid) nextErrors[fieldName] = validation.error;
     }
+
+    setInputs(nextInputs);
     setErrors(nextErrors);
-    setAnnouncement("");
 
-    const firstInvalid = FIELD_ORDER.find((field) => !validations[field].valid);
-    if (firstInvalid) {
-      refs[firstInvalid].current?.focus();
-      return;
+    if (FIELD_ORDER.every((fieldName) => validations[fieldName].valid)) {
+      const values = Object.fromEntries(
+        FIELD_ORDER.map((fieldName) => {
+          const validation = validations[fieldName];
+          return [fieldName, validation.valid ? validation.value : 0];
+        }),
+      ) as Record<NumericFieldName, number>;
+      setSettings({ ...values, mode });
     }
+  }
 
-    const values = Object.fromEntries(
-      FIELD_ORDER.map((field) => {
-        const validation = validations[field];
-        return [field, validation.valid ? validation.value : 0];
-      }),
-    ) as Record<NumericFieldName, number>;
-    const nextSettings: GridSettings = { ...values, mode };
-    const nextResult = calculateGridResult(nextSettings, previewWidth);
-    setSettings(nextSettings);
-    setAnnouncement(`設計を更新しました。現在は${nextResult.trackCount}列、カード幅${formatNumber(nextResult.cardWidth)}pxです。`);
+  function updateMode(nextMode: TrackMode) {
+    setMode(nextMode);
+    setSettings((current) => ({ ...current, mode: nextMode }));
   }
 
   function reset() {
@@ -127,13 +117,12 @@ export function ResponsiveGridPlanner() {
         <section className={styles.settingsPanel} aria-labelledby="settings-title">
           <p className={styles.sectionTag}>SETTINGS</p>
           <h2 id="settings-title">グリッドを設定</h2>
-          <form className={styles.form} noValidate onSubmit={handleSubmit}>
+          <div className={styles.form}>
             <div className={styles.fieldGrid}>
               {FIELD_ORDER.map((field) => (
                 <NumberField
                   error={errors[field]}
                   field={field}
-                  inputRef={refs[field]}
                   key={field}
                   onChange={(value) => updateInput(field, value)}
                   value={inputs[field]}
@@ -145,21 +134,20 @@ export function ResponsiveGridPlanner() {
               <legend>トラック生成方式</legend>
               <div className={styles.modeOptions}>
                 <label>
-                  <input checked={mode === "auto-fit"} name="mode" onChange={() => setMode("auto-fit")} type="radio" value="auto-fit" />
+                  <input checked={mode === "auto-fit"} name="mode" onChange={() => updateMode("auto-fit")} type="radio" value="auto-fit" />
                   <span><strong>auto-fit</strong><small>空きトラックを折りたたみ、既存カードを広げる</small></span>
                 </label>
                 <label>
-                  <input checked={mode === "auto-fill"} name="mode" onChange={() => setMode("auto-fill")} type="radio" value="auto-fill" />
+                  <input checked={mode === "auto-fill"} name="mode" onChange={() => updateMode("auto-fill")} type="radio" value="auto-fill" />
                   <span><strong>auto-fill</strong><small>配置可能な空きトラックを残す</small></span>
                 </label>
               </div>
             </fieldset>
 
             <div className={styles.actions}>
-              <button className={styles.primaryButton} type="submit">グリッドを設計</button>
               <button className={styles.secondaryButton} onClick={reset} type="button">初期値に戻す</button>
             </div>
-          </form>
+          </div>
         </section>
 
         <section className={styles.previewPanel} aria-labelledby="preview-title">
@@ -231,13 +219,13 @@ export function ResponsiveGridPlanner() {
   );
 }
 
-function NumberField({ error, field, inputRef, onChange, value }: { error?: string; field: NumericFieldName; inputRef: RefObject<HTMLInputElement | null>; onChange: (value: string) => void; value: string }) {
+function NumberField({ error, field, onChange, value }: { error?: string; field: NumericFieldName; onChange: (value: string) => void; value: string }) {
   const definition = FIELD_DEFINITIONS[field];
   const id = `grid-${field}`;
   const hintId = `${id}-hint`;
   const errorId = `${id}-error`;
   const hasUnit = field === "minimumCardWidth" || field === "gap" || field === "horizontalGutter";
-  return <div className={styles.field}><label htmlFor={id}>{definition.label}</label><div className={styles.inputWithUnit}><input aria-describedby={error ? `${hintId} ${errorId}` : hintId} aria-invalid={error ? "true" : undefined} id={id} inputMode="numeric" onChange={(event) => onChange(event.target.value)} ref={inputRef} type="text" value={value} />{hasUnit ? <span aria-hidden="true">px</span> : null}</div><p className={styles.fieldHint} id={hintId}>{definition.minimum}〜{definition.maximum}{hasUnit ? "px" : ""}の整数</p><p className={styles.error} id={errorId}>{error ? `! ${error}` : ""}</p></div>;
+  return <div className={styles.field}><label htmlFor={id}>{definition.label}</label><div className={styles.inputWithUnit}><input aria-describedby={error ? `${hintId} ${errorId}` : hintId} aria-invalid={error ? "true" : undefined} id={id} max={definition.maximum} min={definition.minimum} onChange={(event) => onChange(event.target.value)} step={1} type="number" value={value} />{hasUnit ? <span aria-hidden="true">px</span> : null}</div><p className={styles.fieldHint} id={hintId}>{definition.minimum}〜{definition.maximum}{hasUnit ? "px" : ""}の整数</p><p className={styles.error} id={errorId}>{error ? `! ${error}` : ""}</p></div>;
 }
 
 function Metric({ label, value }: { label: string; value: string }) {

@@ -16,12 +16,12 @@
 .header h1 { max-width: 820px; margin: 0; font-size: clamp(2.1rem, 5vw, 4.6rem); line-height: 1.04; letter-spacing: -.045em; }
 .lead { max-width: 760px; margin: 22px 0 0; color: var(--muted); font-size: clamp(1rem, 2vw, 1.16rem); line-height: 1.85; }
 
-.workspace { display: grid; grid-template-columns: minmax(300px, .72fr) minmax(0, 1.28fr); gap: 24px; align-items: start; }
+.workspace { display: grid; grid-template-columns: minmax(0, 1fr); gap: 24px; align-items: start; }
 .settingsPanel, .previewPanel, .results, .breakpoints, .codeSection, .notes { border: 1px solid rgba(23, 34, 29, .12); border-radius: 24px; background: rgba(255,255,255,.82); box-shadow: 0 18px 50px rgba(35, 64, 50, .08); }
 .settingsPanel, .previewPanel { padding: clamp(20px, 3vw, 32px); }
 .settingsPanel h2, .previewPanel h2, .results h2, .breakpoints h2, .codeSection h2, .notes h2 { margin: 0; font-size: clamp(1.35rem, 2.4vw, 1.8rem); }
-.form { margin-top: 26px; }
-.fieldGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 16px; }
+.form { max-width: 1040px; margin-top: 26px; }
+.fieldGrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px 16px; }
 .field { min-width: 0; }
 .field label, .rangeField label { display: block; margin-bottom: 7px; font-size: .9rem; font-weight: 750; }
 .inputWithUnit { display: flex; align-items: center; overflow: hidden; border: 1px solid #aebbb4; border-radius: 10px; background: #fff; }
@@ -40,8 +40,6 @@
 .modeOptions small { margin-top: 3px; color: var(--muted); line-height: 1.45; }
 .actions { display: flex; gap: 10px; margin-top: 20px; }
 .actions button, .codeHeading button { min-height: 46px; padding: 10px 17px; border-radius: 10px; font: inherit; font-weight: 750; cursor: pointer; }
-.primaryButton { flex: 1; border: 1px solid var(--accent); color: #fff; background: var(--accent); }
-.primaryButton:hover { background: var(--accent-dark); }
 .secondaryButton { border: 1px solid #9eaaa4; color: var(--ink); background: #fff; }
 
 .previewPanel { min-width: 0; min-height: 650px; }
@@ -98,7 +96,7 @@
 .page :is(button, input, a, pre):focus-visible { outline: 3px solid #f1a53b; outline-offset: 3px; }
 
 @media (max-width: 920px) {
-  .workspace { grid-template-columns: 1fr; }
+  .fieldGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .previewPanel { min-height: 620px; }
   .metrics { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
