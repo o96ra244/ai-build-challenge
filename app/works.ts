@@ -18,4 +18,10 @@ export const works: readonly Work[] = [
     description: "文章の文字数、行数、日本語の概算読了時間を確認します。",
     href: "/works/02-text-length-counter",
   },
+  {
+    number: 3,
+    title: "WCAGコントラストチェッカー",
+    description: "2色のコントラスト比とWCAG 2.2の適合目安を確認します。",
+    href: "/works/03-wcag-contrast-checker",
+  },
 ];
