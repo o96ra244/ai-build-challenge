@@ -211,9 +211,10 @@ export function ResponsiveGridPlanner() {
 
       <section className={styles.breakpoints} aria-labelledby="breakpoints-title">
         <div><p className={styles.sectionTag}>BREAKPOINTS</p><h2 id="breakpoints-title">列数が切り替わる外枠幅</h2></div>
+        <p className={styles.noteText}>現在適用中の{settings.mode}・カード{settings.cardCount}枚の設定で、実際に到達する列数を表示しています。</p>
         {breakpoints.length > 0 ? (
           <div className={styles.tableWrap}><table><thead><tr><th scope="col">列数</th><th scope="col">必要な内容幅</th><th scope="col">左右余白を含む目安</th></tr></thead><tbody>{breakpoints.map((point) => <tr key={point.columns}><th scope="row">{point.columns}列</th><td>{point.requiredGridWidth}px</td><td>{point.requiredOuterWidth}px</td></tr>)}</tbody></table></div>
-        ) : <p className={styles.noBreakpoints}>最大列数が1列のため、切り替わり幅はありません。</p>}
+        ) : <p className={styles.noBreakpoints}>現在の設定では列数の切り替わりはありません。</p>}
         <p className={styles.noteText}>ページ全体を利用できる場合の目安です。親要素が狭い場合は、親要素の幅に依存します。</p>
       </section>
 
@@ -233,9 +234,10 @@ export function ResponsiveGridPlanner() {
 function NumberField({ error, field, inputRef, onChange, value }: { error?: string; field: NumericFieldName; inputRef: RefObject<HTMLInputElement | null>; onChange: (value: string) => void; value: string }) {
   const definition = FIELD_DEFINITIONS[field];
   const id = `grid-${field}`;
+  const hintId = `${id}-hint`;
   const errorId = `${id}-error`;
   const hasUnit = field === "minimumCardWidth" || field === "gap" || field === "horizontalGutter";
-  return <div className={styles.field}><label htmlFor={id}>{definition.label}</label><div className={styles.inputWithUnit}><input aria-describedby={error ? errorId : undefined} aria-invalid={error ? "true" : undefined} id={id} inputMode="numeric" onChange={(event) => onChange(event.target.value)} ref={inputRef} type="text" value={value} />{hasUnit ? <span aria-hidden="true">px</span> : null}</div><p className={styles.fieldHint}>{definition.minimum}〜{definition.maximum}の整数</p><p className={styles.error} id={errorId}>{error ? `! ${error}` : ""}</p></div>;
+  return <div className={styles.field}><label htmlFor={id}>{definition.label}</label><div className={styles.inputWithUnit}><input aria-describedby={error ? `${hintId} ${errorId}` : hintId} aria-invalid={error ? "true" : undefined} id={id} inputMode="numeric" onChange={(event) => onChange(event.target.value)} ref={inputRef} type="text" value={value} />{hasUnit ? <span aria-hidden="true">px</span> : null}</div><p className={styles.fieldHint} id={hintId}>{definition.minimum}〜{definition.maximum}{hasUnit ? "px" : ""}の整数</p><p className={styles.error} id={errorId}>{error ? `! ${error}` : ""}</p></div>;
 }
 
 function Metric({ label, value }: { label: string; value: string }) {

@@ -49,12 +49,31 @@ describe("grid calculations", () => {
     expect(calculateMaximumGridWidth(settings)).toBe(expected);
   });
 
-  it("初期値の切り替わり幅を返す", () => {
+  it("初期auto-fitではカード数までの切り替わり幅を返す", () => {
     expect(calculateBreakpoints(INITIAL_SETTINGS)).toEqual([
+      { columns: 2, requiredGridWidth: 504, requiredOuterWidth: 536 },
+      { columns: 3, requiredGridWidth: 768, requiredOuterWidth: 800 },
+    ]);
+  });
+
+  it("auto-fillでは最大列数まで既存の必要幅を維持する", () => {
+    expect(calculateBreakpoints({ ...INITIAL_SETTINGS, mode: "auto-fill" })).toEqual([
       { columns: 2, requiredGridWidth: 504, requiredOuterWidth: 536 },
       { columns: 3, requiredGridWidth: 768, requiredOuterWidth: 800 },
       { columns: 4, requiredGridWidth: 1032, requiredOuterWidth: 1064 },
     ]);
+  });
+
+  it("auto-fitでカード1枚なら切り替わり幅を返さない", () => {
+    expect(calculateBreakpoints({ ...INITIAL_SETTINGS, cardCount: 1 })).toEqual([]);
+  });
+
+  it("auto-fitでカード数が最大列数以上なら最大列数まで返す", () => {
+    expect(calculateBreakpoints({ ...INITIAL_SETTINGS, cardCount: 4 }).map(({ columns }) => columns)).toEqual([2, 3, 4]);
+  });
+
+  it("auto-fillではカード1枚でも最大列数まで返す", () => {
+    expect(calculateBreakpoints({ ...INITIAL_SETTINGS, cardCount: 1, mode: "auto-fill" }).map(({ columns }) => columns)).toEqual([2, 3, 4]);
   });
 
   it.each([[390, 1], [535, 1], [536, 2], [800, 3], [1064, 4], [1440, 4]])("幅%ipxで%i列になる", (width, columns) => {

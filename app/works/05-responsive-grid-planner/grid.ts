@@ -121,8 +121,23 @@ export function calculateEmptyTrackCount(trackCount: number, cardCount: number, 
   return mode === "auto-fill" ? Math.max(0, trackCount - cardCount) : 0;
 }
 
-export function calculateBreakpoints(settings: Pick<GridSettings, "minimumCardWidth" | "gap" | "maximumColumns" | "horizontalGutter">): Breakpoint[] {
-  return Array.from({ length: Math.max(0, settings.maximumColumns - 1) }, (_, index) => {
+export function calculateBreakpoints(
+  settings: Pick<
+    GridSettings,
+    | "minimumCardWidth"
+    | "gap"
+    | "maximumColumns"
+    | "horizontalGutter"
+    | "cardCount"
+    | "mode"
+  >,
+): Breakpoint[] {
+  const effectiveMaximumColumns =
+    settings.mode === "auto-fit"
+      ? Math.min(settings.maximumColumns, settings.cardCount)
+      : settings.maximumColumns;
+
+  return Array.from({ length: Math.max(0, effectiveMaximumColumns - 1) }, (_, index) => {
     const columns = index + 2;
     const requiredGridWidth = columns * settings.minimumCardWidth + (columns - 1) * settings.gap;
     return {
