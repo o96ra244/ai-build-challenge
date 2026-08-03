@@ -128,19 +128,216 @@
   font-weight: 700;
 }
 
-.fieldGrid {
+.dialGrid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px;
+  gap: 20px;
 }
 
-.field {
+.dialCard {
+  --dial-color: var(--accent);
+  display: grid;
   min-width: 0;
+  padding: 20px;
+  border: 1px solid var(--line);
+  background: #fff;
 }
 
-.field > label {
+.dialCard[data-variant="break"] {
+  --dial-color: #8a4b20;
+}
+
+.dialCard[data-disabled="true"] {
+  background: #efede8;
+  opacity: 0.72;
+}
+
+.dialHeading {
+  display: flex;
+  min-height: 64px;
+  align-items: start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.dialHeading h3 {
+  margin: 0;
+  font-size: 1.2rem;
+}
+
+.dialMode {
+  margin: 0 0 2px;
+  color: var(--dial-color);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+}
+
+.rangeLabel {
+  flex: 0 0 auto;
+  padding: 3px 7px;
+  border: 1px solid currentColor;
+  color: var(--dial-color);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.dialControl {
+  position: relative;
+  width: min(100%, 260px);
+  aspect-ratio: 1;
+  margin: 4px auto 0;
+  border-radius: 50%;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+
+.dialControl:active {
+  cursor: grabbing;
+}
+
+.dialControl:focus-visible {
+  outline: 4px solid var(--dial-color);
+  outline-offset: 4px;
+}
+
+.dialControl[aria-disabled="true"] {
+  cursor: not-allowed;
+}
+
+.dialSvg {
   display: block;
-  margin-bottom: 8px;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.dialTrack,
+.dialActive {
+  fill: none;
+  stroke-width: 14;
+}
+
+.dialTrack {
+  stroke: #d6d2c9;
+}
+
+.dialActive {
+  stroke: var(--dial-color);
+  stroke-linecap: round;
+}
+
+.dialTicks line {
+  stroke: #8b8981;
+  stroke-width: 1.5;
+}
+
+.dialTicks .majorTick {
+  stroke: var(--foreground);
+  stroke-width: 3;
+}
+
+.dialIndicator {
+  fill: #fff;
+  stroke: var(--dial-color);
+  stroke-width: 5;
+}
+
+.dialValue {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  text-align: center;
+  pointer-events: none;
+}
+
+.dialValue strong {
+  min-width: 3ch;
+  font-size: clamp(3.25rem, 7vw, 4.75rem);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.06em;
+  line-height: 0.95;
+}
+
+.dialValue span {
+  color: var(--muted);
+  font-size: 0.875rem;
+  font-weight: 700;
+}
+
+.minimumLabel,
+.maximumLabel {
+  position: absolute;
+  bottom: 13%;
+  min-width: 3ch;
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  text-align: center;
+  pointer-events: none;
+}
+
+.minimumLabel {
+  left: 13%;
+}
+
+.maximumLabel {
+  right: 10%;
+}
+
+.dialDescription {
+  min-height: 2.8em;
+  margin: 6px 0 14px;
+  color: var(--muted);
+  font-size: 0.8rem;
+  text-align: center;
+}
+
+.stepButtons {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.stepButtons button {
+  min-height: 46px;
+  padding: 8px;
+  border: 1px solid var(--dial-color);
+  color: var(--dial-color);
+  background: #fff;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.stepButtons button:hover:not(:disabled) {
+  background: #f0eee8;
+}
+
+.stepButtons button:disabled {
+  border-style: dashed;
+  color: #77756e;
+  background: #e6e3dc;
+  cursor: not-allowed;
+  text-decoration: line-through;
+}
+
+.stepButtons button:focus-visible {
+  outline: 3px solid var(--dial-color);
+  outline-offset: 3px;
+}
+
+.directInput {
+  margin-top: 16px;
+}
+
+.directInput > label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 0.875rem;
   font-weight: 700;
 }
 
@@ -174,11 +371,11 @@
   color: var(--muted);
 }
 
-.field:has(input[aria-invalid="true"]) .inputWithUnit {
+.directInput:has(input[aria-invalid="true"]) .inputWithUnit {
   border: 2px solid #a22c20;
 }
 
-.settings:disabled .inputWithUnit,
+.dialCard[data-disabled="true"] .inputWithUnit,
 .inputWithUnit:has(input:disabled) {
   border-color: #b8b6af;
   background: #e9e7e1;
@@ -187,12 +384,6 @@
 .inputWithUnit input:disabled {
   color: #66645e;
   cursor: not-allowed;
-}
-
-.fieldDescription {
-  margin: 6px 0 0;
-  color: var(--muted);
-  font-size: 0.8rem;
 }
 
 .error {
@@ -324,6 +515,18 @@
   .actions {
     grid-template-columns: 1fr;
   }
+
+  .dialGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .dialCard {
+    padding: 18px;
+  }
+
+  .dialControl {
+    width: min(100%, 240px);
+  }
 }
 
 @media (max-width: 480px) {
@@ -331,10 +534,6 @@
     align-items: flex-start;
     flex-direction: column;
     gap: 12px;
-  }
-
-  .fieldGrid {
-    grid-template-columns: 1fr;
   }
 
   .remainingTime {

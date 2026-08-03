@@ -2,13 +2,102 @@ import { describe, expect, it } from "vitest";
 
 import {
   calculateProgress,
+  clampDialValue,
   createEndTime,
+  dialProgressToValue,
+  dialValueToAngle,
+  dialValueToProgress,
   formatRemainingTime,
   getNextPhase,
   getRemainingMilliseconds,
   minutesToMilliseconds,
+  normalizeAngle,
+  pointerAngleToDialProgress,
+  pointerAngleToDialValue,
+  stepDialValue,
   validateMinutes,
 } from "./timer";
+
+describe("ダイヤルのクランプとステップ", () => {
+  it.each([
+    [0, 1, 120, 1],
+    [121, 1, 120, 120],
+    [0, 1, 60, 1],
+    [61, 1, 60, 60],
+  ])("%dを範囲%d〜%dへクランプして%dにする", (value, min, max, expected) => {
+    expect(clampDialValue(value, min, max)).toBe(expected);
+  });
+
+  it.each([
+    [25, 1, 1, 120, 26],
+    [25, -1, 1, 120, 24],
+    [1, -1, 1, 120, 1],
+    [120, 1, 1, 120, 120],
+    [25, 5, 1, 120, 30],
+    [25, -5, 1, 120, 20],
+  ])("%dを%+d分動かして%dにする", (value, step, min, max, expected) => {
+    expect(stepDialValue(value, step, min, max)).toBe(expected);
+  });
+});
+
+describe("ダイヤル値と進捗の変換", () => {
+  it("最小値を進捗0、最大値を進捗1へ変換する", () => {
+    expect(dialValueToProgress(1, 1, 120)).toBe(0);
+    expect(dialValueToProgress(120, 1, 120)).toBe(1);
+  });
+
+  it("中間値を約0.5へ変換する", () => {
+    expect(dialValueToProgress(60, 1, 120)).toBeCloseTo(0.5, 2);
+  });
+
+  it("進捗0と1を最小値と最大値へ変換する", () => {
+    expect(dialProgressToValue(0, 1, 120)).toBe(1);
+    expect(dialProgressToValue(1, 1, 120)).toBe(120);
+  });
+
+  it("範囲外の進捗をクランプし、値を整数へ丸める", () => {
+    expect(dialProgressToValue(-0.5, 1, 60)).toBe(1);
+    expect(dialProgressToValue(1.5, 1, 60)).toBe(60);
+    expect(Number.isInteger(dialProgressToValue(0.333, 1, 120))).toBe(true);
+  });
+});
+
+describe("ダイヤル角度の変換", () => {
+  it("円弧の始点・中間・終点を最小・中間・最大へ変換する", () => {
+    expect(pointerAngleToDialValue(135, 1, 120)).toBe(1);
+    expect(pointerAngleToDialValue(270, 1, 120)).toBe(61);
+    expect(pointerAngleToDialValue(405, 1, 120)).toBe(120);
+  });
+
+  it("任意の角度を0〜360度へ正規化し有限値を返す", () => {
+    expect(normalizeAngle(-90)).toBe(270);
+    expect(normalizeAngle(450)).toBe(90);
+    expect(Number.isNaN(pointerAngleToDialProgress(Number.NaN))).toBe(false);
+  });
+
+  it("下部デッドゾーンの最大側と最小側を近い端へクランプする", () => {
+    expect(pointerAngleToDialValue(60, 1, 120)).toBe(120);
+    expect(pointerAngleToDialValue(120, 1, 120)).toBe(1);
+  });
+
+  it("デッドゾーン内の各側で値が不用意に反転しない", () => {
+    expect([50, 60, 80].map((angle) => pointerAngleToDialValue(angle, 1, 120))).toEqual([
+      120,
+      120,
+      120,
+    ]);
+    expect([100, 120, 130].map((angle) => pointerAngleToDialValue(angle, 1, 120))).toEqual([
+      1,
+      1,
+      1,
+    ]);
+  });
+
+  it("値を270度の表示角度へ変換する", () => {
+    expect(dialValueToAngle(1, 1, 120)).toBe(135);
+    expect(dialValueToAngle(120, 1, 120)).toBe(405);
+  });
+});
 
 describe("validateMinutes", () => {
   it.each([

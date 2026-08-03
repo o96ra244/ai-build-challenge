@@ -3,6 +3,7 @@
 import { ChangeEvent, useCallback, useEffect, useRef, useState } from "react";
 
 import {
+  clampDialValue,
   calculateProgress,
   createEndTime,
   formatRemainingTime,
@@ -12,6 +13,7 @@ import {
   Phase,
   validateMinutes,
 } from "./timer";
+import { TimeDial } from "./TimeDial";
 import styles from "./page.module.css";
 
 type TimerStatus = "idle" | "running" | "paused";
@@ -38,6 +40,8 @@ export function PomodoroTimer() {
   const [status, setStatus] = useState<TimerStatus>("idle");
   const [workMinutes, setWorkMinutes] = useState(INITIAL_WORK_MINUTES);
   const [breakMinutes, setBreakMinutes] = useState(INITIAL_BREAK_MINUTES);
+  const [workValue, setWorkValue] = useState(Number(INITIAL_WORK_MINUTES));
+  const [breakValue, setBreakValue] = useState(Number(INITIAL_BREAK_MINUTES));
   const [remainingMilliseconds, setRemainingMilliseconds] = useState(
     minutesToMilliseconds(Number(INITIAL_WORK_MINUTES)),
   );
@@ -88,14 +92,8 @@ export function PomodoroTimer() {
 
     completionHandledRef.current = true;
     const nextPhase = getNextPhase(phase);
-    const nextRawMinutes = nextPhase === "work" ? workMinutes : breakMinutes;
-    const nextMaximum = nextPhase === "work" ? 120 : 60;
-    const nextValidation = validateMinutes(
-      nextRawMinutes,
-      `${PHASE_LABELS[nextPhase]}時間`,
-      nextMaximum,
-    );
-    const nextDuration = minutesToMilliseconds(nextValidation.valid ? nextValidation.value : 1);
+    const nextValue = nextPhase === "work" ? workValue : breakValue;
+    const nextDuration = minutesToMilliseconds(nextValue);
 
     setPhase(nextPhase);
     setStatus("idle");
@@ -107,7 +105,7 @@ export function PomodoroTimer() {
         ? "作業時間が終了しました。休憩を開始できます。"
         : "休憩時間が終了しました。作業を開始できます。",
     );
-  }, [breakMinutes, phase, workMinutes]);
+  }, [breakValue, phase, workValue]);
 
   const updateFromCurrentTime = useCallback(() => {
     if (endTime === null || completionHandledRef.current) return;
@@ -244,6 +242,11 @@ export function PomodoroTimer() {
     if (field === "work") setWorkMinutes(value);
     else setBreakMinutes(value);
 
+    if (validation.valid) {
+      if (field === "work") setWorkValue(validation.value);
+      else setBreakValue(validation.value);
+    }
+
     if (errors[field]) {
       setErrors((current) => {
         const nextErrors = { ...current };
@@ -255,6 +258,35 @@ export function PomodoroTimer() {
 
     if (status === "idle" && phase === field && validation.valid) {
       const duration = minutesToMilliseconds(validation.value);
+      setRemainingMilliseconds(duration);
+      setTotalMilliseconds(duration);
+    }
+  }
+
+  function updateSettingValue(field: FieldName, nextValue: number) {
+    if (settingsDisabled) return;
+
+    const maximum = field === "work" ? 120 : 60;
+    const value = clampDialValue(nextValue, 1, maximum);
+    const rawValue = String(value);
+
+    if (field === "work") {
+      setWorkValue(value);
+      setWorkMinutes(rawValue);
+    } else {
+      setBreakValue(value);
+      setBreakMinutes(rawValue);
+    }
+
+    setErrors((current) => {
+      if (!current[field]) return current;
+      const nextErrors = { ...current };
+      delete nextErrors[field];
+      return nextErrors;
+    });
+
+    if (phase === field) {
+      const duration = minutesToMilliseconds(value);
       setRemainingMilliseconds(duration);
       setTotalMilliseconds(duration);
     }
@@ -305,26 +337,34 @@ export function PomodoroTimer() {
         ) : (
           <p className={styles.disabledReason} aria-hidden="true">&nbsp;</p>
         )}
-        <div className={styles.fieldGrid}>
-          <MinuteField
-            description="1〜120の整数"
+        <div className={styles.dialGrid}>
+          <TimeDial
+            disabled={settingsDisabled}
             error={errors.work}
             id="work-minutes"
             inputRef={workInputRef}
             label="作業時間"
-            max={120}
-            onChange={(event) => handleSettingChange("work", event)}
-            value={workMinutes}
+            maximum={120}
+            minimum={1}
+            onInputChange={(event) => handleSettingChange("work", event)}
+            onValueChange={(value) => updateSettingValue("work", value)}
+            rawValue={workMinutes}
+            value={workValue}
+            variant="work"
           />
-          <MinuteField
-            description="1〜60の整数"
+          <TimeDial
+            disabled={settingsDisabled}
             error={errors.break}
             id="break-minutes"
             inputRef={breakInputRef}
             label="休憩時間"
-            max={60}
-            onChange={(event) => handleSettingChange("break", event)}
-            value={breakMinutes}
+            maximum={60}
+            minimum={1}
+            onInputChange={(event) => handleSettingChange("break", event)}
+            onValueChange={(value) => updateSettingValue("break", value)}
+            rawValue={breakMinutes}
+            value={breakValue}
+            variant="break"
           />
         </div>
       </fieldset>
@@ -352,57 +392,5 @@ export function PomodoroTimer() {
         {announcement}
       </p>
     </section>
-  );
-}
-type MinuteFieldProps = {
-  description: string;
-  error?: string;
-  id: string;
-  inputRef: React.RefObject<HTMLInputElement | null>;
-  label: string;
-  max: number;
-  onChange: (event: ChangeEvent<HTMLInputElement>) => void;
-  value: string;
-};
-
-function MinuteField({
-  description,
-  error,
-  id,
-  inputRef,
-  label,
-  max,
-  onChange,
-  value,
-}: MinuteFieldProps) {
-  const descriptionId = `${id}-description`;
-  const errorId = `${id}-error`;
-  const describedBy = error ? `${descriptionId} ${errorId}` : descriptionId;
-
-  return (
-    <div className={styles.field}>
-      <label htmlFor={id}>{label}</label>
-      <div className={styles.inputWithUnit}>
-        <input
-          aria-describedby={describedBy}
-          aria-invalid={error ? "true" : undefined}
-          id={id}
-          inputMode="numeric"
-          maxLength={3}
-          onChange={onChange}
-          pattern="[0-9]*"
-          ref={inputRef}
-          type="text"
-          value={value}
-        />
-        <span>分</span>
-      </div>
-      <p className={styles.fieldDescription} id={descriptionId}>
-        {description}（最大{max}分）
-      </p>
-      <p className={styles.error} id={error ? errorId : undefined}>
-        {error ? <><span aria-hidden="true">!</span> {error}</> : null}
-      </p>
-    </div>
   );
 }

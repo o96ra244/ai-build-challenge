@@ -71,7 +71,7 @@ npm run dev
 
 ### 04 ポモドーロ・ミニ
 
-作業時間と休憩時間を設定し、集中と休憩を切り替えられるシンプルなポモドーロタイマーです。
+作業時間と休憩時間を円形ダイヤルで設定し、集中と休憩を切り替えられるシンプルなポモドーロタイマーです。
 
 - GitHub上のパス: [`app/works/04-pomodoro-mini/`](app/works/04-pomodoro-mini/)
 - 公開先ルート: `/works/04-pomodoro-mini`
