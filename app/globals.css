@@ -1,0 +1,161 @@
+:root {
+  --background: #f5f3ee;
+  --foreground: #171714;
+  --muted: #65645d;
+  --line: #ccc9bf;
+  --accent: #184c3a;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  background: var(--background);
+}
+
+body {
+  margin: 0;
+  color: var(--foreground);
+  background: var(--background);
+  font-family: Arial, "Hiragino Kaku Gothic ProN", "Hiragino Sans", Meiryo, sans-serif;
+  line-height: 1.7;
+}
+
+a {
+  color: inherit;
+}
+
+a:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 4px;
+}
+
+main {
+  width: min(100% - 40px, 1120px);
+  margin-inline: auto;
+}
+
+.hero {
+  display: grid;
+  align-content: end;
+  min-height: 56vh;
+  padding-block: 80px 64px;
+  border-bottom: 1px solid var(--line);
+}
+
+.eyebrow {
+  margin: 0 0 12px;
+  color: var(--accent);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+}
+
+h1,
+h2,
+h3,
+p {
+  margin-top: 0;
+}
+
+h1 {
+  max-width: 900px;
+  margin-bottom: 24px;
+  font-size: clamp(3rem, 9vw, 7.5rem);
+  line-height: 0.94;
+  letter-spacing: -0.055em;
+}
+
+.lead {
+  max-width: 680px;
+  margin-bottom: 0;
+  color: var(--muted);
+  font-size: clamp(1rem, 2vw, 1.25rem);
+}
+
+.works {
+  padding-block: 64px 96px;
+}
+
+.sectionHeading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+h2 {
+  margin-bottom: 0;
+  font-size: clamp(2rem, 5vw, 3.5rem);
+  line-height: 1.1;
+}
+
+.count {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin-bottom: 0;
+}
+
+.count strong {
+  font-size: 3rem;
+  line-height: 1;
+}
+
+.count span {
+  color: var(--muted);
+}
+
+.emptyState {
+  display: grid;
+  min-height: 240px;
+  margin: 40px 0 0;
+  place-items: center;
+  border: 1px solid var(--line);
+  color: var(--muted);
+  text-align: center;
+}
+
+.workGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 24px;
+  margin: 40px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.workCard {
+  min-height: 280px;
+  padding: 24px;
+  border: 1px solid var(--line);
+}
+
+@media (max-width: 600px) {
+  main {
+    width: min(100% - 32px, 1120px);
+  }
+
+  .hero {
+    min-height: 520px;
+    padding-block: 64px 48px;
+  }
+
+  .works {
+    padding-block: 48px 72px;
+  }
+
+  .emptyState {
+    min-height: 200px;
+    margin-top: 32px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+  }
+}
