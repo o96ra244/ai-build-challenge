@@ -3,9 +3,9 @@ import { describe, expect, it } from "vitest";
 import { works } from "./works";
 
 describe("works", () => {
-  it("作品を番号順に2件登録している", () => {
-    expect(works).toHaveLength(2);
-    expect(works.map((work) => work.number)).toEqual([1, 2]);
+  it("作品を番号順に3件登録している", () => {
+    expect(works).toHaveLength(3);
+    expect(works.map((work) => work.number)).toEqual([1, 2, 3]);
   });
 
   it("作品01の登録内容を維持している", () => {
@@ -24,5 +24,19 @@ describe("works", () => {
       description: "文章の文字数、行数、日本語の概算読了時間を確認します。",
       href: "/works/02-text-length-counter",
     });
+  });
+
+  it("作品03を登録している", () => {
+    expect(works[2]).toEqual({
+      number: 3,
+      title: "WCAGコントラストチェッカー",
+      description: "2色のコントラスト比とWCAG 2.2の適合目安を確認します。",
+      href: "/works/03-wcag-contrast-checker",
+    });
+  });
+
+  it("作品番号とhrefに重複がない", () => {
+    expect(new Set(works.map((work) => work.number)).size).toBe(works.length);
+    expect(new Set(works.map((work) => work.href)).size).toBe(works.length);
   });
 });

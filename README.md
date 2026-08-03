@@ -43,7 +43,7 @@ npm run dev
 
 ## 作品一覧
 
-現在の公開作品数: **2件**
+現在の作品数: **3件**
 
 ### 01 画像比率リサイズ計算機
 
@@ -60,6 +60,14 @@ npm run dev
 - GitHub上のパス: [`app/works/02-text-length-counter/`](app/works/02-text-length-counter/)
 - 公開先ルート: `/works/02-text-length-counter`
 - 作品URL（mainマージ後）: https://ai-build-challenge.vercel.app/works/02-text-length-counter
+
+### 03 WCAGコントラストチェッカー
+
+前景色と背景色からコントラスト比を計算し、WCAG 2.2の文字とUI部品の適合目安を確認するWebツールです。
+
+- GitHub上のパス: [`app/works/03-wcag-contrast-checker/`](app/works/03-wcag-contrast-checker/)
+- 公開先ルート: `/works/03-wcag-contrast-checker`
+- 作品URL（mainマージ後）: https://ai-build-challenge.vercel.app/works/03-wcag-contrast-checker
 
 ## 公開URL
 
