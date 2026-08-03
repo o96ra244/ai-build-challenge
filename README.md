@@ -43,7 +43,7 @@ npm run dev
 
 ## 作品一覧
 
-現在の作品数: **4件**
+現在の作品数: **5件**
 
 ### 01 画像比率リサイズ計算機
 
@@ -76,6 +76,14 @@ npm run dev
 - GitHub上のパス: [`app/works/04-pomodoro-mini/`](app/works/04-pomodoro-mini/)
 - 公開先ルート: `/works/04-pomodoro-mini`
 - 作品URL（mainマージ後）: https://ai-build-challenge.vercel.app/works/04-pomodoro-mini
+
+### 05 レスポンシブカードグリッド設計ツール
+
+カードの最小幅、gap、最大列数、左右余白、カード数から、任意幅での列数とカード幅、切り替わり幅、実装用HTML・CSSを生成するWebツールです。
+
+- GitHub上のパス: [`app/works/05-responsive-grid-planner/`](app/works/05-responsive-grid-planner/)
+- 公開先ルート: `/works/05-responsive-grid-planner`
+- 作品URL（mainマージ後）: https://ai-build-challenge.vercel.app/works/05-responsive-grid-planner
 
 ## 公開URL
 

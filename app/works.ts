@@ -30,4 +30,11 @@ export const works: readonly Work[] = [
     description: "作業時間と休憩時間を設定し、集中と休憩を切り替えます。",
     href: "/works/04-pomodoro-mini",
   },
+  {
+    number: 5,
+    title: "レスポンシブカードグリッド設計ツール",
+    description:
+      "カードの最小幅や余白から、画面幅ごとの列数とCSS Gridコードを生成します。",
+    href: "/works/05-responsive-grid-planner",
+  },
 ];
