@@ -3,9 +3,9 @@ import { describe, expect, it } from "vitest";
 import { works } from "./works";
 
 describe("works", () => {
-  it("作品を番号順に4件登録している", () => {
-    expect(works).toHaveLength(4);
-    expect(works.map((work) => work.number)).toEqual([1, 2, 3, 4]);
+  it("作品を番号順に5件登録している", () => {
+    expect(works).toHaveLength(5);
+    expect(works.map((work) => work.number)).toEqual([1, 2, 3, 4, 5]);
   });
 
   it("作品01の登録内容を維持している", () => {
@@ -41,6 +41,16 @@ describe("works", () => {
       title: "ポモドーロ・ミニ",
       description: "作業時間と休憩時間を設定し、集中と休憩を切り替えます。",
       href: "/works/04-pomodoro-mini",
+    });
+  });
+
+  it("作品05を登録している", () => {
+    expect(works[4]).toEqual({
+      number: 5,
+      title: "レスポンシブカードグリッド設計ツール",
+      description:
+        "カードの最小幅や余白から、画面幅ごとの列数とCSS Gridコードを生成します。",
+      href: "/works/05-responsive-grid-planner",
     });
   });
 
