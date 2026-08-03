@@ -43,10 +43,16 @@ npm run dev
 
 ## 作品一覧
 
-現在の公開作品数: **0件**
+現在の公開作品数: **1件**
 
-公開作品はまだありません。作品は `app/works/NN-slug/` に追加します。
+### 01 画像比率リサイズ計算機
+
+元画像の縦横比を保ったまま、変更後の幅または高さを計算するWebツールです。
+
+- GitHub上のパス: [`app/works/01-aspect-ratio-resizer/`](app/works/01-aspect-ratio-resizer/)
+- 公開先ルート: `/works/01-aspect-ratio-resizer`
+- 作品URL（公開予定）: https://ai-build-challenge.vercel.app/works/01-aspect-ratio-resizer
 
 ## 公開URL
 
-未公開です。
+- 本番サイト: https://ai-build-challenge.vercel.app/
