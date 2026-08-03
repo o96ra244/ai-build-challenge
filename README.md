@@ -43,7 +43,7 @@ npm run dev
 
 ## 作品一覧
 
-現在の公開作品数: **1件**
+現在の公開作品数: **2件**
 
 ### 01 画像比率リサイズ計算機
 
@@ -51,7 +51,15 @@ npm run dev
 
 - GitHub上のパス: [`app/works/01-aspect-ratio-resizer/`](app/works/01-aspect-ratio-resizer/)
 - 公開先ルート: `/works/01-aspect-ratio-resizer`
-- 作品URL（公開予定）: https://ai-build-challenge.vercel.app/works/01-aspect-ratio-resizer
+- 作品URL: https://ai-build-challenge.vercel.app/works/01-aspect-ratio-resizer
+
+### 02 文字数・読了時間カウンター
+
+文章の文字数、行数、日本語の概算読了時間をブラウザ上で確認するWebツールです。
+
+- GitHub上のパス: [`app/works/02-text-length-counter/`](app/works/02-text-length-counter/)
+- 公開先ルート: `/works/02-text-length-counter`
+- 作品URL（mainマージ後）: https://ai-build-challenge.vercel.app/works/02-text-length-counter
 
 ## 公開URL
 
