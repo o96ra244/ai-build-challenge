@@ -43,7 +43,7 @@ npm run dev
 
 ## 作品一覧
 
-現在の作品数: **3件**
+現在の作品数: **4件**
 
 ### 01 画像比率リサイズ計算機
 
@@ -68,6 +68,14 @@ npm run dev
 - GitHub上のパス: [`app/works/03-wcag-contrast-checker/`](app/works/03-wcag-contrast-checker/)
 - 公開先ルート: `/works/03-wcag-contrast-checker`
 - 作品URL（mainマージ後）: https://ai-build-challenge.vercel.app/works/03-wcag-contrast-checker
+
+### 04 ポモドーロ・ミニ
+
+作業時間と休憩時間を設定し、集中と休憩を切り替えられるシンプルなポモドーロタイマーです。
+
+- GitHub上のパス: [`app/works/04-pomodoro-mini/`](app/works/04-pomodoro-mini/)
+- 公開先ルート: `/works/04-pomodoro-mini`
+- 作品URL（mainマージ後）: https://ai-build-challenge.vercel.app/works/04-pomodoro-mini
 
 ## 公開URL
 

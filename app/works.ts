@@ -24,4 +24,10 @@ export const works: readonly Work[] = [
     description: "2色のコントラスト比とWCAG 2.2の適合目安を確認します。",
     href: "/works/03-wcag-contrast-checker",
   },
+  {
+    number: 4,
+    title: "ポモドーロ・ミニ",
+    description: "作業時間と休憩時間を設定し、集中と休憩を切り替えます。",
+    href: "/works/04-pomodoro-mini",
+  },
 ];
