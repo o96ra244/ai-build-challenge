@@ -113,7 +113,7 @@ export function ResponsiveGridPlanner() {
 
   return (
     <>
-      <div className={styles.workspace}>
+      <section className={styles.workspace} aria-label="グリッド設計ワークスペース">
         <section className={styles.settingsPanel} aria-labelledby="settings-title">
           <p className={styles.sectionTag}>SETTINGS</p>
           <h2 id="settings-title">グリッドを設定</h2>
@@ -130,22 +130,24 @@ export function ResponsiveGridPlanner() {
               ))}
             </div>
 
-            <fieldset className={styles.modeFieldset}>
-              <legend>トラック生成方式</legend>
-              <div className={styles.modeOptions}>
-                <label>
-                  <input checked={mode === "auto-fit"} name="mode" onChange={() => updateMode("auto-fit")} type="radio" value="auto-fit" />
-                  <span><strong>auto-fit</strong><small>空きトラックを折りたたみ、既存カードを広げる</small></span>
-                </label>
-                <label>
-                  <input checked={mode === "auto-fill"} name="mode" onChange={() => updateMode("auto-fill")} type="radio" value="auto-fill" />
-                  <span><strong>auto-fill</strong><small>配置可能な空きトラックを残す</small></span>
-                </label>
-              </div>
-            </fieldset>
+            <div className={styles.controlRow}>
+              <fieldset className={styles.modeFieldset}>
+                <legend>トラック生成方式</legend>
+                <div className={styles.modeOptions}>
+                  <label>
+                    <input checked={mode === "auto-fit"} name="mode" onChange={() => updateMode("auto-fit")} type="radio" value="auto-fit" />
+                    <span><strong>auto-fit</strong><small>空きトラックを折りたたみ、既存カードを広げる</small></span>
+                  </label>
+                  <label>
+                    <input checked={mode === "auto-fill"} name="mode" onChange={() => updateMode("auto-fill")} type="radio" value="auto-fill" />
+                    <span><strong>auto-fill</strong><small>配置可能な空きトラックを残す</small></span>
+                  </label>
+                </div>
+              </fieldset>
 
-            <div className={styles.actions}>
-              <button className={styles.secondaryButton} onClick={reset} type="button">初期値に戻す</button>
+              <div className={styles.actions}>
+                <button className={styles.secondaryButton} onClick={reset} type="button">初期値に戻す</button>
+              </div>
             </div>
           </div>
         </section>
@@ -175,7 +177,7 @@ export function ResponsiveGridPlanner() {
           </div>
           <p className={styles.previewCaption}>{result.trackCount}列・カード幅 {formatNumber(result.cardWidth)}px{result.emptyTrackCount > 0 ? `・空きトラック ${result.emptyTrackCount}` : ""}</p>
         </section>
-      </div>
+      </section>
 
       <section className={styles.results} aria-labelledby="result-title">
         <p className={styles.sectionTag}>RESULT</p>
