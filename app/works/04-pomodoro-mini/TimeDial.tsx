@@ -5,14 +5,20 @@ import {
   KeyboardEvent,
   PointerEvent,
   RefObject,
+  useEffect,
   useRef,
-  WheelEvent,
 } from "react";
 
 import {
+  accumulateDialDelta,
+  DialDeltaMode,
   dialValueToAngle,
   dialValueToProgress,
+  getDialDirection,
+  normalizeDialScrollDelta,
   pointerAngleToDialValue,
+  resolveDialDelta,
+  shouldPassThroughDialScroll,
   stepDialValue,
 } from "./timer";
 import styles from "./page.module.css";
@@ -34,9 +40,16 @@ type TimeDialProps = {
 
 const CENTER = 130;
 const INDICATOR_RADIUS = 101;
-const WHEEL_STEP_THRESHOLD = 40;
-const WHEEL_STEP_COOLDOWN_MS = 120;
+const WHEEL_IDLE_RESET_MS = 180;
+const WHEEL_BURST_GUARD_MS = 64;
 const TICK_COUNT = 31;
+
+type TouchGesture = {
+  accumulator: number;
+  identifier: number;
+  lastY: number;
+  mode: "pending" | "dial" | "page";
+};
 
 const ticks = Array.from({ length: TICK_COUNT }, (_, index) => {
   const angle = 135 + (270 * index) / (TICK_COUNT - 1);
@@ -68,9 +81,15 @@ export function TimeDial({
   value,
   variant,
 }: TimeDialProps) {
+  const dialControlRef = useRef<HTMLDivElement>(null);
   const activePointerIdRef = useRef<number | null>(null);
   const wheelAccumulatorRef = useRef(0);
+  const wheelResetTimerRef = useRef<number | null>(null);
   const lastWheelStepAtRef = useRef(0);
+  const touchGestureRef = useRef<TouchGesture | null>(null);
+  const valueRef = useRef(value);
+  const disabledRef = useRef(disabled);
+  const onValueChangeRef = useRef(onValueChange);
   const progress = dialValueToProgress(value, minimum, maximum);
   const indicatorAngle = dialValueToAngle(value, minimum, maximum);
   const indicatorRadians = (indicatorAngle * Math.PI) / 180;
@@ -79,6 +98,165 @@ export function TimeDial({
   const descriptionId = `${id}-description`;
   const errorId = `${id}-error`;
   const describedBy = error ? `${descriptionId} ${errorId}` : descriptionId;
+
+  useEffect(() => {
+    valueRef.current = value;
+    disabledRef.current = disabled;
+    onValueChangeRef.current = onValueChange;
+  }, [disabled, onValueChange, value]);
+
+  useEffect(() => {
+    const element = dialControlRef.current;
+    if (!element) return;
+    const dialElement = element;
+
+    function updateValue(direction: -1 | 1) {
+      const nextValue = stepDialValue(valueRef.current, direction, minimum, maximum);
+      valueRef.current = nextValue;
+      onValueChangeRef.current(nextValue);
+    }
+
+    function resetWheelAccumulatorAfterIdle() {
+      if (wheelResetTimerRef.current !== null) {
+        window.clearTimeout(wheelResetTimerRef.current);
+      }
+      wheelResetTimerRef.current = window.setTimeout(() => {
+        wheelAccumulatorRef.current = 0;
+        lastWheelStepAtRef.current = 0;
+        wheelResetTimerRef.current = null;
+      }, WHEEL_IDLE_RESET_MS);
+    }
+
+    function handleNativeWheel(event: globalThis.WheelEvent) {
+      if (disabledRef.current) {
+        wheelAccumulatorRef.current = 0;
+        lastWheelStepAtRef.current = 0;
+        return;
+      }
+
+      const delta = normalizeDialScrollDelta(
+        event.deltaX,
+        event.deltaY,
+        event.deltaMode as DialDeltaMode,
+        dialElement.clientHeight || window.innerHeight,
+      );
+      const direction = getDialDirection(delta);
+      if (direction === 0) return;
+
+      const result = resolveDialDelta(
+        valueRef.current,
+        wheelAccumulatorRef.current,
+        delta,
+        minimum,
+        maximum,
+      );
+
+      if (result.passThrough) {
+        wheelAccumulatorRef.current = 0;
+        lastWheelStepAtRef.current = 0;
+        if (wheelResetTimerRef.current !== null) {
+          window.clearTimeout(wheelResetTimerRef.current);
+          wheelResetTimerRef.current = null;
+        }
+        return;
+      }
+
+      event.preventDefault();
+      if (document.activeElement !== dialElement) dialElement.focus({ preventScroll: true });
+      wheelAccumulatorRef.current = result.accumulator;
+      resetWheelAccumulatorAfterIdle();
+      if (result.step !== 0) {
+        const now = Date.now();
+        if (now - lastWheelStepAtRef.current >= WHEEL_BURST_GUARD_MS) {
+          lastWheelStepAtRef.current = now;
+          updateValue(result.step);
+        }
+      }
+    }
+
+    function handleTouchStart(event: globalThis.TouchEvent) {
+      if (disabledRef.current || event.touches.length !== 1) {
+        touchGestureRef.current = null;
+        return;
+      }
+
+      const touch = event.touches.item(0);
+      if (!touch) return;
+      touchGestureRef.current = {
+        accumulator: 0,
+        identifier: touch.identifier,
+        lastY: touch.clientY,
+        mode: "pending",
+      };
+    }
+
+    function handleTouchMove(event: globalThis.TouchEvent) {
+      const gesture = touchGestureRef.current;
+      if (!gesture || gesture.mode === "page" || disabledRef.current) return;
+      if (event.touches.length !== 1) {
+        touchGestureRef.current = null;
+        return;
+      }
+
+      const touch = event.touches.item(0);
+      if (!touch || touch.identifier !== gesture.identifier) return;
+      const delta = gesture.lastY - touch.clientY;
+      gesture.lastY = touch.clientY;
+      const direction = getDialDirection(delta);
+      if (direction === 0) return;
+
+      if (gesture.mode === "pending") {
+        if (shouldPassThroughDialScroll(valueRef.current, direction, minimum, maximum)) {
+          gesture.accumulator = 0;
+          gesture.mode = "page";
+          return;
+        }
+        gesture.mode = "dial";
+        dialElement.focus({ preventScroll: true });
+      }
+
+      event.preventDefault();
+      const result = accumulateDialDelta(gesture.accumulator, delta);
+      gesture.accumulator = result.accumulator;
+      if (result.step !== 0 && canMoveInDirection(result.step)) updateValue(result.step);
+    }
+
+    function canMoveInDirection(direction: -1 | 1) {
+      return !shouldPassThroughDialScroll(valueRef.current, direction, minimum, maximum);
+    }
+
+    function finishTouch(event: globalThis.TouchEvent) {
+      const gesture = touchGestureRef.current;
+      if (!gesture) return;
+      for (let index = 0; index < event.changedTouches.length; index += 1) {
+        if (event.changedTouches.item(index)?.identifier === gesture.identifier) {
+          touchGestureRef.current = null;
+          return;
+        }
+      }
+    }
+
+    dialElement.addEventListener("wheel", handleNativeWheel, { passive: false });
+    dialElement.addEventListener("touchstart", handleTouchStart, { passive: true });
+    dialElement.addEventListener("touchmove", handleTouchMove, { passive: false });
+    dialElement.addEventListener("touchend", finishTouch);
+    dialElement.addEventListener("touchcancel", finishTouch);
+
+    return () => {
+      dialElement.removeEventListener("wheel", handleNativeWheel);
+      dialElement.removeEventListener("touchstart", handleTouchStart);
+      dialElement.removeEventListener("touchmove", handleTouchMove);
+      dialElement.removeEventListener("touchend", finishTouch);
+      dialElement.removeEventListener("touchcancel", finishTouch);
+      if (wheelResetTimerRef.current !== null) {
+        window.clearTimeout(wheelResetTimerRef.current);
+        wheelResetTimerRef.current = null;
+      }
+      wheelAccumulatorRef.current = 0;
+      lastWheelStepAtRef.current = 0;
+      touchGestureRef.current = null;
+    };
+  }, [maximum, minimum]);
 
   function updateFromPointer(event: PointerEvent<HTMLDivElement>) {
     const bounds = event.currentTarget.getBoundingClientRect();
@@ -89,7 +267,7 @@ export function TimeDial({
   }
 
   function handlePointerDown(event: PointerEvent<HTMLDivElement>) {
-    if (disabled) return;
+    if (disabled || event.pointerType === "touch") return;
     event.currentTarget.focus();
     activePointerIdRef.current = event.pointerId;
     event.currentTarget.setPointerCapture(event.pointerId);
@@ -97,11 +275,16 @@ export function TimeDial({
   }
 
   function handlePointerMove(event: PointerEvent<HTMLDivElement>) {
-    if (disabled || activePointerIdRef.current !== event.pointerId) return;
+    if (
+      disabled ||
+      event.pointerType === "touch" ||
+      activePointerIdRef.current !== event.pointerId
+    ) return;
     updateFromPointer(event);
   }
 
   function finishPointerInteraction(event: PointerEvent<HTMLDivElement>) {
+    if (event.pointerType === "touch") return;
     if (activePointerIdRef.current !== event.pointerId) return;
     activePointerIdRef.current = null;
     if (event.currentTarget.hasPointerCapture(event.pointerId)) {
@@ -139,29 +322,6 @@ export function TimeDial({
     onValueChange(stepDialValue(value, step, minimum, maximum));
   }
 
-  function handleWheel(event: WheelEvent<HTMLDivElement>) {
-    if (disabled || event.currentTarget !== document.activeElement) return;
-
-    const useHorizontalDelta = Math.abs(event.deltaX) > Math.abs(event.deltaY);
-    const signedDelta = useHorizontalDelta ? event.deltaX : -event.deltaY;
-    if (signedDelta === 0) return;
-
-    wheelAccumulatorRef.current += signedDelta;
-    if (Math.abs(wheelAccumulatorRef.current) < WHEEL_STEP_THRESHOLD) return;
-
-    event.preventDefault();
-    const now = Date.now();
-    if (now - lastWheelStepAtRef.current < WHEEL_STEP_COOLDOWN_MS) {
-      wheelAccumulatorRef.current = 0;
-      return;
-    }
-
-    const step = wheelAccumulatorRef.current > 0 ? 1 : -1;
-    wheelAccumulatorRef.current = 0;
-    lastWheelStepAtRef.current = now;
-    onValueChange(stepDialValue(value, step, minimum, maximum));
-  }
-
   return (
     <section className={styles.dialCard} data-disabled={disabled} data-variant={variant}>
       <div className={styles.dialHeading}>
@@ -193,7 +353,7 @@ export function TimeDial({
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={finishPointerInteraction}
-        onWheel={handleWheel}
+        ref={dialControlRef}
         role="slider"
         tabIndex={disabled ? -1 : 0}
       >
@@ -239,7 +399,7 @@ export function TimeDial({
       </div>
 
       <p className={styles.dialDescription} id={descriptionId}>
-        ドラッグ・ホイール・矢印キーで1分ずつ調整
+        円周ドラッグ・上下スクロール・矢印キーで1分ずつ調整
       </p>
 
       <div className={styles.stepButtons}>

@@ -1,22 +1,126 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  accumulateDialDelta,
   calculateProgress,
+  canStepDialValue,
   clampDialValue,
   createEndTime,
   dialProgressToValue,
   dialValueToAngle,
   dialValueToProgress,
   formatRemainingTime,
+  getDialDirection,
   getNextPhase,
   getRemainingMilliseconds,
   minutesToMilliseconds,
   normalizeAngle,
+  normalizeDialScrollDelta,
   pointerAngleToDialProgress,
   pointerAngleToDialValue,
+  resolveDialDelta,
+  shouldPassThroughDialScroll,
   stepDialValue,
   validateMinutes,
 } from "./timer";
+
+describe("スクロール方向とdelta正規化", () => {
+  it("負の垂直deltaを増加、正の垂直deltaを減少方向にする", () => {
+    expect(getDialDirection(normalizeDialScrollDelta(0, -8, 0, 800))).toBe(1);
+    expect(getDialDirection(normalizeDialScrollDelta(0, 8, 0, 800))).toBe(-1);
+  });
+
+  it("絶対値が大きい軸だけを採用する", () => {
+    expect(normalizeDialScrollDelta(3, -8, 0, 800)).toBe(8);
+    expect(normalizeDialScrollDelta(8, -3, 0, 800)).toBe(8);
+    expect(normalizeDialScrollDelta(-8, 3, 0, 800)).toBe(-8);
+  });
+
+  it("deltaが0なら変更方向なしにする", () => {
+    expect(getDialDirection(normalizeDialScrollDelta(0, 0, 0, 800))).toBe(0);
+  });
+
+  it("pixel・line・page単位をピクセル相当へ変換する", () => {
+    expect(normalizeDialScrollDelta(0, -4, 0, 800)).toBe(4);
+    expect(normalizeDialScrollDelta(0, -2, 1, 800)).toBe(32);
+    expect(normalizeDialScrollDelta(0, -0.5, 2, 800)).toBe(400);
+  });
+
+  it("不正なdeltaやページ高でも有限値を返す", () => {
+    expect(Number.isFinite(normalizeDialScrollDelta(Number.NaN, Infinity, 0, 800))).toBe(true);
+    expect(Number.isFinite(normalizeDialScrollDelta(0, 1, 2, Number.NaN))).toBe(true);
+  });
+});
+
+describe("スクロール境界でのページ通過", () => {
+  it.each([
+    [25, 1, 1, 120, true, false],
+    [25, -1, 1, 120, true, false],
+    [1, 1, 1, 120, true, false],
+    [1, -1, 1, 120, false, true],
+    [120, -1, 1, 120, true, false],
+    [120, 1, 1, 120, false, true],
+    [1, -1, 1, 60, false, true],
+    [60, 1, 1, 60, false, true],
+    [60, -1, 1, 60, true, false],
+  ] as const)(
+    "値%d・方向%d・範囲%d〜%dの変更可否と通過を判定する",
+    (value, direction, min, max, canStep, passThrough) => {
+      expect(canStepDialValue(value, direction, min, max)).toBe(canStep);
+      expect(shouldPassThroughDialScroll(value, direction, min, max)).toBe(passThrough);
+    },
+  );
+});
+
+describe("スクロールdeltaの蓄積", () => {
+  it("閾値未満では変更せず、累積して閾値へ達すると1分進める", () => {
+    expect(accumulateDialDelta(0, 6)).toEqual({ accumulator: 6, step: 0 });
+    expect(accumulateDialDelta(6, 10)).toEqual({ accumulator: 0, step: 1 });
+  });
+
+  it("大きなdeltaでも1イベントでは1分だけ進める", () => {
+    expect(accumulateDialDelta(0, 1_000)).toEqual({ accumulator: 0, step: 1 });
+    expect(accumulateDialDelta(0, -1_000)).toEqual({ accumulator: 0, step: -1 });
+  });
+
+  it("方向反転時は以前の蓄積を破棄する", () => {
+    expect(accumulateDialDelta(12, -5)).toEqual({ accumulator: -5, step: 0 });
+    expect(accumulateDialDelta(-12, 5)).toEqual({ accumulator: 5, step: 0 });
+  });
+
+  it("端値から外向きの場合は蓄積を破棄してページへ通す", () => {
+    expect(resolveDialDelta(1, -12, -4, 1, 120)).toEqual({
+      accumulator: 0,
+      step: 0,
+      passThrough: true,
+    });
+    expect(resolveDialDelta(120, 12, 4, 1, 120)).toEqual({
+      accumulator: 0,
+      step: 0,
+      passThrough: true,
+    });
+  });
+
+  it("端値から内向きの場合は1分変更できる", () => {
+    expect(resolveDialDelta(1, 0, 16, 1, 120)).toEqual({
+      accumulator: 0,
+      step: 1,
+      passThrough: false,
+    });
+    expect(resolveDialDelta(120, 0, -16, 1, 120)).toEqual({
+      accumulator: 0,
+      step: -1,
+      passThrough: false,
+    });
+  });
+
+  it("不正な値や閾値でも有限の結果を返す", () => {
+    expect(accumulateDialDelta(Number.NaN, Infinity, Number.NaN)).toEqual({
+      accumulator: 0,
+      step: 0,
+    });
+  });
+});
 
 describe("ダイヤルのクランプとステップ", () => {
   it.each([

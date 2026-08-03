@@ -6,6 +6,94 @@ export type MinuteValidationResult =
 
 export const DIAL_START_ANGLE = 135;
 export const DIAL_SWEEP_ANGLE = 270;
+export const DIAL_SCROLL_THRESHOLD = 16;
+
+export type DialDirection = -1 | 0 | 1;
+export type DialDeltaMode = 0 | 1 | 2;
+
+export type DialAccumulatorResult = {
+  accumulator: number;
+  step: DialDirection;
+};
+
+export type DialDeltaResult = DialAccumulatorResult & {
+  passThrough: boolean;
+};
+
+export function normalizeDialScrollDelta(
+  deltaX: number,
+  deltaY: number,
+  deltaMode: DialDeltaMode,
+  pageHeight: number,
+): number {
+  const safeDeltaX = Number.isFinite(deltaX) ? deltaX : 0;
+  const safeDeltaY = Number.isFinite(deltaY) ? deltaY : 0;
+  const safePageHeight = Number.isFinite(pageHeight) && pageHeight > 0 ? pageHeight : 1;
+  const multiplier = deltaMode === 1 ? 16 : deltaMode === 2 ? safePageHeight : 1;
+  const normalizedX = safeDeltaX * multiplier;
+  const normalizedY = safeDeltaY * multiplier;
+
+  return Math.abs(normalizedY) >= Math.abs(normalizedX) ? -normalizedY : normalizedX;
+}
+
+export function getDialDirection(delta: number): DialDirection {
+  if (!Number.isFinite(delta) || delta === 0) return 0;
+  return delta > 0 ? 1 : -1;
+}
+
+export function canStepDialValue(
+  value: number,
+  direction: DialDirection,
+  minimum: number,
+  maximum: number,
+): boolean {
+  if (direction === 0) return false;
+  return direction > 0 ? value < maximum : value > minimum;
+}
+
+export function accumulateDialDelta(
+  previousAccumulator: number,
+  delta: number,
+  threshold = DIAL_SCROLL_THRESHOLD,
+): DialAccumulatorResult {
+  const safePrevious = Number.isFinite(previousAccumulator) ? previousAccumulator : 0;
+  const safeDelta = Number.isFinite(delta) ? delta : 0;
+  const safeThreshold = Number.isFinite(threshold) && threshold > 0 ? threshold : 1;
+  const reversed = safePrevious !== 0 && safeDelta !== 0 && Math.sign(safePrevious) !== Math.sign(safeDelta);
+  const accumulator = (reversed ? 0 : safePrevious) + safeDelta;
+
+  if (Math.abs(accumulator) < safeThreshold) {
+    return { accumulator, step: 0 };
+  }
+
+  return { accumulator: 0, step: accumulator > 0 ? 1 : -1 };
+}
+
+export function shouldPassThroughDialScroll(
+  value: number,
+  direction: DialDirection,
+  minimum: number,
+  maximum: number,
+): boolean {
+  return direction !== 0 && !canStepDialValue(value, direction, minimum, maximum);
+}
+
+export function resolveDialDelta(
+  value: number,
+  previousAccumulator: number,
+  delta: number,
+  minimum: number,
+  maximum: number,
+): DialDeltaResult {
+  const direction = getDialDirection(delta);
+
+  if (shouldPassThroughDialScroll(value, direction, minimum, maximum)) {
+    return { accumulator: 0, step: 0, passThrough: true };
+  }
+
+  const result = accumulateDialDelta(previousAccumulator, delta);
+  return { ...result, passThrough: false };
+}
 
 export function clampDialValue(value: number, minimum: number, maximum: number): number {
   const finiteValue = Number.isFinite(value) ? value : minimum;

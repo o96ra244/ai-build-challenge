@@ -189,7 +189,7 @@
   margin: 4px auto 0;
   border-radius: 50%;
   cursor: grab;
-  touch-action: none;
+  touch-action: auto;
   user-select: none;
 }
 
