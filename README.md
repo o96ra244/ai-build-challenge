@@ -87,12 +87,12 @@ npm run dev
 
 ### 06 SVG Motion Studio
 
-SVG本体を変更せず、18種類の内蔵アイコンまたは任意のSVGへ、用途別の汎用CSSモーションを設定してHTML・CSSを生成するWebツールです。
+SVG本体を変更せず、同じ内蔵アイコンまたは任意のSVGで12種類のCSSモーションを比較・調整してHTML・CSSを生成するWebツールです。
 
 - GitHub上のパス: [`app/works/06-svg-motion-studio/`](app/works/06-svg-motion-studio/)
 - 公開先ルート: `/works/06-svg-motion-studio`
 - 作品URL（mainマージ後）: https://ai-build-challenge.vercel.app/works/06-svg-motion-studio
-- 主な機能: 12種類のモーション、5用途からの絞り込み、発火条件プレビュー、任意SVGの安全検証、原文保持、HTML・CSSコピー、reduced-motion対応
+- 主な機能: 同一SVGで12種類を一括比較、Speed・Strength・Triggerの簡易調整、詳細設定、任意SVGの安全検証、原文保持、HTML・CSSコピー、reduced-motion対応
 
 ## 公開URL
 

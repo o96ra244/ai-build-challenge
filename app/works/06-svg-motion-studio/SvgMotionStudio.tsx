@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import Image from "next/image";
+import { useEffect, useState } from "react";
 
 import { accessibilityNotes, generateCss, generateHtml } from "./codeGenerator";
 import { BUILT_IN_ICONS, ICON_CATEGORIES } from "./icons";
-import { getMotion, INITIAL_MOTION, MotionId, MotionSettings, motionsForPurpose, normalizeSettings, PURPOSES, PurposeId, SETTING_RANGES, TRIGGERS, TriggerId } from "./motions";
+import { getMotion, INITIAL_MOTION, MOTIONS, MotionId, MotionSettings, normalizeSettings, QuickTriggerId, quickSettings, SETTING_RANGES, SPEED_OPTIONS, SpeedId, STRENGTH_OPTIONS, StrengthId, supportsQuickTrigger, TRIGGERS, TriggerId } from "./motions";
 import { SvgValidationResult, validateSvg } from "./svgValidation";
 import styles from "./page.module.css";
 
@@ -13,8 +14,12 @@ const SAMPLE_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" 
   <path d="m8 12 2.5 2.5L16 9" />
 </svg>`;
 
+const MOTION_TAGS: Record<MotionId, string> = { press: "操作", pop: "操作・完了", lift: "Hover", shake: "注意", wiggle: "通知", pulse: "注目", "rotate-90": "開閉", "rotate-180": "開閉", flip: "切替", "fade-scale": "状態変化", spin: "処理中", float: "装飾" };
+const MOTION_CLASSES: Record<MotionId, string> = { press: styles.motionPress, pop: styles.motionPop, lift: styles.motionLift, shake: styles.motionShake, wiggle: styles.motionWiggle, pulse: styles.motionPulse, "rotate-90": styles.motionRotate90, "rotate-180": styles.motionRotate180, flip: styles.motionFlip, "fade-scale": styles.motionFadeScale, spin: styles.motionSpin, float: styles.motionFloat };
+
 type SourceMode = "built-in" | "custom";
 type Background = "light" | "dark" | "checkered";
+type QuickChoice<T extends string> = T | "custom";
 
 export function SvgMotionStudio() {
   const [sourceMode, setSourceMode] = useState<SourceMode>("built-in");
@@ -23,17 +28,20 @@ export function SvgMotionStudio() {
   const [customInput, setCustomInput] = useState("");
   const [approvedCustom, setApprovedCustom] = useState<string | null>(null);
   const [validation, setValidation] = useState<SvgValidationResult | null>(null);
-  const [purpose, setPurpose] = useState<PurposeId>("interaction");
   const [motionId, setMotionId] = useState<MotionId>("lift");
   const [trigger, setTrigger] = useState<TriggerId>("hover-focus");
+  const [speed, setSpeed] = useState<QuickChoice<SpeedId>>("normal");
+  const [strength, setStrength] = useState<QuickChoice<StrengthId>>("normal");
   const [settings, setSettings] = useState<MotionSettings>(INITIAL_MOTION.defaults);
-  const [size, setSize] = useState(40);
+  const [size, setSize] = useState(64);
   const [background, setBackground] = useState<Background>("light");
   const [playing, setPlaying] = useState(true);
   const [runKey, setRunKey] = useState(0);
-  const [stateOn, setStateOn] = useState(true);
+  const [galleryRun, setGalleryRun] = useState(0);
   const [announcement, setAnnouncement] = useState("");
   const [codeTab, setCodeTab] = useState<"HTML" | "CSS">("HTML");
+  const [reducedMotion, setReducedMotion] = useState(false);
+  const [svgUrl, setSvgUrl] = useState("");
 
   const icon = BUILT_IN_ICONS.find((item) => item.id === iconId) ?? BUILT_IN_ICONS[0];
   const activeSvg = sourceMode === "built-in" ? icon.svg : approvedCustom;
@@ -43,40 +51,73 @@ export function SvgMotionStudio() {
   const htmlCode = input ? generateHtml(input) : "SVGを検証するとHTMLを生成します。";
   const cssCode = input ? generateCss(input) : "SVGを検証するとCSSを生成します。";
   const notes = input ? accessibilityNotes(input) : [];
-  const visibleNotes = notes.some((note) => note.level === "warning") ? notes.filter((note) => note.level === "warning").slice(0, 1) : notes.slice(0, 1);
-  const candidates = motionsForPurpose(purpose);
-  const info = sourceMode === "built-in" ? validateSvg(icon.svg) : validation;
+  const warnings = notes.filter((note) => note.level === "warning").slice(0, 1);
+
+  useEffect(() => {
+    const query = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const update = () => setReducedMotion(query.matches);
+    update();
+    query.addEventListener("change", update);
+    return () => query.removeEventListener("change", update);
+  }, []);
+
+  useEffect(() => {
+    if (!activeSvg) {
+      const emptyFrame = window.requestAnimationFrame(() => setSvgUrl(""));
+      return () => window.cancelAnimationFrame(emptyFrame);
+    }
+    const url = URL.createObjectURL(new Blob([activeSvg], { type: "image/svg+xml" }));
+    const frame = window.requestAnimationFrame(() => setSvgUrl(url));
+    return () => { window.cancelAnimationFrame(frame); URL.revokeObjectURL(url); };
+  }, [activeSvg]);
 
   const previewDoc = (() => {
     if (!input) return "";
-    const state = motionId === "spin" ? "aria-busy" : motionId === "pop" ? "aria-pressed" : "aria-expanded";
-    const stateMarkup = trigger === "state-attribute" ? `${state}="${stateOn ? "true" : "false"}"` : "";
-    const activeClass = playing && trigger === "click-class" ? " is-animated" : "";
-    const paused = playing ? "" : ".svg-motion > svg{animation-play-state:paused!important}";
-    return `<!doctype html><html><head><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src 'none'; font-src 'none'; connect-src 'none'"><style>html,body{height:100%;margin:0}body{display:grid;place-items:center;color:${background === "dark" ? "#fff" : "#14241d"};background:${background === "dark" ? "#17221d" : background === "checkered" ? "repeating-conic-gradient(#e1e5e3 0 25%,#fff 0 50%) 50%/20px 20px" : "#fff"}.svg-motion-control{font:inherit;color:inherit;background:transparent;border:2px solid transparent;border-radius:12px;padding:20px;cursor:pointer}.svg-motion-control:focus-visible{outline:4px solid #f4a62a;outline-offset:3px}.svg-motion{font-size:${size}px}${cssCode}${paused}</style></head><body><button type="button" class="svg-motion-control${activeClass}" ${stateMarkup} aria-label="モーションプレビュー"><span class="svg-motion" aria-hidden="true">${activeSvg}</span></button></body></html>`;
+    const previewCss = generateCss({ ...input, trigger: "click-class", settings: { ...settings, iterations: settings.iterations === "infinite" ? 1 : settings.iterations } });
+    const activeClass = playing && !reducedMotion ? " is-animated" : "";
+    return `<!doctype html><html><head><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src 'none'; font-src 'none'; connect-src 'none'"><style>html,body{height:100%;margin:0}body{display:grid;place-items:center;color:${background === "dark" ? "#fff" : "#14241d"};background:${background === "dark" ? "#17221d" : background === "checkered" ? "repeating-conic-gradient(#e1e5e3 0 25%,#fff 0 50%) 50%/20px 20px" : "#fff"}${previewCss}.svg-motion{width:${size}px!important;height:${size}px!important;font-size:${size}px!important}.svg-motion-control{appearance:none!important;color:inherit;background:transparent!important;border:0!important;border-radius:16px;padding:28px}.svg-motion-control:focus-visible{outline:4px solid #f4a62a;outline-offset:3px}</style></head><body><button type="button" class="svg-motion-control${activeClass}" aria-label="${motion.name}モーションプレビュー"><span class="svg-motion" aria-hidden="true">${activeSvg}</span></button></body></html>`;
   })();
 
-  function choosePurpose(next: PurposeId) {
-    setPurpose(next);
-    const nextMotion = motionsForPurpose(next)[0];
-    setMotionId(nextMotion.id);
-    setSettings(nextMotion.defaults);
-  }
+  function replay() { setPlaying(true); setRunKey((value) => value + 1); }
 
   function chooseMotion(nextId: MotionId) {
     const next = getMotion(nextId);
+    const nextTrigger = trigger === "always" && !supportsQuickTrigger(next, "always") ? "hover-focus" : trigger;
     setMotionId(nextId);
+    setTrigger(nextTrigger);
+    setSpeed("normal");
+    setStrength("normal");
     setSettings(next.defaults);
+    replay();
+  }
+
+  function chooseSpeed(next: SpeedId) {
+    const nextStrength = strength === "custom" ? "normal" : strength;
+    setSpeed(next); setStrength(nextStrength);
+    setSettings(quickSettings(motion, next, nextStrength)); replay();
+  }
+
+  function chooseStrength(next: StrengthId) {
+    const nextSpeed = speed === "custom" ? "normal" : speed;
+    setStrength(next); setSpeed(nextSpeed);
+    setSettings(quickSettings(motion, nextSpeed, next)); replay();
+  }
+
+  function chooseQuickTrigger(next: QuickTriggerId) {
+    if (!supportsQuickTrigger(motion, next)) { setAnnouncement(`${motion.name}ではAlwaysを使用できません。`); return; }
+    setTrigger(next); replay();
   }
 
   function updateNumber(key: keyof Pick<MotionSettings, "duration" | "delay" | "translate" | "scale" | "rotation" | "opacity">, value: number) {
     setSettings((current) => normalizeSettings({ ...current, [key]: value }, motion));
+    setSpeed("custom"); setStrength("custom");
   }
 
   function checkCustom() {
     const result = validateSvg(customInput);
     setValidation(result);
     setApprovedCustom(result.valid ? customInput : null);
+    if (result.valid) setSourceMode("custom");
     setAnnouncement(result.valid ? "SVGを検証しました。原文を変更せず使用します。" : "このツールでは処理できない記述を検出しました。");
   }
 
@@ -86,47 +127,48 @@ export function SvgMotionStudio() {
     catch { setAnnouncement(`${label}をコピーできませんでした。コードを選択してコピーしてください。`); }
   }
 
-  return <section className={styles.workspace} aria-label="SVGモーション設定ワークスペース">
-    <div className={styles.leftColumn}>
-    <section className={styles.mainResult} aria-labelledby="preview-title">
-      <div className={styles.resultHeading}>
-        <div><p className={styles.kicker}>LIVE PREVIEW</p><h2 id="preview-title">{sourceMode === "built-in" ? icon.name : "Custom SVG"} × {motion.name}</h2></div>
-        <div className={styles.summaryBadges} aria-label="現在の設定"><span>{PURPOSES.find((item) => item.id === purpose)?.name}</span><span>{TRIGGERS.find((item) => item.id === trigger)?.name}</span></div>
+  function playAll() {
+    if (reducedMotion) { setAnnouncement("端末の動きを減らす設定により、一括再生を停止しています。"); return; }
+    setGalleryRun((value) => value + 1);
+    setAnnouncement("12種類のモーションを再生しました。");
+  }
+
+  return <>
+    <section className={styles.playground} aria-label="SVGモーションプレイグラウンド">
+      <div className={styles.heroPreview}>
+        <div className={styles.previewHeading}><div><p className={styles.kicker}>SELECTED MOTION</p><h2>{motion.name}</h2><p>{motion.description}</p></div><span className={styles.motionTag}>{MOTION_TAGS[motion.id]}</span></div>
+        <div className={styles.motionPreview}>{canGenerate ? <iframe key={`${runKey}-${background}-${size}`} sandbox="" srcDoc={previewDoc} title="選択中モーションのプレビュー"/> : <p>使用可能なSVGを選択または検証してください。</p>}</div>
+        <div className={styles.previewToolbar}>
+          <div className={styles.previewActions}><button onClick={replay} type="button">再実行</button><button onClick={() => setPlaying(false)} type="button">停止</button></div>
+          <div role="group" aria-label="プレビューサイズ">{[24, 40, 64].map((value) => <button aria-pressed={size === value} key={value} onClick={() => setSize(value)} type="button">{value}px</button>)}</div>
+          <div role="group" aria-label="プレビュー背景">{([['light','明るい'],['dark','暗い'],['checkered','透明']] as const).map(([value, label]) => <button aria-pressed={background === value} key={value} onClick={() => setBackground(value)} type="button">{label}</button>)}</div>
+        </div>
+        <div className={styles.statusRow}><span>✓ reduced-motion対応</span><span>✓ SVG本体は変更なし</span>{trigger === "hover-focus" ? <span>✓ Hover / Focus対応</span> : null}</div>
+        {warnings.map((note) => <p className={styles.warning} key={note.text}><strong>! 注意</strong>{note.text}</p>)}
       </div>
-      <div className={styles.previewToolbar}>
-        <div role="group" aria-label="プレビューサイズ">{[24, 40, 64].map((value) => <button aria-pressed={size === value} key={value} onClick={() => setSize(value)} type="button">{value}px</button>)}</div>
-        <div role="group" aria-label="プレビュー背景">{([['light','明るい'],['dark','暗い'],['checkered','透明']] as const).map(([value, label]) => <button aria-pressed={background === value} key={value} onClick={() => setBackground(value)} type="button">{label}</button>)}</div>
-      </div>
-      <div className={styles.motionPreview}>{canGenerate ? <iframe key={`${runKey}-${stateOn}`} sandbox="" srcDoc={previewDoc} title="モーションプレビュー"/> : <p>使用可能なSVGを選択または検証してください。</p>}</div>
-      <div className={styles.previewActions}>
-        <p className={styles.previewHelp}>{trigger === "hover-focus" ? "対象へマウスを乗せるか、Tabキーでフォーカスしてください。" : trigger === "active" ? "対象を押している間に動作します。" : trigger === "click-class" ? "実行ボタンでクラスを付け直します。" : trigger === "state-attribute" ? "状態ボタンでaria属性を切り替えます。" : "開始・停止できます。"}</p>
-        <div className={styles.buttonRow}><button onClick={() => setPlaying(true)} type="button">再生</button><button onClick={() => setPlaying(false)} type="button">停止</button><button onClick={() => { setPlaying(true); setRunKey((value) => value + 1); }} type="button">再実行</button>{trigger === "click-class" ? <button className={styles.primaryButton} onClick={() => { setPlaying(true); setRunKey((value) => value + 1); }} type="button">アニメーションを実行</button> : null}{trigger === "state-attribute" ? <button className={styles.primaryButton} aria-pressed={stateOn} onClick={() => setStateOn((value) => !value)} type="button">状態を切り替える</button> : null}</div>
-      </div>
+
+      <aside className={styles.quickPanel} aria-labelledby="quick-title">
+        <div className={styles.quickHeading}><p className={styles.kicker}>QUICK SETUP</p><h2 id="quick-title">SVGと動きを調整</h2></div>
+        <section className={styles.sourceSummary} aria-labelledby="source-title"><h3 id="source-title">SVG</h3><div className={styles.currentSource}>{svgUrl ? <Image alt="" height={48} src={svgUrl} unoptimized width={48}/> : null}<div><strong>{sourceMode === "built-in" ? icon.name : "Custom SVG"}</strong><span>{canGenerate ? "検証済み" : "未検証"}</span></div></div>
+          <details className={styles.pickerDetails}><summary>アイコンを変更</summary><fieldset className={styles.cleanFieldset}><legend className={styles.srOnly}>内蔵アイコン</legend><div className={styles.categoryButtons} role="group" aria-label="アイコンカテゴリ">{ICON_CATEGORIES.map((category) => <button aria-pressed={iconCategory === category} key={category} onClick={() => setIconCategory(category)} type="button">{category}</button>)}</div><div className={styles.iconGrid}>{BUILT_IN_ICONS.filter((item) => item.category === iconCategory).map((item) => <label className={styles.iconCard} key={item.id}><input checked={sourceMode === "built-in" && iconId === item.id} name="built-in-icon" onChange={() => { setIconId(item.id); setSourceMode("built-in"); replay(); }} type="radio" value={item.id}/><span className={styles.selectedMark} aria-hidden="true">✓</span><span className={styles.iconImage} aria-hidden="true" dangerouslySetInnerHTML={{ __html: item.svg }}/><span className={styles.iconName}>{item.name}</span></label>)}</div></fieldset></details>
+          <details className={styles.pickerDetails}><summary>自分のSVGを貼る</summary><div className={styles.customInput}><label htmlFor="custom-svg">SVGコード</label><textarea aria-describedby="custom-svg-hint custom-svg-error" aria-invalid={validation && !validation.valid ? "true" : undefined} id="custom-svg" onChange={(event) => { setCustomInput(event.target.value); setValidation(null); setApprovedCustom(null); }} spellCheck={false} value={customInput}/><p id="custom-svg-hint">入力内容はブラウザ内だけで検証します。</p><div className={styles.buttonRow}><button onClick={() => { setCustomInput(SAMPLE_SVG); setValidation(null); }} type="button">サンプル</button><button onClick={() => { setCustomInput(""); setValidation(null); setApprovedCustom(null); }} type="button">クリア</button><button className={styles.primaryButton} onClick={checkCustom} type="button">SVGを確認</button></div><div className={styles.errorArea} id="custom-svg-error" role={validation && !validation.valid ? "alert" : undefined}>{validation && !validation.valid ? <><strong>このツールでは処理できない記述を検出しました。</strong><ul>{validation.errors.map((error) => <li key={error}>{error}</li>)}</ul></> : null}</div></div></details>
+        </section>
+        <fieldset className={styles.quickGroup}><legend>Speed {speed === "custom" ? <small>カスタム</small> : null}</legend><div>{SPEED_OPTIONS.map((item) => <button aria-pressed={speed === item.id} key={item.id} onClick={() => chooseSpeed(item.id)} type="button">{item.name}</button>)}</div></fieldset>
+        <fieldset className={styles.quickGroup}><legend>Strength {strength === "custom" ? <small>カスタム</small> : null}</legend><div>{STRENGTH_OPTIONS.map((item) => <button aria-pressed={strength === item.id} key={item.id} onClick={() => chooseStrength(item.id)} type="button">{item.name}</button>)}</div></fieldset>
+        <fieldset className={styles.quickGroup}><legend>Trigger</legend><div>{([['hover-focus','Hover / Focus'],['click-class','Click'],['always','Always']] as const).map(([id,label]) => <button aria-disabled={!supportsQuickTrigger(motion, id)} aria-pressed={trigger === id} key={id} onClick={() => chooseQuickTrigger(id)} type="button">{label}</button>)}</div></fieldset>
+      </aside>
     </section>
-    <section className={styles.a11ySummary} aria-labelledby="a11y-title"><div><p className={styles.kicker}>ACCESSIBILITY</p><h2 id="a11y-title">実装前の確認</h2></div><div className={styles.notes}>{visibleNotes.map((note) => <p className={note.level === "warning" ? styles.warning : styles.good} key={note.text}><strong>{note.level === "warning" ? "! 注意" : "✓ 良い設定"}</strong><span>{note.text}</span></p>)}</div><p className={styles.disclaimer}>医療的な安全性やWCAGへの完全準拠を保証するものではありません。</p></section>
-    <section className={styles.codeSection} aria-labelledby="code-title"><div className={styles.codeHeading}><div><p className={styles.kicker}>IMPLEMENTATION</p><h2 id="code-title">生成コード</h2></div><p><strong>SVG本体：変更なし</strong> ／ ラッパーとCSSを追加</p></div><div className={styles.codeTabs} role="group" aria-label="生成コード"><button aria-pressed={codeTab === "HTML"} onClick={() => setCodeTab("HTML")} type="button">HTML</button><button aria-pressed={codeTab === "CSS"} onClick={() => setCodeTab("CSS")} type="button">CSS</button></div><div className={styles.codePanel}><div><h3>{codeTab}</h3><button disabled={!canGenerate} onClick={() => copy(codeTab === "HTML" ? htmlCode : cssCode, codeTab)} type="button">{codeTab}をコピー</button></div><pre tabIndex={0}><code>{codeTab === "HTML" ? htmlCode : cssCode}</code></pre></div><div className={styles.copyActions}><button disabled={!canGenerate} onClick={() => copy(htmlCode, "HTML")} type="button">HTMLをコピー</button><button disabled={!canGenerate} onClick={() => copy(cssCode, "CSS")} type="button">CSSをコピー</button></div><p className={styles.liveRegion} aria-live="polite" aria-atomic="true">{announcement}</p></section>
-    </div>
 
-    <aside className={styles.settingsPanel} aria-labelledby="settings-title">
-      <div className={styles.panelHeading}><p className={styles.kicker}>SETTINGS</p><h2 id="settings-title">モーション設定</h2></div>
-      <section className={styles.settingGroup} aria-labelledby="source-title">
-        <h3 id="source-title">SVG</h3>
-        <div className={styles.sourceTabs} role="group" aria-label="SVGの入力方法"><button aria-pressed={sourceMode === "built-in"} onClick={() => setSourceMode("built-in")} type="button">内蔵アイコン</button><button aria-pressed={sourceMode === "custom"} onClick={() => setSourceMode("custom")} type="button">自分のSVG</button></div>
-        {sourceMode === "built-in" ? <fieldset className={styles.cleanFieldset}>
-          <legend className={styles.srOnly}>内蔵アイコン</legend>
-          <div className={styles.categoryButtons} role="group" aria-label="アイコンカテゴリ">{ICON_CATEGORIES.map((category) => <button aria-pressed={iconCategory === category} key={category} onClick={() => setIconCategory(category)} type="button">{category}</button>)}</div>
-          <div className={styles.iconGrid}>{BUILT_IN_ICONS.filter((item) => item.category === iconCategory).map((item) => <label className={styles.iconCard} key={item.id}><input checked={iconId === item.id} name="built-in-icon" onChange={() => setIconId(item.id)} type="radio" value={item.id}/><span className={styles.selectedMark} aria-hidden="true">✓</span><span className={styles.iconImage} aria-hidden="true" dangerouslySetInnerHTML={{ __html: item.svg }}/><span className={styles.iconName}>{item.name}</span></label>)}</div>
-        </fieldset> : <div className={styles.customInput}><label htmlFor="custom-svg">SVGコード</label><textarea aria-describedby="custom-svg-hint custom-svg-error" aria-invalid={validation && !validation.valid ? "true" : undefined} id="custom-svg" onChange={(event) => { setCustomInput(event.target.value); setValidation(null); setApprovedCustom(null); }} spellCheck={false} value={customInput}/><p id="custom-svg-hint">ブラウザ内だけで処理し、確認後に使用します。</p><div className={styles.buttonRow}><button onClick={() => { setCustomInput(SAMPLE_SVG); setValidation(null); setApprovedCustom(null); }} type="button">サンプルを挿入</button><button onClick={() => { setCustomInput(""); setValidation(null); setApprovedCustom(null); }} type="button">クリア</button><button className={styles.primaryButton} onClick={checkCustom} type="button">SVGを確認</button></div><div className={styles.errorArea} id="custom-svg-error" role={validation && !validation.valid ? "alert" : undefined}>{validation && !validation.valid ? <><strong>このツールでは処理できない記述を検出しました。</strong><ul>{validation.errors.map((error) => <li key={error}>{error}</li>)}</ul></> : null}</div></div>}
-        <dl className={styles.svgInfo}><div><dt>検証</dt><dd>{canGenerate ? "使用可能" : "未検証または拒否"}</dd></div><div><dt>viewBox</dt><dd>{info?.valid ? info.viewBox ?? "なし" : "—"}</dd></div><div><dt>寸法属性</dt><dd>{info?.valid ? `${info.hasWidth ? "widthあり" : "widthなし"} / ${info.hasHeight ? "heightあり" : "heightなし"}` : "—"}</dd></div></dl>
-        <p className={styles.preserveNote}><strong>SVG本体：変更なし</strong><span>外側のラッパーとCSSだけを追加</span></p>
-      </section>
+    <section className={styles.gallerySection} aria-labelledby="gallery-title">
+      <div className={styles.galleryHeading}><div><p className={styles.kicker}>MOTION GALLERY</p><h2 id="gallery-title">12種類の動きを比べる</h2><p>同じSVGで違いを確認し、気に入った動きを選べます。</p></div><button className={styles.primaryButton} onClick={playAll} type="button">すべて再生</button></div>
+      <fieldset className={styles.cleanFieldset}><legend className={styles.srOnly}>モーションを選択</legend><div className={`${styles.motionGallery} ${galleryRun > 0 ? styles.playAll : ""}`} key={galleryRun}>{MOTIONS.map((item) => <label className={styles.motionCard} key={item.id}><input checked={motionId === item.id} name="motion" onChange={() => chooseMotion(item.id)} type="radio"/><span className={styles.motionCardVisual}>{svgUrl ? <Image alt="" className={`${styles.galleryIcon} ${MOTION_CLASSES[item.id]}`} height={54} src={svgUrl} unoptimized width={54}/> : null}</span><span className={styles.motionCardText}><strong>{item.name}</strong><small>{MOTION_TAGS[item.id]}</small></span><span className={styles.cardCheck} aria-hidden="true">✓</span></label>)}</div></fieldset>
+    </section>
 
-      <section className={styles.settingGroup} aria-labelledby="purpose-title"><fieldset className={styles.cleanFieldset}><legend id="purpose-title">用途</legend><div className={styles.purposeList}>{PURPOSES.map((item) => <label className={styles.optionRow} key={item.id}><input checked={purpose === item.id} name="purpose" onChange={() => choosePurpose(item.id)} type="radio"/><span><strong>{item.name}</strong><small>{item.description}</small></span></label>)}</div></fieldset></section>
-      <section className={styles.settingGroup} aria-labelledby="motion-title"><fieldset className={styles.cleanFieldset}><legend id="motion-title">モーション</legend><div className={styles.motionGrid}>{candidates.map((item) => <label className={styles.motionOption} key={item.id}><input checked={motionId === item.id} name="motion" onChange={() => chooseMotion(item.id)} type="radio"/><span><strong>{item.name}</strong><small>{item.description}</small></span></label>)}</div><p className={styles.motionRecommendation}>推奨：{motion.recommendation}</p></fieldset></section>
-      <section className={styles.settingGroup} aria-labelledby="detail-title"><h3 id="detail-title">発火条件・詳細設定</h3><div className={styles.settingsGrid}><SelectField label="発火条件" value={trigger} onChange={(value) => setTrigger(value as TriggerId)} options={TRIGGERS.map((item) => [item.id, item.name])}/><NumberField label="再生時間" unit="ms" value={settings.duration} range={SETTING_RANGES.duration} onChange={(value) => updateNumber("duration", value)}/><NumberField label="遅延" unit="ms" value={settings.delay} range={SETTING_RANGES.delay} onChange={(value) => updateNumber("delay", value)}/><SelectField label="easing" value={settings.easing} onChange={(value) => setSettings({ ...settings, easing: value })} options={[["ease-out", "ease-out"], ["ease-in-out", "ease-in-out"], ["linear", "linear"], ["cubic-bezier(.2,.8,.2,1)", "滑らか"]]}/><SelectField label="繰り返し" value={String(settings.iterations)} onChange={(value) => setSettings(normalizeSettings({ ...settings, iterations: value === "infinite" ? "infinite" : Number(value) }, motion))} options={[...[1,2,3,5,10].map((value) => [String(value), `${value}回`] as [string,string]), ...(motion.allowInfinite ? [["infinite", "無限"] as [string,string]] : [])]}/><SelectField label="方向" value={settings.direction} onChange={(value) => setSettings({ ...settings, direction: value as MotionSettings["direction"] })} options={[["normal", "通常"], ["reverse", "逆再生"], ["alternate", "交互"]]}/>{motion.controls.includes("translate") ? <NumberField label="移動量" unit="%" value={settings.translate} range={SETTING_RANGES.translate} onChange={(value) => updateNumber("translate", value)}/> : null}{motion.controls.includes("scale") ? <NumberField label="拡大率" unit="倍" value={settings.scale} range={SETTING_RANGES.scale} step={.01} onChange={(value) => updateNumber("scale", value)}/> : null}{motion.controls.includes("rotation") ? <NumberField label="回転角度" unit="deg" value={settings.rotation} range={SETTING_RANGES.rotation} onChange={(value) => updateNumber("rotation", value)}/> : null}{motion.controls.includes("opacity") ? <NumberField label="opacity" unit="" value={settings.opacity} range={SETTING_RANGES.opacity} step={.01} onChange={(value) => updateNumber("opacity", value)}/> : null}{motion.controls.includes("flipAxis") ? <SelectField label="反転軸" value={settings.flipAxis} onChange={(value) => setSettings({ ...settings, flipAxis: value as MotionSettings["flipAxis"] })} options={[["X", "X軸"], ["Y", "Y軸"]]}/> : null}</div></section>
-    </aside>
-
-  </section>;
+    <section className={styles.outputArea}>
+      <details className={styles.advanced}><summary>詳細設定</summary><div className={styles.settingsGrid}><SelectField label="正確な発火条件" value={trigger} onChange={(value) => setTrigger(value as TriggerId)} options={TRIGGERS.filter((item) => item.id !== "always" || supportsQuickTrigger(motion, "always")).map((item) => [item.id, item.name])}/><NumberField label="再生時間" unit="ms" value={settings.duration} range={SETTING_RANGES.duration} onChange={(value) => updateNumber("duration", value)}/><NumberField label="遅延" unit="ms" value={settings.delay} range={SETTING_RANGES.delay} onChange={(value) => updateNumber("delay", value)}/><SelectField label="easing" value={settings.easing} onChange={(value) => setSettings({ ...settings, easing: value })} options={[["ease-out", "ease-out"], ["ease-in-out", "ease-in-out"], ["linear", "linear"], ["cubic-bezier(.2,.8,.2,1)", "滑らか"]]}/><SelectField label="繰り返し" value={String(settings.iterations)} onChange={(value) => setSettings(normalizeSettings({ ...settings, iterations: value === "infinite" ? "infinite" : Number(value) }, motion))} options={[...[1,2,3,5,10].map((value) => [String(value), `${value}回`] as [string,string]), ...(motion.allowInfinite ? [["infinite", "無限"] as [string,string]] : [])]}/><SelectField label="方向" value={settings.direction} onChange={(value) => setSettings({ ...settings, direction: value as MotionSettings["direction"] })} options={[["normal", "通常"], ["reverse", "逆再生"], ["alternate", "交互"]]}/>{motion.controls.includes("translate") ? <NumberField label="移動量" unit="%" value={settings.translate} range={SETTING_RANGES.translate} onChange={(value) => updateNumber("translate", value)}/> : null}{motion.controls.includes("scale") ? <NumberField label="拡大率" unit="倍" value={settings.scale} range={SETTING_RANGES.scale} step={.01} onChange={(value) => updateNumber("scale", value)}/> : null}{motion.controls.includes("rotation") ? <NumberField label="回転角度" unit="deg" value={settings.rotation} range={SETTING_RANGES.rotation} onChange={(value) => updateNumber("rotation", value)}/> : null}{motion.controls.includes("opacity") ? <NumberField label="opacity" unit="" value={settings.opacity} range={SETTING_RANGES.opacity} step={.01} onChange={(value) => updateNumber("opacity", value)}/> : null}{motion.controls.includes("flipAxis") ? <SelectField label="反転軸" value={settings.flipAxis} onChange={(value) => setSettings({ ...settings, flipAxis: value as MotionSettings["flipAxis"] })} options={[["X", "X軸"], ["Y", "Y軸"]]}/> : null}</div></details>
+      <section className={styles.codeSection} aria-labelledby="code-title"><div className={styles.codeHeading}><div><p className={styles.kicker}>IMPLEMENTATION</p><h2 id="code-title">実装コード</h2></div><div className={styles.copyActions}><button disabled={!canGenerate} onClick={() => copy(htmlCode, "HTML")} type="button">HTMLをコピー</button><button disabled={!canGenerate} onClick={() => copy(cssCode, "CSS")} type="button">CSSをコピー</button></div></div><details className={styles.codeDetails}><summary>コードを見る</summary><div className={styles.codeTabs} role="group" aria-label="生成コード"><button aria-pressed={codeTab === "HTML"} onClick={() => setCodeTab("HTML")} type="button">HTML</button><button aria-pressed={codeTab === "CSS"} onClick={() => setCodeTab("CSS")} type="button">CSS</button></div><div className={styles.codePanel}><div><h3>{codeTab}</h3><button disabled={!canGenerate} onClick={() => copy(codeTab === "HTML" ? htmlCode : cssCode, codeTab)} type="button">{codeTab}をコピー</button></div><pre tabIndex={0}><code>{codeTab === "HTML" ? htmlCode : cssCode}</code></pre></div></details><p className={styles.liveRegion} aria-live="polite" aria-atomic="true">{announcement}</p></section>
+    </section>
+  </>;
 }
 
 function NumberField({ label, unit, value, range, step = 1, onChange }: { label: string; unit: string; value: number; range: { min: number; max: number }; step?: number; onChange: (value: number) => void }) { const id = `setting-${label}`; return <label className={styles.field} htmlFor={id}><span>{label}</span><span className={styles.inputUnit}><input id={id} max={range.max} min={range.min} onChange={(event) => onChange(Number(event.target.value))} step={step} type="number" value={value}/><i>{unit}</i></span><small>{range.min}〜{range.max}{unit}</small></label>; }

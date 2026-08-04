@@ -3,6 +3,9 @@ export type MotionId = "press" | "pop" | "lift" | "shake" | "wiggle" | "pulse" |
 export type TriggerId = "hover-focus" | "active" | "click-class" | "state-attribute" | "always";
 export type Direction = "normal" | "reverse" | "alternate";
 export type FlipAxis = "X" | "Y";
+export type SpeedId = "slow" | "normal" | "fast";
+export type StrengthId = "subtle" | "normal" | "strong";
+export type QuickTriggerId = "hover-focus" | "click-class" | "always";
 
 export type MotionSettings = {
   duration: number; delay: number; easing: string; iterations: number | "infinite";
@@ -59,8 +62,34 @@ export const TRIGGERS: readonly { id: TriggerId; name: string }[] = [
 
 export const INITIAL_MOTION = MOTIONS.find((motion) => motion.id === "lift")!;
 
+export const SPEED_OPTIONS: readonly { id: SpeedId; name: string }[] = [
+  { id: "slow", name: "遅い" }, { id: "normal", name: "標準" }, { id: "fast", name: "速い" },
+];
+
+export const STRENGTH_OPTIONS: readonly { id: StrengthId; name: string }[] = [
+  { id: "subtle", name: "控えめ" }, { id: "normal", name: "標準" }, { id: "strong", name: "強い" },
+];
+
 export function motionsForPurpose(purpose: PurposeId) { return MOTIONS.filter((motion) => motion.purposes.includes(purpose)); }
 export function getMotion(id: MotionId) { return MOTIONS.find((motion) => motion.id === id) ?? INITIAL_MOTION; }
+
+export function quickSettings(motion: Motion, speed: SpeedId, strength: StrengthId): MotionSettings {
+  const speedFactor = { slow: 1.5, normal: 1, fast: .7 }[speed];
+  const strengthFactor = { subtle: .65, normal: 1, strong: 1.35 }[strength];
+  const base = motion.defaults;
+  return normalizeSettings({
+    ...base,
+    duration: Math.round(base.duration * speedFactor),
+    translate: Math.round(base.translate * strengthFactor),
+    rotation: Math.round(base.rotation * strengthFactor),
+    scale: Number((1 + (base.scale - 1) * strengthFactor).toFixed(2)),
+    opacity: Number((1 - (1 - base.opacity) * strengthFactor).toFixed(2)),
+  }, motion);
+}
+
+export function supportsQuickTrigger(motion: Motion, trigger: QuickTriggerId) {
+  return trigger !== "always" || motion.id === "spin" || motion.id === "float";
+}
 
 export function normalizeSettings(input: Partial<MotionSettings>, motion: Motion): MotionSettings {
   const number = (value: number | undefined, key: keyof typeof SETTING_RANGES) => {
