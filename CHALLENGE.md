@@ -112,6 +112,30 @@
 - **学んだこと:** 検証用の解析結果と生成に使う原文を分離すると、安全性を確認しながらSVG文字列の完全な保持を実現できます。
 - **次回への改善点:** 実機端末と複数ブラウザでsandbox iframe内のフォーカス・モーションを比較できる確認手順を整えます。
 
+## 作品07
+
+- **作品番号:** 07
+- **作品名:** Gravity Bloom
+- **制作日:** 2026-08-05
+- **対象ユーザー:** ブラウザ上のインタラクティブ表現を気軽に体験したい人、Three.jsやWebGPUの表現に興味がある人、短時間で触って反応を楽しみたい人
+- **解決する問題:** 設定値を調整するだけでなく、光の粒子へ直接触れて反応を楽しめる短時間の3D体験を提供します。
+- **差別化:** 光の核を動かす・長押しで粒子を集める・離して花状に解放する、1つの操作連鎖へフリープレイと30秒チャレンジをまとめました。
+- **遊び方:** ポインター／タッチで光の核を動かし、長押しして粒子を集め、離して解放します。キーボードはWASDまたは矢印で移動、Spaceでチャージ、Enterでチャレンジ開始、Rでリセット、Escapeで中断します。250ms以上押し、10個以上の粒子を集めるとブルームが成立します。
+- **主な機能:** 発光粒子の漂いと引力、解放時の衝撃波、花弁8枚の一時ブルーム、フリープレイ、30秒チャレンジ、成立時のみのスコア加算、ポインター・タッチ・キーボード操作
+- **技術構成:** Next.js App Router、React、TypeScript、Three.js 0.185.1、CSS Modules、Vitest
+- **WebGPURenderer利用:** `three/webgpu`の`WebGPURenderer`をClient Component内で非同期初期化し、初期化完了後に`setAnimationLoop`で描画します。
+- **WebGL 2フォールバック方針:** `WebGPURenderer`の既定フォールバックへ任せ、WebGPU APIが利用できない環境ではThree.jsのWebGL 2バックエンドで同じシーンを描画します。実際のフォールバックbackendは今回のブラウザ環境では実測していません。
+- **粒子数と性能対策:** viewport、devicePixelRatio、hardwareConcurrency、reduced-motionから300〜1600個の範囲で粒子数を選択します。位置・速度・基準位置・phase・明度・捕捉状態をTypedArrayへ保持し、pixel ratioは最大1.5、delta timeは上限0.05秒、エフェクトプールは固定数です。
+- **アクセシビリティ対応:** セマンティックな見出しとnative button、フォーカス可能な操作領域、`aria-label`、`aria-describedby`、`:focus-visible`、状態と成立条件のテキスト表示、`aria-live`によるブルーム・終了通知を実装しました。
+- **reduced-motion対応:** 粒子数、自動漂い、カメラ・花の拡大と回転、衝撃波の距離と時間を抑え、明示操作の反応は残します。
+- **GitHub上のパス:** `app/works/07-gravity-bloom/`
+- **想定公開URL:** https://ai-build-challenge.vercel.app/works/07-gravity-bloom
+- **検証結果:** `npm run lint`、`npm run typecheck`、`npm run test`（12ファイル・313件）、`npm run build`、`git diff --check`に成功しました。
+- **ブラウザ確認結果:** Codex In-app Browserで1440×900と390×844を確認しました。WebGPURenderer初期化、粒子・核の表示、ポインタードラッグ、長押し解放、フリープレイの有効ブルーム、30秒チャレンジの開始・残り時間・有効ブルーム1点加算・終了・再挑戦、キーボードの矢印／WASD／Space／Escape、リセット、390pxの横スクロールなし、約540pxのcanvas高、約49pxのボタン高、canvas外の縦スクロール、コンソールerror・warningなしを確認しました。WebGPU APIは利用可能と画面表示で確認できましたが、実際に選択されたbackend名の公開API確認とWebGL 2フォールバック実測は行っていません。
+- **既知の制約:** 実機スマートフォンの1本指操作、実機トラックパッド、OS設定を使ったreduced-motion切り替え、WebGL 2フォールバックの実機確認は未実施です。WebGPU backendの選択結果はThree.jsの内部実装へ依存せず、公開UIではAPI利用可能性までを表示します。
+- **学んだこと:** WebGPU固有の未対応Object型を早期にブラウザconsoleで検出し、閉じた座標列を持つ通常のLineへ置き換えることで、表現を保ったままレンダラーの互換性を上げられました。純粋な粒子計算とゲーム状態を分けると、GPU描画なしでも操作条件と時間境界を検証できます。
+- **次回への改善点:** WebGPU／WebGL2のbackend切り替えを自動的に再現できるテスト環境と、実機タッチ・reduced-motion・タブ復帰を含むブラウザ検証を用意します。
+
 次の作品を追加する際は、以下のテンプレートを複製して記録します。
 
 ---

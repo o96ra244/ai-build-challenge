@@ -14,6 +14,7 @@ ChatGPTで企画し、Codexで実装しながら、30日間で15作品の公開�
 - React
 - TypeScript
 - CSS
+- Three.js（WebGPURenderer）
 - ESLint
 - Vitest
 - npm
@@ -43,7 +44,7 @@ npm run dev
 
 ## 作品一覧
 
-現在の作品数: **6件**
+現在の作品数: **7件**
 
 ### 01 画像比率リサイズ計算機
 
@@ -93,6 +94,15 @@ SVG本体を変更せず、同じ内蔵アイコンまたは任意のSVGで12種
 - 公開先ルート: `/works/06-svg-motion-studio`
 - 作品URL（mainマージ後）: https://ai-build-challenge.vercel.app/works/06-svg-motion-studio
 - 主な機能: 同一SVGで12種類を一括比較、Speed・Strength・Triggerの簡易調整、詳細設定、任意SVGの安全検証、原文保持、HTML・CSSコピー、reduced-motion対応
+
+### 07 Gravity Bloom
+
+光の核で粒子を引き寄せ、解放して花状の衝撃波を作るインタラクティブ3D作品です。ポインター、タッチ、キーボードで直接遊べます。
+
+- GitHub上のパス: [`app/works/07-gravity-bloom/`](app/works/07-gravity-bloom/)
+- 公開先ルート: `/works/07-gravity-bloom`
+- 作品URL（mainマージ後）: https://ai-build-challenge.vercel.app/works/07-gravity-bloom
+- 主な機能: 粒子の引き寄せと解放、花状ブルーム、フリープレイ、30秒チャレンジ、WebGL 2フォールバック、キーボード・タッチ・reduced-motion対応
 
 ## 公開URL
 

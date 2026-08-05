@@ -44,4 +44,10 @@ export const works: readonly Work[] = [
       "SVG本体を変更せず、内蔵または任意のSVGへ用途別CSSアニメーションを設定・生成します。",
     href: "/works/06-svg-motion-studio",
   },
+  {
+    number: 7,
+    title: "Gravity Bloom",
+    description: "光の核で粒子を引き寄せ、解放して花状の衝撃波を作るインタラクティブ3D作品です。",
+    href: "/works/07-gravity-bloom",
+  },
 ];

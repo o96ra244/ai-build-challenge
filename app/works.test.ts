@@ -3,9 +3,9 @@ import { describe, expect, it } from "vitest";
 import { works } from "./works";
 
 describe("works", () => {
-  it("作品を番号順に6件登録している", () => {
-    expect(works).toHaveLength(6);
-    expect(works.map((work) => work.number)).toEqual([1, 2, 3, 4, 5, 6]);
+  it("作品を番号順に7件登録している", () => {
+    expect(works).toHaveLength(7);
+    expect(works.map((work) => work.number)).toEqual([1, 2, 3, 4, 5, 6, 7]);
   });
 
   it("作品01の登録内容を維持している", () => {
@@ -61,6 +61,15 @@ describe("works", () => {
       description:
         "SVG本体を変更せず、内蔵または任意のSVGへ用途別CSSアニメーションを設定・生成します。",
       href: "/works/06-svg-motion-studio",
+    });
+  });
+
+  it("作品07を登録している", () => {
+    expect(works[6]).toEqual({
+      number: 7,
+      title: "Gravity Bloom",
+      description: "光の核で粒子を引き寄せ、解放して花状の衝撃波を作るインタラクティブ3D作品です。",
+      href: "/works/07-gravity-bloom",
     });
   });
 
