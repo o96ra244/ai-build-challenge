@@ -139,6 +139,28 @@
 - **学んだこと:** Object3Dをモデル定義へ持ち込まず、数値のパーツ定義とThree.jsの生成処理を分けると、Explodeの境界値とカメラプリセットをGPUなしでテストできます。
 - **次回への改善点:** 複数ブラウザと実機タッチでOrbit・ピンチ・タブ復帰を確認し、WebGL 2へ強制切り替えた環境でフォールバック経路を検証します。
 
+## 作品08
+
+- **作品番号:** 08
+- **作品名:** Low Poly Rover Garage
+- **制作日:** 2026-08-05
+- **対象ユーザー:** 低ポリ3Dやメカデザインをブラウザで気軽に楽しみたい人、部品の組み合わせによるデザイン変化を試したい人、短時間で理解できるインタラクティブ作品を見たい人
+- **解決する問題:** 完成済みの3Dモデルを眺めるだけでなく、車体の構成変更と動作確認を専門ソフトなしで同じ画面から試せる体験を提供します。
+- **差別化:** Front・Cabin・Rearの3カテゴリに各3種類のGeometry生成モジュールを用意し、3×3×3の27通りを1台のローバーへ即時反映して試運転できます。作品07の自然物の観察・分解に対し、作品08はメカ部品の選択・組み替え・走行確認を中心にしています。
+- **主な機能:** 固定シャーシ、4輪・車軸・配管・整備台と低ポリ小物、9種類のモジュール、対象カテゴリだけの交換アニメーション、試運転、車輪回転、タービン回転、Orbit・Zoom・視点リセット・自動回転、WebGPU API表示と互換描画表示
+- **モジュール構成:** Frontはツインランプ、ドリルノーズ、スカウトセンサー。Cabinはバブルキャノピー、アーマードキャブ、オープンコックピット。Rearはカーゴラック、タービンパック、ツールタンク。合計27通りの構成です。
+- **GitHub上のパス:** `app/works/08-low-poly-rover-garage/`
+- **想定公開URL:** https://ai-build-challenge.vercel.app/works/08-low-poly-rover-garage
+- **使用技術:** Next.js App Router、React、TypeScript、Three.js 0.185.1、`three/webgpu`のWebGPURenderer、OrbitControls、CSS Modules、Vitest、npm
+- **アクセシビリティ対応:** 見出し、fieldset・legend、native radio、native button、可視ラベル、現在の構成テキスト、`aria-live`、`aria-pressed`、native disabled、focus-visible、色以外のチェック表示、canvasの`aria-hidden`・`role="presentation"`、自動回転停止操作を実装しました。
+- **reduced-motion対応:** 初期自動回転をOFFにし、モジュール遷移を短縮し、試運転の移動距離・上下動・時間を抑えます。実行中にONになると自動回転を停止し、OFFへ戻っても勝手に再開しません。
+- **検証結果:** `npm run lint`（警告なし）、`npm run typecheck`、`npm run test`（12ファイル・315件）、`npm run build`、`git diff --check`に成功しました。ビルド出力で`/works/08-low-poly-rover-garage`を含む12ルートの静的生成を確認しました。
+- **ブラウザ確認結果:** Codex In-app Browserのローカル本番サーバー（`next start -p 3108`）で1440×900と390×844を確認しました。初期ローバー全体と主要UI、WebGPU API利用可能の表示、Front・Cabin・Rearの選択変更、現在の構成更新、`aria-live`の変更文、試運転中のボタン・radio無効化、自動回転の一時停止、約3.9秒後の整備位置復帰と再実行可能状態、作品一覧への往復、console error・warningなしを確認しました。390pxではcanvas 348×500px、文書幅とviewport幅が390pxで、横スクロールはありません。Tabでnative radioへフォーカスできることも確認しました。
+- **未確認事項:** 自動操作で矢印キー／Spaceによるradio選択変更を確実に成立させる実動作、実機スマートフォンの1本指Orbit・ピンチ、実機Macトラックパッドの操作、OS設定をページ再読み込みなしで切り替えるreduced-motion、タブ非表示・復帰の実動作、WebGPU APIなし環境の互換描画backend、200%ズーム、Vercel Previewまたは本番表示は未確認です。
+- **既知の制約:** 自由運転、コース選択、物理・衝突、音声、保存・共有、外部モデル・テクスチャ、キャラクター、武器表現、複数車両表示には対応しません。モジュール構成はページ内だけで扱い、localStorageやCookieへ保存しません。
+- **学んだこと:** モジュールの座標・変換と試運転の数値計算を純粋関数へ分離すると、27通りの組み替えをUIやGPUなしで安全に検証でき、WebGPUシーン側はGeometry生成とライフサイクル制御へ集中できます。
+- **次回への改善点:** 9モジュールを複数ブラウザと実機タッチで比較し、WebGPUなし環境の実backendとタブ復帰時の試運転停止・再開を定量的に確認します。
+
 次の作品を追加する際は、以下のテンプレートを複製して記録します。
 
 ---

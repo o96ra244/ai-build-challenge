@@ -50,4 +50,10 @@ export const works: readonly Work[] = [
     description: "低ポリゴンの3Dツリーを回転・ズーム・分解表示して触って楽しめるインタラクティブ作品です。",
     href: "/works/07-low-poly-tree-explorer",
   },
+  {
+    number: 8,
+    title: "Low Poly Rover Garage",
+    description: "9種類の低ポリ部品を組み替え、27通りのローバーを試運転できます。",
+    href: "/works/08-low-poly-rover-garage",
+  },
 ];
