@@ -825,7 +825,7 @@
 
   .canvasHint {
     right: 10px;
-    bottom: 10px;
+    bottom: calc(max(9px, env(safe-area-inset-bottom)) + 72px);
     max-width: calc(100% - 20px);
     font-size: 0.7rem;
   }
@@ -836,6 +836,8 @@
 
   .statusMessage {
     margin-top: 5px;
+    min-height: 2.8em;
+    line-height: 1.4;
     text-align: left;
   }
 
@@ -920,6 +922,7 @@
   .statusDetails {
     display: grid;
     gap: 4px;
+    min-height: 94px;
   }
 
   .moduleOption {

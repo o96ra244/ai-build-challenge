@@ -10,6 +10,8 @@ import {
   TERRAIN_BOUNDS,
   TRACK_WIDTH,
   getCourseHeading,
+  getTerrainHeight,
+  getTerrainNormal,
   getTrackDistance,
   type CourseCheckpoint,
   type CourseObstacle,
@@ -26,6 +28,8 @@ export type DriveState = {
   readonly heading: number;
   readonly speed: number;
   readonly wheelRotation: number;
+  readonly verticalOffset: number;
+  readonly verticalVelocity: number;
   readonly checkpointIndex: number;
   readonly lapComplete: boolean;
 };
@@ -64,8 +68,17 @@ export type DriveWorld = {
   readonly offTrackResistance: number;
   readonly steeringRate: number;
   readonly vehicleRadius: number;
+  readonly terrainGravity: number;
   readonly obstacles: readonly CourseObstacle[];
   readonly checkpoints: readonly CourseCheckpoint[];
+};
+
+export type TerrainTraversal = {
+  readonly speedScale: number;
+  readonly travelScale: number;
+  readonly verticalImpulse: number;
+  readonly stepHeight: number;
+  readonly approachFactor: number;
 };
 
 export const DEFAULT_DRIVE_WORLD: DriveWorld = {
@@ -79,6 +92,7 @@ export const DEFAULT_DRIVE_WORLD: DriveWorld = {
   offTrackResistance: 4.4,
   steeringRate: 1.08,
   vehicleRadius: 1.15,
+  terrainGravity: 11.5,
   obstacles: COURSE_OBSTACLES,
   checkpoints: COURSE_CHECKPOINTS,
 };
@@ -124,6 +138,11 @@ function normalizeHeading(value: number): number {
   return finiteOr(wrapped);
 }
 
+export function getDriveForwardVector(heading: number): readonly [number, number] {
+  const safeHeading = normalizeHeading(heading);
+  return [finiteOr(Math.sin(safeHeading)), finiteOr(Math.cos(safeHeading), 1)];
+}
+
 function sanitizeCheckpointIndex(value: number, count: number): number {
   return Math.max(0, Math.min(count, Number.isFinite(value) ? Math.floor(value) : 0));
 }
@@ -135,6 +154,8 @@ function sanitizeState(state: DriveState, world: DriveWorld): DriveState {
     heading: normalizeHeading(state.heading),
     speed: clamp(state.speed, -world.maxReverseSpeed, world.maxForwardSpeed),
     wheelRotation: finiteOr(state.wheelRotation),
+    verticalOffset: clamp(state.verticalOffset, 0, 4),
+    verticalVelocity: clamp(state.verticalVelocity, -20, 20),
     checkpointIndex: sanitizeCheckpointIndex(state.checkpointIndex, world.checkpoints.length),
     lapComplete: Boolean(state.lapComplete),
   };
@@ -147,6 +168,8 @@ export function createInitialDriveState(): DriveState {
     heading: finiteOr(START_HEADING),
     speed: 0,
     wheelRotation: 0,
+    verticalOffset: 0,
+    verticalVelocity: 0,
     checkpointIndex: 0,
     lapComplete: false,
   };
@@ -168,6 +191,8 @@ export function getCheckpointResetState(
     heading: finiteOr(checkpoint?.heading, START_HEADING),
     speed: 0,
     wheelRotation: 0,
+    verticalOffset: 0,
+    verticalVelocity: 0,
     checkpointIndex: safeIndex,
     lapComplete: false,
   };
@@ -267,6 +292,73 @@ export function resolveObstacleCollision(
   return { x: nextX, z: nextZ, collided, normalX, normalZ };
 }
 
+export function getTerrainTraversal(
+  previousX: number,
+  previousZ: number,
+  nextX: number,
+  nextZ: number,
+  speed: number,
+  heading: number,
+  deltaSeconds: number,
+): TerrainTraversal {
+  const safePreviousX = finiteOr(previousX);
+  const safePreviousZ = finiteOr(previousZ);
+  const safeNextX = finiteOr(nextX, safePreviousX);
+  const safeNextZ = finiteOr(nextZ, safePreviousZ);
+  const deltaX = safeNextX - safePreviousX;
+  const deltaZ = safeNextZ - safePreviousZ;
+  const distance = Math.hypot(deltaX, deltaZ);
+  const safeSpeed = finiteOr(speed);
+  const headingDirection = safeSpeed < 0 ? -1 : 1;
+  const moveX = distance > 0.0001
+    ? deltaX / distance
+    : getDriveForwardVector(heading)[0] * headingDirection;
+  const moveZ = distance > 0.0001
+    ? deltaZ / distance
+    : getDriveForwardVector(heading)[1] * headingDirection;
+  const previousHeight = getTerrainHeight(safePreviousX, safePreviousZ);
+  const nextHeight = getTerrainHeight(safeNextX, safeNextZ);
+  const stepHeight = Math.max(0, finiteOr(nextHeight - previousHeight));
+  let approachAlignment = 0;
+  for (const fraction of [0.2, 0.5, 0.8]) {
+    const sampleX = safePreviousX + deltaX * fraction;
+    const sampleZ = safePreviousZ + deltaZ * fraction;
+    const normal = getTerrainNormal(sampleX, sampleZ);
+    const normalY = Math.max(0.25, Math.abs(finiteOr(normal[1], 1)));
+    const gradientX = -finiteOr(normal[0]) / normalY;
+    const gradientZ = -finiteOr(normal[2]) / normalY;
+    const gradientLength = Math.hypot(gradientX, gradientZ);
+    if (gradientLength > 0.0001) {
+      approachAlignment = Math.max(
+        approachAlignment,
+        finiteOr((moveX * gradientX + moveZ * gradientZ) / gradientLength),
+      );
+    }
+  }
+  const approachFactor = stepHeight > 0.05
+    ? clamp(0.4 + Math.max(0, approachAlignment) * 0.6, 0.4, 1)
+    : 0.4;
+  const slope = stepHeight / Math.max(0.75, finiteOr(distance));
+  const speedRatio = clamp(Math.abs(safeSpeed) / DEFAULT_DRIVE_WORLD.maxForwardSpeed, 0, 1);
+  const timeFactor = clamp(clampDeltaSeconds(deltaSeconds) / 0.05, 0, 1);
+  const uphillLoad = 0.18 + (1 - speedRatio) * 0.22;
+  const uphillPenalty = clamp(slope * approachFactor * uphillLoad, 0, 0.42);
+  const climbPower = speedRatio * approachFactor;
+  const blocked = stepHeight > 0.8 && climbPower < 0.34;
+  const speedScale = clamp(1 - uphillPenalty - (blocked ? 0.34 : 0), 0.42, 1);
+  const verticalImpulse = stepHeight > 0.07 && Math.abs(safeSpeed) > 3 && approachFactor > 0.52
+    ? clamp((stepHeight - 0.04) * (5.5 + speedRatio * 4) * approachFactor * timeFactor, 0, 3.2)
+    : 0;
+
+  return {
+    speedScale: finiteOr(speedScale, 1),
+    travelScale: finiteOr(blocked ? clamp(0.25 + climbPower * 0.8, 0.25, 0.65) : 1, 1),
+    verticalImpulse: finiteOr(verticalImpulse),
+    stepHeight: finiteOr(stepHeight),
+    approachFactor: finiteOr(approachFactor, 0.4),
+  };
+}
+
 function hasCrossedGoalLine(previous: DriveState, currentX: number, currentZ: number): boolean {
   const tangentX = Math.sin(START_HEADING);
   const tangentZ = Math.cos(START_HEADING);
@@ -331,20 +423,58 @@ export function stepDrive(
   speed = clamp(speed, -maxAllowedReverse, maxAllowedForward);
 
   const speedRatio = Math.min(1, Math.abs(speed) / maxForward);
-  const steeringDirection = speed >= 0 ? 1 : -1;
+  // The rover front is +Z and Three.js yaw increases toward the screen-left side
+  // of the follow view. Keep -1=left and 1=right at the model boundary.
+  const steeringDirection = speed >= 0 ? -1 : 1;
   const steeringStrength = speedRatio > 0.015 ? 0.2 + speedRatio * 0.8 : 0;
   const heading = normalizeHeading(
     previous.heading + safeInput.steering * steeringDirection * finiteOr(safeWorld.steeringRate, DEFAULT_DRIVE_WORLD.steeringRate) * steeringStrength * dt,
   );
+  const proposedAverageSpeed = (previous.speed + speed) * 0.5;
+  const forward = getDriveForwardVector(heading);
+  const proposedX = finiteOr(previous.x + forward[0] * proposedAverageSpeed * dt, previous.x);
+  const proposedZ = finiteOr(previous.z + forward[1] * proposedAverageSpeed * dt, previous.z);
+  const terrainTraversal = getTerrainTraversal(
+    previous.x,
+    previous.z,
+    proposedX,
+    proposedZ,
+    speed,
+    heading,
+    dt,
+  );
+  speed = clamp(speed * terrainTraversal.speedScale, -maxAllowedReverse, maxAllowedForward);
   const averageSpeed = (previous.speed + speed) * 0.5;
-  let nextX = finiteOr(previous.x + Math.sin(heading) * averageSpeed * dt, previous.x);
-  let nextZ = finiteOr(previous.z + Math.cos(heading) * averageSpeed * dt, previous.z);
+  let nextX = finiteOr(previous.x + forward[0] * averageSpeed * dt * terrainTraversal.travelScale, previous.x);
+  let nextZ = finiteOr(previous.z + forward[1] * averageSpeed * dt * terrainTraversal.travelScale, previous.z);
 
   const collision = resolveObstacleCollision(nextX, nextZ, safeWorld.obstacles, safeWorld.vehicleRadius);
   nextX = clamp(collision.x, TERRAIN_BOUNDS.minX + 0.35, TERRAIN_BOUNDS.maxX - 0.35);
   nextZ = clamp(collision.z, TERRAIN_BOUNDS.minZ + 0.35, TERRAIN_BOUNDS.maxZ - 0.35);
   if (collision.collided) {
     speed *= 0.28;
+  }
+
+  const actualTraversal = getTerrainTraversal(
+    previous.x,
+    previous.z,
+    nextX,
+    nextZ,
+    speed,
+    heading,
+    dt,
+  );
+  let verticalOffset = previous.verticalOffset;
+  let verticalVelocity = previous.verticalVelocity;
+  if (dt > 0) {
+    const gravity = Math.max(0.1, finiteOr(safeWorld.terrainGravity, DEFAULT_DRIVE_WORLD.terrainGravity));
+    const verticalImpulse = Math.max(terrainTraversal.verticalImpulse, actualTraversal.verticalImpulse);
+    verticalVelocity = clamp(verticalVelocity + verticalImpulse - gravity * dt, -20, 20);
+    verticalOffset = clamp(verticalOffset + verticalVelocity * dt, 0, 4);
+    if (verticalOffset <= 0) {
+      verticalOffset = 0;
+      verticalVelocity = 0;
+    }
   }
 
   const wheelRotation = finiteOr(previous.wheelRotation + getWheelRotation(averageSpeed * dt, 0.82));
@@ -365,6 +495,8 @@ export function stepDrive(
     heading: finiteOr(heading, START_HEADING),
     speed: finiteOr(lapCompleted ? 0 : speed),
     wheelRotation: finiteOr(wheelRotation),
+    verticalOffset: finiteOr(lapCompleted ? 0 : verticalOffset),
+    verticalVelocity: finiteOr(lapCompleted ? 0 : verticalVelocity),
     checkpointIndex: sanitizeCheckpointIndex(checkpointIndex, safeWorld.checkpoints.length),
     lapComplete: previous.lapComplete || lapCompleted,
   };

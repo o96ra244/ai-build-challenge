@@ -15,12 +15,14 @@ import {
   EMPTY_DRIVE_INPUT,
   createInitialDriveState,
   formatTrialTime,
+  getDriveForwardVector,
   getCheckpointLabel,
   getCheckpointResetState,
   getDriveInputFromPressed,
   getSpeedDisplay,
   mapDriveKey,
   resolveObstacleCollision,
+  getTerrainTraversal,
   stepDrive,
   type DriveState,
   type DriveWorld,
@@ -32,14 +34,15 @@ function expectFiniteState(state: DriveState): void {
 }
 
 function lineWorld(overrides: Partial<DriveWorld> = {}): DriveWorld {
+  const startZ = START_POSITION[1];
   return {
     ...DEFAULT_DRIVE_WORLD,
     obstacles: [],
     checkpoints: [
-      { index: 0, x: 2, z: 11, radius: 0.75, heading: Math.PI / 2 },
-      { index: 1, x: 4, z: 11, radius: 0.75, heading: Math.PI / 2 },
-      { index: 2, x: 6, z: 11, radius: 0.75, heading: Math.PI / 2 },
-      { index: 3, x: 8, z: 11, radius: 0.75, heading: Math.PI / 2 },
+      { index: 0, x: 2, z: startZ, radius: 0.75, heading: Math.PI / 2 },
+      { index: 1, x: 4, z: startZ, radius: 0.75, heading: Math.PI / 2 },
+      { index: 2, x: 6, z: startZ, radius: 0.75, heading: Math.PI / 2 },
+      { index: 3, x: 8, z: startZ, radius: 0.75, heading: Math.PI / 2 },
     ],
     ...overrides,
   };
@@ -48,6 +51,8 @@ function lineWorld(overrides: Partial<DriveWorld> = {}): DriveWorld {
 describe("drive input", () => {
   it("initializes with no input and maps keyboard aliases case-insensitively", () => {
     expect(EMPTY_DRIVE_INPUT).toEqual({ throttle: 0, steering: 0 });
+    expect(getDriveForwardVector(0)).toEqual([0, 1]);
+    expect(getDriveForwardVector(Math.PI / 2)[0]).toBeCloseTo(1, 8);
     expect(mapDriveKey("W")).toBe("throttle-forward");
     expect(mapDriveKey("ArrowUp")).toBe("throttle-forward");
     expect(mapDriveKey("s")).toBe("throttle-reverse");
@@ -94,6 +99,24 @@ describe("terrain and track", () => {
     expect(Math.hypot(...normal)).toBeLessThan(1.02);
   });
 
+  it("uses a wide fixed field and changes traversal by speed and approach angle", () => {
+    expect(TERRAIN_BOUNDS.maxX - TERRAIN_BOUNDS.minX).toBeCloseTo(120, 5);
+    expect(TERRAIN_BOUNDS.maxZ - TERRAIN_BOUNDS.minZ).toBeCloseTo(90, 5);
+
+    const lowSpeedApproach = getTerrainTraversal(-28, 12, -28, 28, 1.6, 0, 0.05);
+    const highSpeedApproach = getTerrainTraversal(-28, 12, -28, 28, 7.2, 0, 0.05);
+    const sideApproach = getTerrainTraversal(-28, 12, 4, 12, 7.2, Math.PI / 2, 0.05);
+
+    expect(lowSpeedApproach.speedScale).toBeLessThan(highSpeedApproach.speedScale);
+    expect(highSpeedApproach.verticalImpulse).toBeGreaterThan(lowSpeedApproach.verticalImpulse);
+    expect(highSpeedApproach.approachFactor).toBeGreaterThan(sideApproach.approachFactor);
+    expect(highSpeedApproach.stepHeight).toBeGreaterThan(0.2);
+    for (const traversal of [lowSpeedApproach, highSpeedApproach, sideApproach]) {
+      expect(Object.values(traversal).every((value) => Number.isFinite(value))).toBe(true);
+      expect(Object.values(traversal).some((value) => Object.is(value, -0))).toBe(false);
+    }
+  });
+
   it("uses the closest segment of a wide closed route", () => {
     const start = COURSE_CENTERLINE[0];
     const end = COURSE_CENTERLINE[1];
@@ -123,7 +146,7 @@ describe("drive step", () => {
     expectFiniteState(moving.state);
   });
 
-  it("naturally slows, brakes, reverses, and turns opposite in reverse", () => {
+  it("naturally slows, brakes, reverses, and keeps left/right semantics in both directions", () => {
     const forward: DriveState = { ...createInitialDriveState(), speed: 4 };
     const coast = stepDrive(forward, EMPTY_DRIVE_INPUT, 0.05);
     const brake = stepDrive(forward, { throttle: -1, steering: 0 }, 0.05);
@@ -132,10 +155,14 @@ describe("drive step", () => {
 
     const reverse = stepDrive({ ...forward, speed: 0 }, { throttle: -1, steering: 0 }, 0.05);
     expect(reverse.state.speed).toBeLessThan(0);
-    const forwardTurn = stepDrive({ ...forward, speed: 4 }, { throttle: 1, steering: 1 }, 0.05);
-    const reverseTurn = stepDrive({ ...forward, speed: -2 }, { throttle: -1, steering: 1 }, 0.05);
-    expect(forwardTurn.state.heading).toBeGreaterThan(forward.heading);
-    expect(reverseTurn.state.heading).toBeLessThan(forward.heading);
+    const forwardLeft = stepDrive({ ...forward, heading: 0, speed: 4 }, { throttle: 1, steering: -1 }, 0.05);
+    const forwardRight = stepDrive({ ...forward, heading: 0, speed: 4 }, { throttle: 1, steering: 1 }, 0.05);
+    const reverseLeft = stepDrive({ ...forward, heading: 0, speed: -2 }, { throttle: -1, steering: -1 }, 0.05);
+    const reverseRight = stepDrive({ ...forward, heading: 0, speed: -2 }, { throttle: -1, steering: 1 }, 0.05);
+    expect(forwardLeft.state.heading).toBeGreaterThan(0);
+    expect(forwardRight.state.heading).toBeLessThan(0);
+    expect(reverseLeft.state.heading).toBeLessThan(0);
+    expect(reverseRight.state.heading).toBeGreaterThan(0);
   });
 
   it("caps forward and reverse speed and slows off track", () => {
@@ -148,6 +175,15 @@ describe("drive step", () => {
     expect(offTrack.state.speed).toBeLessThanOrEqual(DEFAULT_DRIVE_WORLD.maxForwardSpeed * DEFAULT_DRIVE_WORLD.offTrackSpeedRatio);
   });
 
+  it("raises the rover over a fast step and resists a slow approach", () => {
+    const slow = stepDrive({ ...createInitialDriveState(), x: -28, z: 12, heading: 0, speed: 1.4 }, { throttle: 1, steering: 0 }, 0.05);
+    const fast = stepDrive({ ...createInitialDriveState(), x: -28, z: 12, heading: 0, speed: 7.2 }, { throttle: 1, steering: 0 }, 0.05);
+    expect(slow.state.speed).toBeLessThan(fast.state.speed);
+    expect(fast.state.verticalOffset).toBeGreaterThanOrEqual(slow.state.verticalOffset);
+    expectFiniteState(slow.state);
+    expectFiniteState(fast.state);
+  });
+
   it("clamps hostile dt and sanitizes NaN, infinities, and negative zero", () => {
     for (const delta of [Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY, 10]) {
       const result = stepDrive({
@@ -156,6 +192,8 @@ describe("drive step", () => {
         heading: Number.NEGATIVE_INFINITY,
         speed: Number.NaN,
         wheelRotation: -0,
+        verticalOffset: Number.NaN,
+        verticalVelocity: Number.POSITIVE_INFINITY,
         checkpointIndex: Number.NaN,
         lapComplete: false,
       }, { throttle: Number.NaN as -1 | 0 | 1, steering: Number.POSITIVE_INFINITY as -1 | 0 | 1 }, delta);
@@ -164,8 +202,8 @@ describe("drive step", () => {
   });
 
   it("resolves overlapping circular obstacles and reduces speed", () => {
-    const obstacle = { id: "test", x: 0, z: 11.2, radius: 0.8 };
-    const collision = resolveObstacleCollision(0, 11, [obstacle], 1.15);
+    const obstacle = { id: "test", x: 0, z: START_POSITION[1] + 0.2, radius: 0.8 };
+    const collision = resolveObstacleCollision(0, START_POSITION[1], [obstacle], 1.15);
     expect(collision.collided).toBe(true);
     expect(Math.hypot(collision.x - obstacle.x, collision.z - obstacle.z)).toBeGreaterThanOrEqual(1.95);
     const result = stepDrive({ ...createInitialDriveState(), speed: 5 }, { throttle: 1, steering: 0 }, 0.05, lineWorld({ obstacles: [obstacle] }));
@@ -178,14 +216,16 @@ describe("drive step", () => {
 describe("checkpoint, goal, and timer", () => {
   it("only passes the next checkpoint in order", () => {
     const world = lineWorld();
-    const skipped = stepDrive({ ...createInitialDriveState(), x: 4, z: 11 }, EMPTY_DRIVE_INPUT, 0, world);
+    const skipped = stepDrive({ ...createInitialDriveState(), x: 4, z: START_POSITION[1] }, EMPTY_DRIVE_INPUT, 0, world);
     expect(skipped.state.checkpointIndex).toBe(0);
-    const first = stepDrive({ ...createInitialDriveState(), x: 2, z: 11 }, EMPTY_DRIVE_INPUT, 0, world);
+    const first = stepDrive({ ...createInitialDriveState(), x: 2, z: START_POSITION[1] }, EMPTY_DRIVE_INPUT, 0, world);
     expect(first.checkpointPassed).toBe(true);
     expect(first.state.checkpointIndex).toBe(1);
     const reset = getCheckpointResetState(2, world);
     expect(reset.x).toBe(4);
     expect(reset.checkpointIndex).toBe(2);
+    expect(reset.verticalOffset).toBe(0);
+    expect(reset.verticalVelocity).toBe(0);
     expect(getCheckpointLabel(0)).toBe("CHECKPOINT 0 / 4");
     expect(getCheckpointLabel(4)).toBe("CHECKPOINT 4 / 4");
   });
@@ -194,7 +234,7 @@ describe("checkpoint, goal, and timer", () => {
     const completeState: DriveState = {
       ...createInitialDriveState(),
       x: -0.1,
-      z: 11,
+      z: START_POSITION[1],
       heading: Math.PI / 2,
       speed: 8,
       checkpointIndex: COURSE_CHECKPOINTS.length,
@@ -217,8 +257,9 @@ describe("checkpoint, goal, and timer", () => {
         : { x: START_POSITION[0], z: START_POSITION[1] };
       const desiredHeading = Math.atan2(target.x - state.x, target.z - state.z);
       const difference = ((desiredHeading - state.heading + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
-      const steering = Math.abs(difference) < 0.08 ? 0 : difference > 0 ? 1 : -1;
-      state = stepDrive(state, { throttle: 1, steering }, 0.05).state;
+      const steering = Math.abs(difference) < 0.08 ? 0 : difference > 0 ? -1 : 1;
+      const result = stepDrive(state, { throttle: 1, steering }, 0.05);
+      state = result.state;
       elapsed += 0.05;
     }
     expect(state.lapComplete, JSON.stringify({ state, elapsed })).toBe(true);

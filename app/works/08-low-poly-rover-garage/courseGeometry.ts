@@ -25,28 +25,28 @@ export type TrackDistance = {
 };
 
 export const TERRAIN_BOUNDS = {
-  minX: -19.5,
-  maxX: 19.5,
-  minZ: -14.5,
-  maxZ: 14.5,
+  minX: -60,
+  maxX: 60,
+  minZ: -45,
+  maxZ: 45,
 } as const;
 
 export const TRACK_WIDTH = 5.4;
 
-/** A fixed, closed, non-elliptical route with straights and mixed corners. */
+/** A fixed, closed, non-elliptical route inside the larger free-drive field. */
 export const COURSE_CENTERLINE: readonly Point2[] = [
-  [0, 11],
-  [7, 11],
-  [13, 7],
-  [15, 1],
-  [12, -6],
-  [6, -10],
-  [-2, -9],
-  [-11, -11],
-  [-17, -5],
-  [-15, 2],
-  [-9, 8],
-  [-3, 12],
+  [0, 34],
+  [20, 34],
+  [37, 24],
+  [46, 8],
+  [40, -12],
+  [24, -27],
+  [3, -25],
+  [-28, -34],
+  [-48, -16],
+  [-43, 5],
+  [-25, 26],
+  [-7, 37],
 ] as const;
 
 function finiteOr(value: number, fallback = 0): number {
@@ -99,37 +99,76 @@ export const COURSE_CHECKPOINTS: readonly CourseCheckpoint[] = [2, 5, 8, 10].map
 });
 
 export const COURSE_OBSTACLES: readonly CourseObstacle[] = [
-  { id: "stone-east", x: 10.9, z: 10.9, radius: 0.9 },
-  { id: "stone-south-east", x: 15.8, z: -1.5, radius: 1.05 },
-  { id: "tire-south", x: 8.1, z: -11.4, radius: 0.82 },
-  { id: "stone-south-west", x: -5.3, z: -13.2, radius: 1.05 },
-  { id: "stone-west", x: -17.7, z: -7.5, radius: 0.92 },
-  { id: "tire-north-west", x: -18.1, z: 1.9, radius: 0.78 },
-  { id: "stone-north", x: -7.2, z: 12.8, radius: 0.88 },
-  { id: "post-north-east", x: 4.4, z: 9.4, radius: 0.5 },
+  { id: "stone-east", x: 29, z: 30.5, radius: 1.2 },
+  { id: "stone-south-east", x: 43, z: 1, radius: 1.35 },
+  { id: "tire-south", x: 33, z: -33, radius: 0.95 },
+  { id: "stone-south-west", x: -15, z: -39, radius: 1.3 },
+  { id: "stone-west", x: -54, z: -7, radius: 1.2 },
+  { id: "tire-north-west", x: -53, z: 13, radius: 0.92 },
+  { id: "stone-north", x: -20, z: 41, radius: 1.15 },
+  { id: "post-north-east", x: 11, z: 26, radius: 0.62 },
+  { id: "stone-field-east", x: 34, z: -16, radius: 1.2 },
+  { id: "stone-field-center", x: 4, z: 12, radius: 1.1 },
+  { id: "tire-field-west", x: -25, z: -4, radius: 0.95 },
+  { id: "stone-field-south", x: -4, z: -8, radius: 1.15 },
 ] as const;
 
-const BUMPS: readonly {
+const TERRAIN_HILLS: readonly {
   readonly x: number;
   readonly z: number;
   readonly height: number;
-  readonly spread: number;
+  readonly spreadX: number;
+  readonly spreadZ: number;
 }[] = [
-  { x: 8.2, z: 9.2, height: 0.28, spread: 2.7 },
-  { x: 10.5, z: -6.9, height: 0.34, spread: 2.5 },
-  { x: -7.8, z: -9.7, height: 0.25, spread: 2.9 },
-  { x: -14, z: 3.5, height: 0.3, spread: 2.4 },
+  { x: -30, z: 21, height: 5.8, spreadX: 11, spreadZ: 12 },
+  { x: 28, z: 23, height: 4.2, spreadX: 13, spreadZ: 11 },
+  { x: -25, z: -20, height: 4.6, spreadX: 12, spreadZ: 10 },
+  { x: 30, z: -22, height: 3.7, spreadX: 10, spreadZ: 12 },
+  { x: 0, z: 0, height: 1.5, spreadX: 24, spreadZ: 18 },
 ] as const;
+
+const TERRAIN_STEPS: readonly {
+  readonly x: number;
+  readonly z: number;
+  readonly width: number;
+  readonly depth: number;
+  readonly height: number;
+  readonly edge: number;
+}[] = [
+  { x: -28, z: 22, width: 14, depth: 16, height: 1.25, edge: 1.5 },
+  { x: 17, z: -10, width: 18, depth: 12, height: 0.95, edge: 1.7 },
+  { x: -12, z: -27, width: 16, depth: 10, height: 1.1, edge: 1.6 },
+] as const;
+
+function smoothStep(value: number): number {
+  const t = Math.max(0, Math.min(1, finiteOr(value)));
+  return t * t * (3 - 2 * t);
+}
+
+function softRectBand(value: number, halfExtent: number, edge: number): number {
+  const safeHalfExtent = Math.max(0.1, finiteOr(halfExtent, 1));
+  const safeEdge = Math.max(0.1, finiteOr(edge, 1));
+  return smoothStep((safeHalfExtent + safeEdge - Math.abs(finiteOr(value))) / safeEdge);
+}
 
 export function getTerrainHeight(x: number, z: number): number {
   const safeX = finiteOr(x);
   const safeZ = finiteOr(z);
-  let height = 0.1 * Math.sin(safeX * 0.24) + 0.08 * Math.cos(safeZ * 0.31);
+  let height = 0.9 * Math.sin(safeX * 0.075)
+    + 0.7 * Math.cos(safeZ * 0.09)
+    + 0.5 * Math.sin((safeX - safeZ) * 0.12)
+    + 0.35 * Math.cos((safeX + safeZ) * 0.17);
 
-  for (const bump of BUMPS) {
-    const dx = safeX - bump.x;
-    const dz = safeZ - bump.z;
-    height += bump.height * Math.exp(-(dx * dx + dz * dz) / (2 * bump.spread * bump.spread));
+  for (const hill of TERRAIN_HILLS) {
+    const dx = (safeX - hill.x) / hill.spreadX;
+    const dz = (safeZ - hill.z) / hill.spreadZ;
+    height += hill.height * Math.exp(-0.5 * (dx * dx + dz * dz));
+  }
+
+  for (const step of TERRAIN_STEPS) {
+    height += step.height
+      * softRectBand(safeX - step.x, step.width / 2, step.edge)
+      * softRectBand(safeZ - step.z, step.depth / 2, step.edge);
   }
 
   return finiteOr(height);
@@ -138,7 +177,7 @@ export function getTerrainHeight(x: number, z: number): number {
 export function getTerrainNormal(x: number, z: number): Vector3Tuple {
   const safeX = finiteOr(x);
   const safeZ = finiteOr(z);
-  const sample = 0.28;
+  const sample = 0.65;
   const dx = (getTerrainHeight(safeX + sample, safeZ) - getTerrainHeight(safeX - sample, safeZ)) / (sample * 2);
   const dz = (getTerrainHeight(safeX, safeZ + sample) - getTerrainHeight(safeX, safeZ - sample)) / (sample * 2);
   const length = Math.hypot(dx, 1, dz);

@@ -384,7 +384,7 @@ export function LowPolyRoverGarage() {
       setCountdown(null);
       setTrialHud(INITIAL_HUD);
       setClearTimeMilliseconds(null);
-      setStatusMessage("DIRT TRIALを準備しました。コース全体を見てスタートを押してください。");
+      setStatusMessage("DIRT TRIALを準備しました。フィールド全体を見てスタートを押してください。");
     } else {
       setStatusMessage("Garageへ戻りました。構成と視点を確認できます。自動回転は明示的に再開できます。");
     }
@@ -468,7 +468,11 @@ export function LowPolyRoverGarage() {
     if (trialStatusRef.current !== "running") {
       return;
     }
-    event.currentTarget.setPointerCapture(event.pointerId);
+    try {
+      event.currentTarget.setPointerCapture(event.pointerId);
+    } catch {
+      // Synthetic pointer events and a lost native pointer have no capturable id.
+    }
     mobilePointersRef.current.set(event.pointerId, { action, element: event.currentTarget });
     updateMobilePressed(action);
     syncDriveInput();
@@ -496,7 +500,7 @@ export function LowPolyRoverGarage() {
           <p className={styles.kicker}>INTERACTIVE 3D GARAGE / DIRT TRIAL</p>
           <h2 id="garage-title">組み替えて、走り抜ける</h2>
           <p className={styles.experienceLead}>
-            Front・Cabin・Rearを1つずつ選び、12種類の部品から64通りのローバーを組み立てて、広いダートコースを手動で走ります。
+            Front・Cabin・Rearを1つずつ選び、12種類の部品から64通りのローバーを組み立てて、広い固定オフロードフィールドを手動で走ります。
           </p>
         </div>
         <p className={`${styles.runtimeBadge} ${runtimeStatus === "error" ? styles.runtimeBadgeError : ""}`}>
@@ -535,7 +539,7 @@ export function LowPolyRoverGarage() {
             <div
               ref={canvasHostRef}
               className={styles.canvasHost}
-              aria-label={mode === "course" ? "DIRT TRIALの低ポリダートコース操作ステージ" : "低ポリローバーを操作するGarageの3Dステージ"}
+              aria-label={mode === "course" ? "DIRT TRIALの広いオフロードフィールド操作ステージ" : "低ポリローバーを操作するGarageの3Dステージ"}
               aria-describedby="canvas-help"
             >
               {runtimeStatus === "loading" && <p className={styles.canvasOverlay}>ローバーを組み立てています…</p>}

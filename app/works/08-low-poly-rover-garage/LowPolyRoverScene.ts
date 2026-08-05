@@ -33,6 +33,7 @@ import {
 import {
   EMPTY_DRIVE_INPUT,
   createInitialDriveState,
+  getDriveForwardVector,
   getCheckpointResetState,
   stepDrive,
   type DriveInput,
@@ -99,7 +100,7 @@ const COLORS = {
   navy: 0x3b4c66,
   pad: 0x8d9b94,
   padLine: 0xd4b66a,
-  soil: 0x6d6255,
+  soil: 0x806247,
   crate: 0xc9864c,
   crateDark: 0x805536,
 } as const;
@@ -264,8 +265,8 @@ function createCourseRibbonGeometry(): THREE.BufferGeometry {
 }
 
 function createTerrainGeometry(): THREE.BufferGeometry {
-  const columns = 20;
-  const rows = 15;
+  const columns = 30;
+  const rows = 22;
   const positions: number[] = [];
   const indices: number[] = [];
   const width = TERRAIN_BOUNDS.maxX - TERRAIN_BOUNDS.minX;
@@ -353,7 +354,7 @@ export class LowPolyRoverScene {
 
   public async init(): Promise<LowPolyRoverSceneInitResult> {
     this.scene.background = new THREE.Color(BACKGROUND_COLOR);
-    this.scene.fog = new THREE.Fog(BACKGROUND_COLOR, 24, 60);
+    this.scene.fog = new THREE.Fog(BACKGROUND_COLOR, 34, 175);
     this.buildLighting();
     this.buildGarage();
     this.buildCourse();
@@ -368,7 +369,7 @@ export class LowPolyRoverScene {
     this.camera.aspect = viewport.width / viewport.height;
     this.camera.fov = cameraPreset.fov;
     this.camera.near = 0.1;
-    this.camera.far = 100;
+    this.camera.far = 240;
     this.camera.position.set(...cameraPreset.position);
     this.camera.lookAt(...cameraPreset.target);
     this.camera.updateProjectionMatrix();
@@ -1228,7 +1229,8 @@ export class LowPolyRoverScene {
     const motionFactor = this.reducedMotion ? 0.22 : 1;
     const pitch = Math.atan2(normal[2], Math.max(0.1, normal[1])) * motionFactor;
     const roll = Math.atan2(-normal[0], Math.max(0.1, normal[1])) * motionFactor;
-    this.roverGroup.position.set(state.x, terrainHeight + 0.12 + suspension, state.z);
+    const verticalOffset = Number.isFinite(state.verticalOffset) ? Math.max(0, Math.min(4, state.verticalOffset)) : 0;
+    this.roverGroup.position.set(state.x, terrainHeight + 0.12 + verticalOffset + suspension, state.z);
     this.roverGroup.rotation.set(pitch, state.heading, roll);
     this.wheelSpin = state.wheelRotation;
     this.wheelSpinGroups.forEach((group) => {
@@ -1270,7 +1272,12 @@ export class LowPolyRoverScene {
     this.trialStatus = "clear";
     this.clearDriveInput();
     this.dustRoot.visible = false;
-    this.driveState = { ...this.driveState, speed: 0 };
+    this.driveState = {
+      ...this.driveState,
+      speed: 0,
+      verticalOffset: 0,
+      verticalVelocity: 0,
+    };
     this.applyDriveState(this.driveState, 0, 0);
     this.options.onTrialStatusChange("clear");
     this.options.onTrialClear(this.trialElapsedMilliseconds);
@@ -1310,12 +1317,16 @@ export class LowPolyRoverScene {
 
     const viewport = this.getViewportSize();
     const mobile = viewport.width < 700 || viewport.width / Math.max(1, viewport.height) < 0.78;
-    const forwardX = Math.sin(this.driveState.heading);
-    const forwardZ = Math.cos(this.driveState.heading);
+    const [forwardX, forwardZ] = getDriveForwardVector(this.driveState.heading);
     const terrain = getTerrainHeight(this.driveState.x, this.driveState.z);
     const distance = mobile ? 9.5 : 12.8;
+    const overviewPreset = getCameraPreset("course", viewport.width, viewport.height);
     const desiredPosition = this.reducedMotion
-      ? new THREE.Vector3(21.5 + this.driveState.x * 0.06, 22.5, 25.5 + this.driveState.z * 0.06)
+      ? new THREE.Vector3(
+        overviewPreset.position[0] + this.driveState.x * 0.04,
+        overviewPreset.position[1],
+        overviewPreset.position[2] + this.driveState.z * 0.04,
+      )
       : new THREE.Vector3(
         this.driveState.x - forwardX * distance + forwardZ * 3.2,
         terrain + (mobile ? 10.5 : 12.4),

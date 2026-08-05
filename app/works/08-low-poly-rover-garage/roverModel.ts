@@ -317,11 +317,11 @@ export function getCameraPreset(
 
   if (mode === "course") {
     return {
-      position: isMobile ? [14.8, 18.5, 21.5] : [21.5, 22.5, 25.5],
+      position: isMobile ? [64, 72, 84] : [47, 55, 66],
       target: [0, 0, 0],
-      fov: isMobile ? 58 : 54,
-      minDistance: 18,
-      maxDistance: 44,
+      fov: isMobile ? 60 : 58,
+      minDistance: 52,
+      maxDistance: 180,
     };
   }
 
