@@ -431,6 +431,17 @@ export function getExplodeTransitionDuration(reducedMotion: boolean): number {
   return reducedMotion ? 90 : 760;
 }
 
+export function getOrbitDampingFactor(reducedMotion: boolean): number {
+  return reducedMotion ? 0.14 : 0.08;
+}
+
 export function getInitialAutoRotate(reducedMotion: boolean): boolean {
   return !reducedMotion;
+}
+
+export function getAutoRotateAfterMotionPreference(
+  reducedMotion: boolean,
+  currentAutoRotate: boolean,
+): boolean {
+  return reducedMotion ? false : currentAutoRotate;
 }

@@ -4,10 +4,12 @@ import {
   TREE_PARTS,
   clampExplodeProgress,
   createTreeParts,
+  getAutoRotateAfterMotionPreference,
   getCameraPreset,
   getExplodeTransitionDuration,
   getExplodedPosition,
   getInitialAutoRotate,
+  getOrbitDampingFactor,
   interpolateRotation,
   interpolateTuple,
   isFiniteTuple,
@@ -101,9 +103,22 @@ describe("treeModel", () => {
   it("reduced-motionでは自動回転と遷移時間を抑える", () => {
     expect(getInitialAutoRotate(true)).toBe(false);
     expect(getInitialAutoRotate(false)).toBe(true);
+    expect(getOrbitDampingFactor(true)).toBe(0.14);
+    expect(getOrbitDampingFactor(false)).toBe(0.08);
     expect(getExplodeTransitionDuration(true)).toBeLessThan(
       getExplodeTransitionDuration(false),
     );
+    expect(getExplodeTransitionDuration(true)).toBe(90);
     expect(getExplodeTransitionDuration(false)).toBe(760);
+    expect(Number.isFinite(getOrbitDampingFactor(true))).toBe(true);
+    expect(Number.isFinite(getOrbitDampingFactor(false))).toBe(true);
+  });
+
+  it("reduced-motionを解除しても自動回転を勝手に再開しない", () => {
+    const stopped = getAutoRotateAfterMotionPreference(true, true);
+
+    expect(stopped).toBe(false);
+    expect(getAutoRotateAfterMotionPreference(false, stopped)).toBe(false);
+    expect(getAutoRotateAfterMotionPreference(false, true)).toBe(true);
   });
 });

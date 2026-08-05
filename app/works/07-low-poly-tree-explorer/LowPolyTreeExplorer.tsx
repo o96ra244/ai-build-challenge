@@ -34,7 +34,9 @@ export function LowPolyTreeExplorer() {
     setAutoRotate(!reduced);
 
     const handleMotionPreference = (): void => {
-      setReducedMotion(mediaQuery.matches);
+      const nextReducedMotion = mediaQuery.matches;
+      setReducedMotion(nextReducedMotion);
+      sceneRef.current?.setReducedMotion(nextReducedMotion);
     };
     mediaQuery.addEventListener("change", handleMotionPreference);
 
@@ -45,7 +47,7 @@ export function LowPolyTreeExplorer() {
         }
 
         scene = new Scene(container, {
-          reducedMotion: reduced,
+          reducedMotion: mediaQuery.matches,
           onExplodedChange: (nextExploded) => {
             setExploded(nextExploded);
             setStatusMessage(nextExploded ? "木をパーツごとに分解しています。" : "木を組み立てた状態へ戻しました。");

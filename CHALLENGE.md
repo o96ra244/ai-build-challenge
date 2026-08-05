@@ -130,12 +130,12 @@
 - **Explode設計:** progressを0〜1へclampし、幹・枝・葉・地面・石ごとに異なる方向と距離を事前定義します。葉は外側・上方向、枝は幹から外側、地面と石は下方向へ控えめに移動し、三次easingで補間します。
 - **パフォーマンス対策:** GeometryとMaterialは初期化時に一度だけ生成し、pixel ratioを最大1.5、delta timeを最大0.05秒に制限します。ResizeObserver、IntersectionObserver、visibilitychangeでサイズ変更・画面外・タブ非表示時の描画を抑え、静止時はanimation loopを停止します。
 - **アクセシビリティ対応:** 見出し、native button、`aria-pressed`、操作ステータスの`aria-live`、canvasのアクセシブルな説明、`:focus-visible`、色に依存しない状態テキストを実装しています。
-- **reduced-motion対応:** 初期自動回転をOFFにし、Explodeの遷移時間とOrbitの減衰を短縮します。分解操作そのものは利用できます。
+- **reduced-motion対応:** 初期自動回転をOFFにし、Explodeの遷移時間とOrbitの減衰を短縮します。`LowPolyTreeScene.setReducedMotion`で実行中も設定を反映し、ONへの変更時は自動回転を停止してUIへ通知します。OFFへ戻しても自動回転は勝手に再開せず、明示的なボタン操作で再開できます。分解操作中も次フレームから最新の遷移時間を使います。
 - **GitHub上のパス:** `app/works/07-low-poly-tree-explorer/`
 - **想定公開URL:** https://ai-build-challenge.vercel.app/works/07-low-poly-tree-explorer
-- **検証結果:** `npm run lint`（警告なし）、`npm run typecheck`、`npm run test`（11ファイル・304件）、`npm run build`、`git diff --check`に成功しました。ビルド出力で`/works/07-low-poly-tree-explorer`の静的生成を確認しました。
-- **ブラウザ確認結果:** macOSのCodex In-app Browserで、viewport overrideの1440×900相当と390×844を確認しました。WebGPURenderer初期化、WebGPU API利用可能の表示、木全体の初期表示、低ポリの幹・枝・葉・島・石、マウスドラッグOrbit、Explodeと組み立て直し、Reset、自動回転のON/OFF、ズームボタン、キーボードのEnter／SpaceによるExplode・Auto rotate、390pxの横スクロールなし、canvas外の縦スクロール、pressed状態のボタン表示、コンソールerror・warningなしを確認しました。390pxではcanvas 348×523px、ボタン高さ約60px、文書幅とviewport幅が390pxでした。実機スマートフォンの1本指Orbit・ピンチ、実機トラックパッドのホイール、OS設定によるreduced-motion切り替え、WebGL 2フォールバックbackend、タブ非表示・復帰時の実動作は未確認です。ブラウザ自動操作では`:focus-visible`の疑似クラス成立までは取得できなかったため、CSSルールとネイティブbuttonのフォーカス順で確認しています。
-- **既知の制約:** 外部モデル、テクスチャ、複数モデル切替、WebXR、エディター機能、モデル保存、スクリーンショット書き出しには対応しません。実機端末とWebGL 2フォールバックbackendはこの環境だけでは確認できません。
+- **検証結果:** `npm run lint`（警告なし）、`npm run typecheck`、`npm run test`（11ファイル・305件）、`npm run build`、`git diff --check`に成功しました。ビルド出力で`/works/07-low-poly-tree-explorer`の静的生成を確認しました。テストではreduced-motion ON/OFFのExplode時間、Orbit dampingの有限値、自動回転停止とOFF復帰時の非再開方針を確認しています。
+- **ブラウザ確認結果:** macOSのCodex In-app Browserで、viewport overrideの1440×900相当と390×844を確認しました。今回の修正後は通常設定で自動回転ONと`aria-pressed=true`、停止後のOFF表示と`aria-pressed=false`、自動回転ボタンからの明示的な再開、Explodeの分解表示、コンソールerror・warningなしを確認しました。WebGPURenderer初期化、WebGPU API利用可能の表示、木全体の初期表示、低ポリの幹・枝・葉・島・石、マウスドラッグOrbit、Reset、ズームボタン、キーボードのEnter／SpaceによるExplode・Auto rotate、390pxの横スクロールなし、canvas外の縦スクロール、pressed状態のボタン表示は既存確認を維持しています。接続中ブラウザには`prefers-reduced-motion`エミュレーション機能がなく、OS設定も変更していないため、ページを再読み込みせずにOS設定をON／OFFした実動作、実際の短縮遷移、damping変更は未確認です。390pxではcanvas 348×523px、ボタン高さ約60px、文書幅とviewport幅が390pxでした。実機スマートフォンの1本指Orbit・ピンチ、実機トラックパッドのホイール、WebGL 2フォールバックbackend、タブ非表示・復帰時の実動作は未確認です。ブラウザ自動操作では`:focus-visible`の疑似クラス成立までは取得できなかったため、CSSルールとネイティブbuttonのフォーカス順で確認しています。
+- **既知の制約:** 外部モデル、テクスチャ、複数モデル切替、WebXR、エディター機能、モデル保存、スクリーンショット書き出しには対応しません。実機端末、OS設定によるreduced-motionの実動作、WebGL 2フォールバックbackendはこの環境だけでは確認できません。
 - **学んだこと:** Object3Dをモデル定義へ持ち込まず、数値のパーツ定義とThree.jsの生成処理を分けると、Explodeの境界値とカメラプリセットをGPUなしでテストできます。
 - **次回への改善点:** 複数ブラウザと実機タッチでOrbit・ピンチ・タブ復帰を確認し、WebGL 2へ強制切り替えた環境でフォールバック経路を検証します。
 

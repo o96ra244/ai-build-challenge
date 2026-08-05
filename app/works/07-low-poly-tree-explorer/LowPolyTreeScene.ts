@@ -5,9 +5,11 @@ import { WebGPURenderer } from "three/webgpu";
 import {
   TREE_PARTS,
   getCameraPreset,
+  getAutoRotateAfterMotionPreference,
   getExplodeTransitionDuration,
   getExplodedPosition,
   getInitialAutoRotate,
+  getOrbitDampingFactor,
   interpolateRotation,
   type TreeGeometrySpec,
   type TreePartDefinition,
@@ -132,8 +134,7 @@ export class LowPolyTreeScene {
   private readonly camera = new THREE.PerspectiveCamera();
   private readonly treeGroup = new THREE.Group();
   private readonly parts: ScenePart[] = [];
-  private readonly reducedMotion: boolean;
-  private readonly initialAutoRotate: boolean;
+  private reducedMotion: boolean;
   private readonly handleResize = (): void => this.resize();
   private readonly handleVisibility = (): void => {
     this.pageVisible = document.visibilityState === "visible";
@@ -158,7 +159,6 @@ export class LowPolyTreeScene {
     this.container = container;
     this.options = options;
     this.reducedMotion = options.reducedMotion;
-    this.initialAutoRotate = getInitialAutoRotate(options.reducedMotion);
   }
 
   public async init(): Promise<LowPolyTreeSceneInitResult> {
@@ -200,12 +200,12 @@ export class LowPolyTreeScene {
     this.controls.target.copy(CAMERA_TARGET);
     this.controls.enablePan = false;
     this.controls.enableDamping = true;
-    this.controls.dampingFactor = this.reducedMotion ? 0.14 : 0.08;
+    this.controls.dampingFactor = getOrbitDampingFactor(this.reducedMotion);
     this.controls.minDistance = cameraPreset.minDistance;
     this.controls.maxDistance = cameraPreset.maxDistance;
     this.controls.minPolarAngle = 0.45;
     this.controls.maxPolarAngle = Math.PI * 0.47;
-    this.controls.autoRotate = this.initialAutoRotate;
+    this.controls.autoRotate = getInitialAutoRotate(this.reducedMotion);
     this.controls.autoRotateSpeed = 0.42;
     this.controls.addEventListener("change", this.handleControlsChange);
     this.controls.update();
@@ -249,6 +249,28 @@ export class LowPolyTreeScene {
     this.updateLoopState();
   }
 
+  public setReducedMotion(enabled: boolean): void {
+    if (this.disposed) {
+      return;
+    }
+
+    this.reducedMotion = enabled;
+    if (!this.controls) {
+      return;
+    }
+
+    this.controls.dampingFactor = getOrbitDampingFactor(enabled);
+    const nextAutoRotate = getAutoRotateAfterMotionPreference(
+      enabled,
+      this.controls.autoRotate,
+    );
+    if (nextAutoRotate !== this.controls.autoRotate) {
+      this.controls.autoRotate = nextAutoRotate;
+      this.options.onAutoRotateChange(nextAutoRotate);
+    }
+    this.updateLoopState();
+  }
+
   public zoomBy(direction: "in" | "out"): void {
     if (this.disposed || !this.controls) {
       return;
@@ -282,9 +304,10 @@ export class LowPolyTreeScene {
     this.controls.update();
     this.exploded = false;
     this.explodeTarget = 0;
-    this.controls.autoRotate = this.initialAutoRotate;
+    const initialAutoRotate = getInitialAutoRotate(this.reducedMotion);
+    this.controls.autoRotate = initialAutoRotate;
     this.options.onExplodedChange(false);
-    this.options.onAutoRotateChange(this.initialAutoRotate);
+    this.options.onAutoRotateChange(initialAutoRotate);
     this.controlsActiveUntil = performance.now() + 520;
     this.updateLoopState();
   }
