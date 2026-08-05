@@ -106,11 +106,11 @@ SVG本体を変更せず、同じ内蔵アイコンまたは任意のSVGで12種
 
 ### 08 Low Poly Rover Garage
 
-低ポリの小型ローバーをFront・Cabin・Rearの3カテゴリから組み替え、短い試運転まで楽しめるインタラクティブ3D作品です。
+低ポリの小型ローバーをFront・Cabin・Rearの3カテゴリから組み替え、Garageで眺めてからTEST COURSEを1周できるインタラクティブ3D作品です。
 
 - GitHub上のパス: [`app/works/08-low-poly-rover-garage/`](app/works/08-low-poly-rover-garage/)
 - 想定公開URL: https://ai-build-challenge.vercel.app/works/08-low-poly-rover-garage
-- 主な機能: 9種類のモジュールによる27通りの構成、対象カテゴリだけの交換アニメーション、車輪とタービンを含む試運転、Orbit・Zoom・Reset・自動回転、WebGPURendererと互換描画、キーボード・タッチ・reduced-motion対応
+- 主な機能: 12種類のモジュールによる64通りの構成、対象カテゴリだけの交換アニメーション、GarageのOrbit・Zoom・Reset・自動回転、固定カメラのTEST COURSE、車輪・タービン・砂ぼこり、WebGPURendererと互換描画、キーボード・タッチ・reduced-motion対応
 
 ## 公開URL
 

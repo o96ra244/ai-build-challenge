@@ -7,17 +7,18 @@ import {
   clampProgress,
   getAutoRotateAfterMotionPreference,
   getCameraPreset,
+  getCourseDriveState,
+  getCourseDuration,
   getInitialAutoRotate,
   getModuleDefinition,
   getModuleTransitionDuration,
   getModuleTransitionTransform,
   getOrbitDampingFactor,
-  getTrialDriveState,
-  getTrialDuration,
   getWheelRotation,
   normalizeSelection,
   type ModuleCategory,
   type ModuleTransitionMode,
+  type ExperienceMode,
   type RoverModuleDefinition,
   type RoverSelection,
   type Vector3Tuple,
@@ -27,8 +28,10 @@ export type LowPolyRoverSceneOptions = {
   readonly reducedMotion: boolean;
   readonly selection: RoverSelection;
   readonly onAutoRotateChange: (enabled: boolean) => void;
-  readonly onTrialChange: (running: boolean) => void;
+  readonly onCourseStatusChange: (status: CourseStatus) => void;
 };
+
+export type CourseStatus = "ready" | "running" | "clear";
 
 export type LowPolyRoverSceneInitResult = {
   readonly webGpuApiAvailable: boolean;
@@ -198,6 +201,50 @@ function reverseTransitionProgress(progress: number, mode: ModuleTransitionMode)
   return clampProgress(reversed);
 }
 
+function createCourseTrackGeometry(): THREE.BufferGeometry {
+  const segments = 48;
+  const trackHalfWidth = 0.72;
+  const positions: number[] = [];
+  const indices: number[] = [];
+
+  for (let index = 0; index <= segments; index += 1) {
+    const progress = index / segments;
+    const state = getCourseDriveState(progress, false);
+    const next = index === segments
+      ? getCourseDriveState(Math.max(0, progress - 1 / segments), false)
+      : getCourseDriveState(progress + 1 / segments, false);
+    const dx = index === segments
+      ? state.position[0] - next.position[0]
+      : next.position[0] - state.position[0];
+    const dz = index === segments
+      ? state.position[2] - next.position[2]
+      : next.position[2] - state.position[2];
+    const tangentLength = Math.max(0.001, Math.hypot(dx, dz));
+    const normalX = -dz / tangentLength;
+    const normalZ = dx / tangentLength;
+    positions.push(
+      state.position[0] + normalX * trackHalfWidth,
+      0.18,
+      state.position[2] + normalZ * trackHalfWidth,
+      state.position[0] - normalX * trackHalfWidth,
+      0.18,
+      state.position[2] - normalZ * trackHalfWidth,
+    );
+  }
+
+  for (let index = 0; index < segments; index += 1) {
+    const current = index * 2;
+    const next = (index + 1) * 2;
+    indices.push(current, next, current + 1, current + 1, next, next + 1);
+  }
+
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+  geometry.setIndex(indices);
+  geometry.computeVertexNormals();
+  return geometry;
+}
+
 export class LowPolyRoverScene {
   private readonly container: HTMLElement;
   private readonly options: LowPolyRoverSceneOptions;
@@ -205,10 +252,15 @@ export class LowPolyRoverScene {
   private readonly camera = new THREE.PerspectiveCamera();
   private readonly roverGroup = new THREE.Group();
   private readonly moduleRoot = new THREE.Group();
+  private readonly garageRoot = new THREE.Group();
+  private readonly courseRoot = new THREE.Group();
+  private readonly dustRoot = new THREE.Group();
   private readonly moduleInstances: ModuleInstance[] = [];
   private readonly wheelSpinGroups: THREE.Group[] = [];
+  private readonly dustParticles: THREE.Mesh[] = [];
   private reducedMotion: boolean;
   private selection: RoverSelection;
+  private mode: ExperienceMode = "garage";
   private readonly handleResize = (): void => this.resize();
   private readonly handleVisibility = (): void => {
     this.pageVisible = document.visibilityState === "visible";
@@ -225,12 +277,10 @@ export class LowPolyRoverScene {
   private lastTime = 0;
   private controlsActiveUntil = 0;
   private animationLoopActive = false;
-  private trialActive = false;
-  private trialStartedAt = 0;
-  private previousTrialTravel = 0;
+  private courseActive = false;
+  private courseStartedAt = 0;
+  private previousCourseTravel = 0;
   private wheelSpin = 0;
-  private trialAutoRotateBefore = false;
-  private trialCanRestoreAutoRotate = true;
 
   public constructor(container: HTMLElement, options: LowPolyRoverSceneOptions) {
     this.container = container;
@@ -244,13 +294,15 @@ export class LowPolyRoverScene {
     this.scene.fog = new THREE.Fog(BACKGROUND_COLOR, 15, 27);
     this.buildLighting();
     this.buildGarage();
+    this.buildCourse();
     this.buildFixedChassis();
     this.scene.add(this.roverGroup);
     this.roverGroup.add(this.moduleRoot);
+    this.roverGroup.add(this.dustRoot);
     this.buildInitialModules();
 
     const viewport = this.getViewportSize();
-    const cameraPreset = getCameraPreset(viewport.width, viewport.height);
+    const cameraPreset = getCameraPreset(this.mode, viewport.width, viewport.height);
     this.camera.aspect = viewport.width / viewport.height;
     this.camera.fov = cameraPreset.fov;
     this.camera.near = 0.1;
@@ -370,7 +422,7 @@ export class LowPolyRoverScene {
   }
 
   public setAutoRotate(enabled: boolean): void {
-    if (this.disposed || !this.controls || this.trialActive) {
+    if (this.disposed || !this.controls || this.mode === "course" || this.courseActive) {
       return;
     }
 
@@ -384,19 +436,15 @@ export class LowPolyRoverScene {
       return;
     }
 
-    if (enabled && this.trialActive) {
-      this.trialCanRestoreAutoRotate = false;
-    }
     this.reducedMotion = enabled;
     if (!this.controls) {
       return;
     }
 
     this.controls.dampingFactor = getOrbitDampingFactor(enabled);
-    const nextAutoRotate = getAutoRotateAfterMotionPreference(
-      enabled,
-      this.controls.autoRotate,
-    );
+    const nextAutoRotate = this.mode === "course"
+      ? false
+      : getAutoRotateAfterMotionPreference(enabled, this.controls.autoRotate);
     if (nextAutoRotate !== this.controls.autoRotate) {
       this.controls.autoRotate = nextAutoRotate;
       this.options.onAutoRotateChange(nextAutoRotate);
@@ -404,28 +452,56 @@ export class LowPolyRoverScene {
     this.updateLoopState();
   }
 
-  public startTrial(): void {
-    if (this.disposed || !this.renderer || this.trialActive) {
+  public setMode(mode: ExperienceMode): void {
+    if (this.disposed || !this.controls || this.courseActive || this.mode === mode) {
       return;
     }
 
-    this.trialActive = true;
-    this.trialStartedAt = performance.now();
-    this.previousTrialTravel = 0;
+    this.mode = mode;
+    this.garageRoot.visible = mode === "garage";
+    this.courseRoot.visible = mode === "course";
+    this.dustRoot.visible = false;
+    this.roverGroup.position.set(0, 0, 0);
+    this.roverGroup.rotation.set(0, 0, 0);
     this.wheelSpin = 0;
-    this.trialAutoRotateBefore = this.controls?.autoRotate ?? false;
-    this.trialCanRestoreAutoRotate = true;
     this.wheelSpinGroups.forEach((group) => group.rotation.set(0, 0, 0));
-    if (this.controls?.autoRotate) {
-      this.controls.autoRotate = false;
-      this.options.onAutoRotateChange(false);
+    const viewport = this.getViewportSize();
+    const cameraPreset = getCameraPreset(mode, viewport.width, viewport.height);
+    this.camera.position.set(...cameraPreset.position);
+    this.camera.fov = cameraPreset.fov;
+    this.camera.updateProjectionMatrix();
+    this.controls.target.set(...cameraPreset.target);
+    this.controls.enabled = mode === "garage";
+    this.controls.minDistance = cameraPreset.minDistance;
+    this.controls.maxDistance = cameraPreset.maxDistance;
+    this.controls.autoRotate = false;
+    this.controls.update();
+    if (mode === "course") {
+      this.roverGroup.position.set(...getCourseDriveState(0, this.reducedMotion).position);
+      this.options.onCourseStatusChange("ready");
     }
-    this.options.onTrialChange(true);
+    this.options.onAutoRotateChange(false);
+    this.controlsActiveUntil = performance.now() + (this.reducedMotion ? 80 : 300);
+    this.updateLoopState();
+  }
+
+  public startCourse(): void {
+    if (this.disposed || !this.renderer || this.mode !== "course" || this.courseActive) {
+      return;
+    }
+
+    this.courseActive = true;
+    this.courseStartedAt = performance.now();
+    this.previousCourseTravel = 0;
+    this.wheelSpin = 0;
+    this.wheelSpinGroups.forEach((group) => group.rotation.set(0, 0, 0));
+    this.controls?.update();
+    this.options.onCourseStatusChange("running");
     this.updateLoopState();
   }
 
   public zoomBy(direction: "in" | "out"): void {
-    if (this.disposed || !this.controls) {
+    if (this.disposed || !this.controls || this.mode === "course" || this.courseActive) {
       return;
     }
 
@@ -443,20 +519,19 @@ export class LowPolyRoverScene {
   }
 
   public reset(): void {
-    if (this.disposed || !this.controls) {
+    if (this.disposed || !this.controls || this.mode === "course" || this.courseActive) {
       return;
     }
 
     const viewport = this.getViewportSize();
-    const cameraPreset = getCameraPreset(viewport.width, viewport.height);
+    const cameraPreset = getCameraPreset("garage", viewport.width, viewport.height);
     this.camera.position.set(...cameraPreset.position);
     this.camera.fov = cameraPreset.fov;
     this.camera.updateProjectionMatrix();
     this.controls.target.set(...cameraPreset.target);
     this.controls.update();
-    const initialAutoRotate = getInitialAutoRotate(this.reducedMotion);
-    this.controls.autoRotate = initialAutoRotate;
-    this.options.onAutoRotateChange(initialAutoRotate);
+    this.controls.autoRotate = false;
+    this.options.onAutoRotateChange(false);
     this.controlsActiveUntil = performance.now() + 520;
     this.updateLoopState();
   }
@@ -500,7 +575,7 @@ export class LowPolyRoverScene {
   }
 
   private buildGarage(): void {
-    const garage = new THREE.Group();
+    const garage = this.garageRoot;
     garage.name = "garage-set-dressing";
     addCylinder(garage, 5.5, 5.9, 0.18, 8, [0, 0.08, 0], COLORS.pad);
     addMesh(
@@ -519,35 +594,145 @@ export class LowPolyRoverScene {
     this.scene.add(garage);
   }
 
+  private buildCourse(): void {
+    const course = this.courseRoot;
+    course.name = "test-course-environment";
+    course.visible = false;
+    addMesh(course, createCourseTrackGeometry(), createMaterial(COLORS.soil, { roughness: 0.98 }));
+    addMesh(
+      course,
+      new THREE.TorusGeometry(5.75, 0.05, 4, 32),
+      createMaterial(COLORS.yellow),
+      [0, 0.23, 0],
+      [Math.PI / 2, 0, 0],
+      [1, 1, 0.79],
+    );
+
+    const start = getCourseDriveState(0, false).position;
+    const startZ = start[2];
+    addBox(course, [0.18, 2.6, 0.18], [-1.35, 1.35, startZ], COLORS.frame);
+    addBox(course, [0.18, 2.6, 0.18], [1.35, 1.35, startZ], COLORS.frame);
+    addBox(course, [3, 0.22, 0.22], [0, 2.62, startZ], COLORS.orange);
+    addBox(course, [0.55, 0.4, 0.08], [-0.88, 2.35, startZ + 0.02], COLORS.yellow, [0, 0, -0.08]);
+    addBox(course, [0.55, 0.4, 0.08], [0.88, 2.35, startZ + 0.02], COLORS.yellow, [0, 0, 0.08]);
+
+    const boundaryProgresses = [0.08, 0.17, 0.31, 0.46, 0.61, 0.76, 0.9];
+    for (const progress of boundaryProgresses) {
+      const state = getCourseDriveState(progress, false);
+      const next = getCourseDriveState(Math.min(1, progress + 0.01), false);
+      const dx = next.position[0] - state.position[0];
+      const dz = next.position[2] - state.position[2];
+      const length = Math.max(0.001, Math.hypot(dx, dz));
+      const normalX = -dz / length;
+      const normalZ = dx / length;
+      for (const side of [-1, 1]) {
+        const x = state.position[0] + normalX * side * 0.98;
+        const z = state.position[2] + normalZ * side * 0.98;
+        addCylinder(course, 0.02, 0.02, 0.86, 5, [x, 0.62, z], COLORS.frame);
+        addMesh(course, new THREE.ConeGeometry(0.2, 0.38, 5), createMaterial(COLORS.orange), [x, 0.22, z]);
+      }
+    }
+
+    for (const [x, z, scale] of [
+      [-6.4, -2.8, 1.1],
+      [6.3, 2.4, 0.85],
+      [-5.7, 4.8, 0.7],
+      [5.8, -4.9, 1.25],
+    ] as const) {
+      addMesh(
+        course,
+        new THREE.IcosahedronGeometry(0.62, 0),
+        createMaterial(COLORS.padLine),
+        [x, 0.5 * scale, z],
+        [0.1, 0.2, -0.08],
+        [scale, scale * 0.8, scale * 0.9],
+      );
+    }
+    for (const [x, z] of [[-7.1, 0.8], [7.2, -1.2]] as const) {
+      addMesh(
+        course,
+        new THREE.ConeGeometry(1.2, 1.15, 6),
+        createMaterial(COLORS.pad),
+        [x, 0.57, z],
+      );
+    }
+    for (const [progress, color] of [[0.25, COLORS.bodyLight], [0.75, COLORS.yellow]] as const) {
+      const state = getCourseDriveState(progress, false).position;
+      addBox(course, [0.08, 1.5, 0.08], [state[0], 0.9, state[2]], COLORS.frame);
+      addBox(course, [0.52, 0.34, 0.06], [state[0], 1.45, state[2]], color);
+    }
+    for (const progress of [0.38, 0.58, 0.84]) {
+      const state = getCourseDriveState(progress, false);
+      addMesh(
+        course,
+        new THREE.IcosahedronGeometry(0.42, 0),
+        createMaterial(COLORS.padLine),
+        [state.position[0], 0.3, state.position[2]],
+        [0, state.rotation[1], 0],
+        [1.8, 0.32, 0.7],
+      );
+    }
+
+    for (let index = 0; index < 7; index += 1) {
+      const particle = addMesh(
+        this.dustRoot,
+        new THREE.SphereGeometry(0.16 + (index % 3) * 0.05, 6, 4),
+        new THREE.MeshStandardMaterial({
+          color: 0xf1d3a2,
+          flatShading: true,
+          transparent: true,
+          opacity: 0.26,
+          depthWrite: false,
+        }),
+      );
+      particle.visible = false;
+      this.dustParticles.push(particle);
+    }
+    this.scene.add(course);
+  }
+
   private buildFixedChassis(): void {
     const chassis = new THREE.Group();
     chassis.name = "fixed-chassis";
-    addBox(chassis, [4.55, 0.42, 2.25], [0, 1.35, 0], COLORS.frame);
-    addBox(chassis, [4.05, 0.52, 1.9], [0, 1.73, 0], COLORS.body);
-    addBox(chassis, [3.3, 0.18, 1.7], [0, 2.04, 0], COLORS.bodyLight, [0, 0.03, 0]);
+    addBox(chassis, [4.5, 0.42, 2.18], [0, 1.35, 0], COLORS.frame);
+    addMesh(
+      chassis,
+      new THREE.SphereGeometry(1, 10, 6),
+      createMaterial(COLORS.body),
+      [0, 1.67, 0],
+      [0, 0, 0],
+      [2.2, 0.68, 1.12],
+    );
+    addBox(chassis, [3.45, 0.18, 1.68], [0, 2.08, 0], COLORS.bodyLight, [0, 0.03, 0]);
+    addBox(chassis, [2.5, 0.12, 1.42], [0.2, 2.2, 0], COLORS.yellow, [0, -0.02, 0]);
     addBeam(chassis, [-2.05, 1.2, -1.02], [2.05, 1.2, -1.02], 0.1, COLORS.pipe);
     addBeam(chassis, [-2.05, 1.2, 1.02], [2.05, 1.2, 1.02], 0.1, COLORS.pipe);
     addBeam(chassis, [-2.1, 1.2, -1.02], [-2.1, 1.65, -0.3], 0.085, COLORS.pipe);
     addBeam(chassis, [2.1, 1.2, 1.02], [2.1, 1.65, 0.3], 0.085, COLORS.pipe);
 
-    for (const z of [-1.7, 1.7]) {
-      addCylinder(chassis, 0.13, 0.13, 4.7, 6, [0, 0.95, z], COLORS.darkMetal, [0, 0, Math.PI / 2]);
+    for (const z of [-1.42, 1.42]) {
+      addCylinder(chassis, 0.13, 0.13, 4.55, 6, [0, 0.95, z], COLORS.darkMetal, [0, 0, Math.PI / 2]);
       for (const x of [-1, 1]) {
-        const suspensionX = x * 2.05;
+        const suspensionX = x * 1.96;
         addBeam(chassis, [x * 1.05, 1.18, z], [suspensionX, 0.83, z], 0.1, COLORS.metal);
         addBeam(chassis, [x * 1.25, 1.3, z + x * 0.12], [suspensionX, 0.92, z - x * 0.12], 0.07, COLORS.pipe);
       }
     }
 
-    addBox(chassis, [0.42, 0.14, 1.45], [-2.52, 1.02, 0], COLORS.hub);
-    addBox(chassis, [0.42, 0.14, 1.45], [2.52, 1.02, 0], COLORS.hub);
+    addBox(chassis, [0.42, 0.14, 1.35], [-2.45, 1.02, 0], COLORS.hub);
+    addBox(chassis, [0.42, 0.14, 1.35], [2.45, 1.02, 0], COLORS.hub);
+    for (const x of [-1.65, -0.55, 0.55, 1.65]) {
+      addMesh(chassis, new THREE.SphereGeometry(0.09, 6, 4), createMaterial(COLORS.yellow), [x, 2.13, 0.82]);
+    }
+    addBox(chassis, [0.2, 0.7, 0.2], [-1.55, 2.28, -0.78], COLORS.orange, [0.12, 0.05, -0.06]);
+    addBox(chassis, [0.2, 0.48, 0.2], [1.45, 2.2, -0.78], COLORS.pipe, [-0.16, -0.04, 0.08]);
     this.buildWheels(chassis);
     this.roverGroup.add(chassis);
   }
 
   private buildWheels(parent: THREE.Group): void {
-    for (const x of [-2.42, 2.42]) {
-      for (const z of [-1.7, 1.7]) {
+    for (const x of [-2.32, 2.32]) {
+      for (const z of [-1.42, 1.42]) {
         const wheelSpinGroup = new THREE.Group();
         wheelSpinGroup.position.set(x, 0.88, z);
         const tire = addMesh(
@@ -661,6 +846,22 @@ export class LowPolyRoverScene {
       return;
     }
 
+    if (id === "utility-winch") {
+      addBox(group, [3.85, 0.42, 0.38], [0, -0.04, 0.42], COLORS.orange);
+      addBox(group, [3.2, 0.16, 0.62], [0, -0.24, 0.62], COLORS.frame);
+      addCylinder(group, 0.55, 0.55, 1.65, 10, [0, 0.34, 0.72], COLORS.pipe, [0, 0, Math.PI / 2]);
+      addCylinder(group, 0.7, 0.7, 0.12, 10, [-0.86, 0.34, 0.72], COLORS.yellow, [0, 0, Math.PI / 2]);
+      addCylinder(group, 0.7, 0.7, 0.12, 10, [0.86, 0.34, 0.72], COLORS.yellow, [0, 0, Math.PI / 2]);
+      addBeam(group, [0, 0.28, 1.02], [0, 0.28, 1.48], 0.1, COLORS.darkMetal);
+      addMesh(group, new THREE.TorusGeometry(0.22, 0.07, 5, 8), createMaterial(COLORS.metal), [0, 0.24, 1.55], [Math.PI / 2, 0, 0]);
+      addMesh(group, new THREE.SphereGeometry(0.38, 8, 5), createMaterial(COLORS.light, { roughness: 0.34 }), [-1.22, 0.3, 0.66]);
+      addMesh(group, new THREE.SphereGeometry(0.25, 8, 5), createMaterial(COLORS.light, { roughness: 0.34 }), [1.16, 0.17, 0.7]);
+      for (const x of [-1.35, -0.45, 0.45, 1.35]) {
+        addMesh(group, new THREE.SphereGeometry(0.08, 6, 4), createMaterial(COLORS.yellow), [x, 0.2, 0.36]);
+      }
+      return;
+    }
+
     addCylinder(group, 0.78, 0.88, 0.22, 8, [0, -0.03, 0.28], COLORS.darkMetal);
     addMesh(
       group,
@@ -698,6 +899,25 @@ export class LowPolyRoverScene {
       addBox(group, [1.7, 0.42, 0.07], [0, 0.34, 1.06], COLORS.window);
       addCylinder(group, 0.24, 0.24, 0.38, 6, [0, 1.08, -0.12], COLORS.metal);
       addCylinder(group, 0.12, 0.12, 0.16, 6, [0, 1.32, -0.12], COLORS.yellow);
+      return;
+    }
+
+    if (id === "offset-capsule") {
+      addBox(group, [1.45, 0.18, 1.55], [0, -0.5, 0], COLORS.darkMetal);
+      addMesh(
+        group,
+        new THREE.SphereGeometry(1.18, 10, 6, 0, Math.PI * 2, 0, Math.PI * 0.64),
+        createMaterial(COLORS.bodyLight, { roughness: 0.42 }),
+        [-0.48, 0.18, 0],
+        [0, 0, 0],
+        [1.12, 0.92, 1.08],
+      );
+      addMesh(group, new THREE.SphereGeometry(0.48, 8, 5), createMaterial(COLORS.window, { roughness: 0.38 }), [-0.48, 0.24, 0.98]);
+      addCylinder(group, 0.42, 0.5, 0.28, 8, [0.9, 0.14, -0.16], COLORS.metal);
+      addCylinder(group, 0.25, 0.25, 0.2, 8, [0.9, 0.38, -0.16], COLORS.yellow);
+      addBeam(group, [-1.22, -0.35, -0.76], [-1.22, 1.0, -0.72], 0.15, COLORS.pipe);
+      addBeam(group, [0.55, -0.38, -0.82], [0.62, 0.94, -0.76], 0.15, COLORS.pipe);
+      addBox(group, [0.45, 0.12, 0.72], [0.92, 0.58, 0.18], COLORS.orange, [0, 0.16, 0]);
       return;
     }
 
@@ -746,6 +966,21 @@ export class LowPolyRoverScene {
       addBox(group, [0.16, 0.9, 0.38], [-1.08, 0.16, 0.22], COLORS.bodyLight, [0.1, 0, 0.08]);
       addBox(group, [0.16, 0.9, 0.38], [1.08, 0.16, 0.22], COLORS.bodyLight, [-0.1, 0, -0.08]);
       return rotor;
+    }
+
+    if (id === "coil-generator") {
+      addBox(group, [2.65, 0.36, 1.78], [0, -0.3, 0], COLORS.frame);
+      addBox(group, [0.82, 0.74, 0.78], [0, 0.22, 0.08], COLORS.bodyLight);
+      addBox(group, [0.42, 0.52, 0.62], [0, 0.42, 0.08], COLORS.yellow);
+      for (const [x, y, radius] of [[-0.78, 0.18, 0.62], [0.78, 0.34, 0.72]] as const) {
+        addCylinder(group, radius, radius, 0.72, 10, [x, y, 0.02], COLORS.metal, [Math.PI / 2, 0, 0]);
+        addMesh(group, new THREE.TorusGeometry(radius * 0.82, 0.08, 5, 10), createMaterial(COLORS.orange), [x, y, 0.42], [Math.PI / 2, 0, 0]);
+      }
+      addBeam(group, [-0.62, 0.16, 0.38], [-0.2, 0.44, 0.62], 0.11, COLORS.pipe);
+      addBeam(group, [0.64, 0.34, 0.38], [0.2, 0.48, 0.62], 0.11, COLORS.pipe);
+      addCylinder(group, 0.2, 0.24, 0.7, 6, [1.15, 0.5, -0.48], COLORS.darkMetal);
+      addCylinder(group, 0.28, 0.28, 0.12, 6, [1.15, 0.86, -0.48], COLORS.orange);
+      return null;
     }
 
     addCylinder(group, 0.66, 0.66, 2.1, 10, [0, 0.18, 0], COLORS.metal, [0, 0, Math.PI / 2]);
@@ -808,12 +1043,12 @@ export class LowPolyRoverScene {
     this.lastTime = safeTime;
     this.updateModuleTransitions(deltaSeconds);
 
-    if (this.trialActive) {
-      const elapsed = Math.max(0, safeTime - this.trialStartedAt);
-      const progress = clampProgress(elapsed / getTrialDuration(this.reducedMotion));
-      const driveState = getTrialDriveState(progress, this.reducedMotion);
-      const travelDelta = driveState.travel - this.previousTrialTravel;
-      this.previousTrialTravel = driveState.travel;
+    if (this.courseActive) {
+      const elapsed = Math.max(0, safeTime - this.courseStartedAt);
+      const progress = clampProgress(elapsed / getCourseDuration(this.reducedMotion));
+      const driveState = getCourseDriveState(progress, this.reducedMotion);
+      const travelDelta = driveState.travel - this.previousCourseTravel;
+      this.previousCourseTravel = driveState.travel;
       this.wheelSpin += getWheelRotation(travelDelta, WHEEL_RADIUS);
       this.roverGroup.position.set(...driveState.position);
       this.roverGroup.rotation.set(...driveState.rotation);
@@ -821,13 +1056,16 @@ export class LowPolyRoverScene {
         group.rotation.x = this.wheelSpin;
       });
       for (const instance of this.moduleInstances) {
-        if (instance.definition.id === "turbine-pack" && instance.turbineRotor) {
+        if (instance.definition.id === "turbine-pack" && instance.target === 1 && instance.turbineRotor) {
           instance.turbineRotor.rotation.z += deltaSeconds * 2.4;
         }
       }
+      this.updateDust(driveState, progress);
       if (progress >= 1) {
-        this.finishTrial();
+        this.finishCourse();
       }
+    } else {
+      this.dustRoot.visible = false;
     }
 
     this.controls.update();
@@ -839,20 +1077,42 @@ export class LowPolyRoverScene {
     }
   }
 
-  private finishTrial(): void {
-    this.trialActive = false;
-    this.previousTrialTravel = 0;
-    this.roverGroup.position.set(0, 0, 0);
-    this.roverGroup.rotation.set(0, 0, 0);
-    this.options.onTrialChange(false);
-
-    const shouldRestore = this.trialCanRestoreAutoRotate
-      && this.trialAutoRotateBefore
-      && !this.reducedMotion;
-    if (this.controls) {
-      this.controls.autoRotate = shouldRestore;
-      this.options.onAutoRotateChange(shouldRestore);
+  private updateDust(
+    driveState: ReturnType<typeof getCourseDriveState>,
+    progress: number,
+  ): void {
+    const visible = !this.reducedMotion && driveState.dustIntensity > 0.01;
+    this.dustRoot.visible = visible;
+    if (!visible) {
+      this.dustParticles.forEach((particle) => {
+        particle.visible = false;
+      });
+      return;
     }
+
+    const yaw = driveState.rotation[1];
+    this.dustParticles.forEach((particle, index) => {
+      const phase = progress * Math.PI * 2 * (1.4 + (index % 3) * 0.18) + index * 0.73;
+      const localX = -0.4 - index * 0.1 + Math.sin(phase) * 0.12;
+      const localZ = -0.62 - (index % 3) * 0.14;
+      const height = 0.22 + (index % 4) * 0.12 + Math.abs(Math.sin(phase)) * 0.18;
+      particle.position.set(localX, height, localZ);
+      particle.rotation.y = yaw * 0.12 + phase * 0.08;
+      const scale = 0.45 + driveState.dustIntensity * (0.45 + (index % 3) * 0.12);
+      particle.scale.setScalar(scale);
+      particle.visible = true;
+    });
+  }
+
+  private finishCourse(): void {
+    this.courseActive = false;
+    this.previousCourseTravel = 0;
+    const endState = getCourseDriveState(1, this.reducedMotion);
+    this.roverGroup.position.set(...endState.position);
+    this.roverGroup.rotation.set(...endState.rotation);
+    this.dustRoot.visible = false;
+    this.options.onCourseStatusChange("clear");
+    this.options.onAutoRotateChange(false);
     this.controlsActiveUntil = performance.now() + 420;
   }
 
@@ -896,8 +1156,8 @@ export class LowPolyRoverScene {
 
   private shouldAnimate(time: number): boolean {
     return Boolean(
-      this.controls?.autoRotate
-      || this.trialActive
+      (this.mode === "garage" && this.controls?.autoRotate)
+      || this.courseActive
       || this.moduleInstances.some((instance) => instance.target !== instance.progress)
       || time < this.controlsActiveUntil,
     );

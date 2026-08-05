@@ -12,13 +12,13 @@ import {
   getAutoRotateAfterMotionPreference,
   getCameraPreset,
   getCombinationCount,
+  getCourseDriveState,
+  getCourseDuration,
   getInitialAutoRotate,
   getModuleTransitionDuration,
   getModuleTransitionTransform,
   getOrbitDampingFactor,
   getSelectionLabel,
-  getTrialDriveState,
-  getTrialDuration,
   getWheelRotation,
   isFiniteTuple,
   normalizeSelection,
@@ -31,15 +31,15 @@ function expectFiniteTuple(tuple: readonly number[]): void {
 }
 
 describe("roverModel", () => {
-  it("各カテゴリに3種類ずつのモジュールを定義する", () => {
-    expect(FRONT_MODULES).toHaveLength(3);
-    expect(CABIN_MODULES).toHaveLength(3);
-    expect(REAR_MODULES).toHaveLength(3);
-    expect(ROVER_MODULES).toHaveLength(9);
-    expect(new Set(FRONT_MODULES.map((module) => module.id)).size).toBe(3);
-    expect(new Set(CABIN_MODULES.map((module) => module.id)).size).toBe(3);
-    expect(new Set(REAR_MODULES.map((module) => module.id)).size).toBe(3);
-    expect(getCombinationCount()).toBe(27);
+  it("各カテゴリに4種類ずつのモジュールを定義する", () => {
+    expect(FRONT_MODULES).toHaveLength(4);
+    expect(CABIN_MODULES).toHaveLength(4);
+    expect(REAR_MODULES).toHaveLength(4);
+    expect(ROVER_MODULES).toHaveLength(12);
+    expect(new Set(FRONT_MODULES.map((module) => module.id)).size).toBe(4);
+    expect(new Set(CABIN_MODULES.map((module) => module.id)).size).toBe(4);
+    expect(new Set(REAR_MODULES.map((module) => module.id)).size).toBe(4);
+    expect(getCombinationCount()).toBe(64);
   });
 
   it("全モジュールの変換値と取付位置が有限値である", () => {
@@ -100,27 +100,30 @@ describe("roverModel", () => {
     expect(clampProgress(Number.NEGATIVE_INFINITY)).toBe(0);
   });
 
-  it("試運転は通常時とreduced-motion時で距離・上下動を変え、終了時に戻る", () => {
-    const normalStart = getTrialDriveState(0, false);
-    const normalMiddle = getTrialDriveState(0.5, false);
-    const normalEnd = getTrialDriveState(1, false);
-    const reducedMiddle = getTrialDriveState(0.5, true);
+  it("TEST COURSEは閉じた1周の経路と車体姿勢を返す", () => {
+    const normalStart = getCourseDriveState(0, false);
+    const normalMiddle = getCourseDriveState(0.5, false);
+    const normalEnd = getCourseDriveState(1, false);
+    const reducedMiddle = getCourseDriveState(0.5, true);
 
-    expect(normalStart.position).toEqual([0, 0, 0]);
-    expect(normalEnd.position).toEqual([0, 0, 0]);
-    expect(normalEnd.rotation).toEqual([0, 0, 0]);
-    expect(normalMiddle.travel).toBeGreaterThan(reducedMiddle.travel);
-    expect(normalMiddle.position[1]).toBeGreaterThan(reducedMiddle.position[1]);
-    for (const progress of [-1, 0, 0.5, 1, 2, Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY]) {
-      const state = getTrialDriveState(progress, false);
+    expect(normalEnd.position).toEqual(normalStart.position);
+    expect(normalEnd.rotation).toEqual(normalStart.rotation);
+    expect(normalEnd.travel).toBeGreaterThan(normalMiddle.travel);
+    expect(normalStart.dustIntensity).toBeGreaterThan(0);
+    expect(reducedMiddle.dustIntensity).toBe(0);
+    expect(Math.abs(normalMiddle.position[1])).toBeGreaterThan(Math.abs(reducedMiddle.position[1]));
+    for (const progress of [-1, 0, 0.25, 0.5, 0.75, 1, 2, Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY]) {
+      const state = getCourseDriveState(progress, false);
       expectFiniteTuple(state.position);
       expectFiniteTuple(state.rotation);
       expect(Number.isFinite(state.travel)).toBe(true);
+      expect(Number.isFinite(state.dustIntensity)).toBe(true);
+      expect(Object.is(state.dustIntensity, -0)).toBe(false);
     }
-    expect(getTrialDuration(true)).toBeGreaterThanOrEqual(800);
-    expect(getTrialDuration(true)).toBeLessThanOrEqual(1200);
-    expect(getTrialDuration(false)).toBeGreaterThanOrEqual(3000);
-    expect(getTrialDuration(false)).toBeLessThanOrEqual(4000);
+    expect(getCourseDuration(true)).toBeGreaterThanOrEqual(1200);
+    expect(getCourseDuration(true)).toBeLessThanOrEqual(1800);
+    expect(getCourseDuration(false)).toBeGreaterThanOrEqual(7000);
+    expect(getCourseDuration(false)).toBeLessThanOrEqual(9000);
   });
 
   it("移動距離から車輪回転量を安全に求める", () => {
@@ -144,13 +147,16 @@ describe("roverModel", () => {
   });
 
   it("カメラプリセットとmotion preferenceを安全に返す", () => {
-    const desktop = getCameraPreset(1440, 900);
-    const mobile = getCameraPreset(390, 844);
-    const narrow = getCameraPreset(1, 1);
-    const invalid = getCameraPreset(0, Number.POSITIVE_INFINITY);
+    const desktop = getCameraPreset("garage", 1440, 900);
+    const mobile = getCameraPreset("garage", 390, 844);
+    const course = getCameraPreset("course", 1440, 900);
+    const narrow = getCameraPreset("garage", 1, 1);
+    const invalid = getCameraPreset("course", 0, Number.POSITIVE_INFINITY);
 
     expect(desktop.fov).toBeLessThan(mobile.fov);
-    for (const preset of [desktop, mobile, narrow, invalid]) {
+    expect(course.fov).toBeGreaterThan(desktop.fov);
+    expect(course.target).toEqual([0, 0.1, 0]);
+    for (const preset of [desktop, mobile, course, narrow, invalid]) {
       expectFiniteTuple(preset.position);
       expectFiniteTuple(preset.target);
       expect(Number.isFinite(preset.fov)).toBe(true);

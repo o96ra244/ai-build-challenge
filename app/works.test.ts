@@ -77,7 +77,7 @@ describe("works", () => {
     expect(works[7]).toEqual({
       number: 8,
       title: "Low Poly Rover Garage",
-      description: "9種類の低ポリ部品を組み替え、27通りのローバーを試運転できます。",
+      description: "12種類の低ポリ部品を組み替え、64通りのローバーをGarageとTEST COURSEで楽しめます。",
       href: "/works/08-low-poly-rover-garage",
     });
   });

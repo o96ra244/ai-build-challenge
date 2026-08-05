@@ -2,9 +2,11 @@ export type Vector3Tuple = readonly [number, number, number];
 
 export type ModuleCategory = "front" | "cabin" | "rear";
 
-export type FrontModuleId = "twin-lamp" | "drill-nose" | "scout-sensor";
-export type CabinModuleId = "bubble-canopy" | "armored-cab" | "open-cockpit";
-export type RearModuleId = "cargo-rack" | "turbine-pack" | "tool-tank";
+export type ExperienceMode = "garage" | "course";
+
+export type FrontModuleId = "twin-lamp" | "drill-nose" | "scout-sensor" | "utility-winch";
+export type CabinModuleId = "bubble-canopy" | "armored-cab" | "open-cockpit" | "offset-capsule";
+export type RearModuleId = "cargo-rack" | "turbine-pack" | "tool-tank" | "coil-generator";
 export type RoverModuleId = FrontModuleId | CabinModuleId | RearModuleId;
 
 export type RoverModuleDefinition = {
@@ -39,10 +41,11 @@ export type ModuleTransitionTransform = {
   readonly scale: Vector3Tuple;
 };
 
-export type RoverDriveState = {
+export type CourseDriveState = {
   readonly position: Vector3Tuple;
   readonly rotation: Vector3Tuple;
   readonly travel: number;
+  readonly dustIntensity: number;
 };
 
 const FRONT_MOUNT: Vector3Tuple = [0, 1.82, 2.42];
@@ -75,6 +78,16 @@ export const FRONT_MODULES = [
     category: "front",
     label: "スカウトセンサー",
     description: "ドームと太めのアンテナ",
+    mountPosition: FRONT_MOUNT,
+    mountRotation: [0, 0, 0],
+    mountScale: [1, 1, 1],
+    transitionDirection: [0, 0, 1],
+  },
+  {
+    id: "utility-winch",
+    category: "front",
+    label: "ユーティリティウインチ",
+    description: "露出ドラムと太いケーブルガイド付きバンパー",
     mountPosition: FRONT_MOUNT,
     mountRotation: [0, 0, 0],
     mountScale: [1, 1, 1],
@@ -113,6 +126,16 @@ export const CABIN_MODULES = [
     mountScale: [1, 1, 1],
     transitionDirection: [0, 1, 0],
   },
+  {
+    id: "offset-capsule",
+    category: "cabin",
+    label: "オフセットカプセル",
+    description: "片側へ寄せた丸窓カプセルと反対側の吸気ドーム",
+    mountPosition: CABIN_MOUNT,
+    mountRotation: [0, 0, 0],
+    mountScale: [1, 1, 1],
+    transitionDirection: [0, 1, 0],
+  },
 ] as const satisfies readonly RoverModuleDefinition[];
 
 export const REAR_MODULES = [
@@ -141,6 +164,16 @@ export const REAR_MODULES = [
     category: "rear",
     label: "ツールタンク",
     description: "工具ケース付きの横向きタンク",
+    mountPosition: REAR_MOUNT,
+    mountRotation: [0, 0, 0],
+    mountScale: [1, 1, 1],
+    transitionDirection: [0, 0, -1],
+  },
+  {
+    id: "coil-generator",
+    category: "rear",
+    label: "コイルジェネレーター",
+    description: "高さの違う二連コイルと中央ジェネレーター",
     mountPosition: REAR_MOUNT,
     mountRotation: [0, 0, 0],
     mountScale: [1, 1, 1],
@@ -279,11 +312,25 @@ export function getModuleTransitionTransform(
   return { position, scale };
 }
 
-export function getCameraPreset(viewportWidth: number, viewportHeight: number): CameraPreset {
+export function getCameraPreset(
+  mode: ExperienceMode,
+  viewportWidth: number,
+  viewportHeight: number,
+): CameraPreset {
   const safeWidth = Number.isFinite(viewportWidth) && viewportWidth > 0 ? viewportWidth : 1;
   const safeHeight = Number.isFinite(viewportHeight) && viewportHeight > 0 ? viewportHeight : 1;
   const aspect = safeWidth / safeHeight;
   const isMobile = safeWidth < 700 || aspect < 0.78;
+
+  if (mode === "course") {
+    return {
+      position: isMobile ? [10.4, 8.4, 13.2] : [11.8, 9.4, 13.8],
+      target: [0, 0.1, 0],
+      fov: isMobile ? 53 : 48,
+      minDistance: 12,
+      maxDistance: 28,
+    };
+  }
 
   return {
     position: isMobile ? [8.2, 6.8, 12.6] : [7.8, 5.7, 9.6],
@@ -294,25 +341,38 @@ export function getCameraPreset(viewportWidth: number, viewportHeight: number): 
   };
 }
 
-export function getTrialDuration(reducedMotion: boolean): number {
-  return reducedMotion ? 1000 : 3600;
+export function getCourseDuration(reducedMotion: boolean): number {
+  return reducedMotion ? 1500 : 7800;
 }
 
-export function getTrialDriveState(progress: number, reducedMotion: boolean): RoverDriveState {
+export function getCourseDriveState(progress: number, reducedMotion: boolean): CourseDriveState {
   const safeProgress = clampProgress(progress);
-  const eased = safeProgress === 0 || safeProgress === 1
+  const wrappedProgress = safeProgress === 1 ? 0 : safeProgress;
+  const angle = wrappedProgress * Math.PI * 2;
+  const sinAngle = Math.sin(angle);
+  const cosAngle = Math.cos(angle);
+  const sinDoubleAngle = Math.sin(angle * 2);
+  const cosTripleAngle = Math.cos(angle * 3);
+  const x = 5.05 * sinAngle + 0.28 * sinDoubleAngle;
+  const z = 4.45 * cosAngle + 0.22 * cosTripleAngle;
+  const dx = 5.05 * cosAngle * Math.PI * 2 + 0.28 * Math.cos(angle * 2) * Math.PI * 4;
+  const dz = -4.45 * sinAngle * Math.PI * 2 - 0.22 * Math.sin(angle * 3) * Math.PI * 6;
+  const tangentLength = Math.max(0.001, Math.hypot(dx, dz));
+  const bobAmount = reducedMotion ? 0.012 : 0.055;
+  const pitchAmount = reducedMotion ? 0.008 : 0.028;
+  const courseHump = Math.sin(angle * 0.5) ** 2;
+  const bob = finiteOr(courseHump * bobAmount + Math.sin(angle * 4) * bobAmount * 0.28 + Math.sin(angle * 7) * bobAmount * 0.12);
+  const pitch = finiteOr(courseHump * pitchAmount * 0.5 + Math.cos(angle * 4) * pitchAmount + Math.cos(angle * 7) * pitchAmount * 0.25 - pitchAmount * 1.25);
+  const travel = finiteOr(safeProgress * 30.9);
+  const dustIntensity = reducedMotion
     ? 0
-    : Math.sin(Math.PI * safeProgress);
-  const distance = reducedMotion ? 0.58 : 2.15;
-  const bobAmount = reducedMotion ? 0.018 : 0.075;
-  const travel = finiteOr(eased * distance);
-  const bob = finiteOr(eased * bobAmount);
-  const roll = finiteOr(eased * 0.018);
+    : finiteOr(0.24 + (Math.sin(angle * 3 - 0.45) ** 2) * 0.42);
 
   return {
-    position: [travel, bob, 0],
-    rotation: [0, 0, roll],
+    position: [finiteOr(x), bob, finiteOr(z)],
+    rotation: [pitch, finiteOr(Math.atan2(dx / tangentLength, dz / tangentLength)), 0],
     travel,
+    dustIntensity,
   };
 }
 
