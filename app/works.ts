@@ -44,4 +44,10 @@ export const works: readonly Work[] = [
       "SVG本体を変更せず、内蔵または任意のSVGへ用途別CSSアニメーションを設定・生成します。",
     href: "/works/06-svg-motion-studio",
   },
+  {
+    number: 7,
+    title: "Low Poly Tree Explorer",
+    description: "低ポリゴンの3Dツリーを回転・ズーム・分解表示して触って楽しめるインタラクティブ作品です。",
+    href: "/works/07-low-poly-tree-explorer",
+  },
 ];

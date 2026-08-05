@@ -14,6 +14,7 @@ ChatGPTで企画し、Codexで実装しながら、30日間で15作品の公開�
 - React
 - TypeScript
 - CSS
+- Three.js（WebGPURenderer）
 - ESLint
 - Vitest
 - npm
@@ -43,7 +44,7 @@ npm run dev
 
 ## 作品一覧
 
-現在の作品数: **6件**
+現在の作品数: **7件**
 
 ### 01 画像比率リサイズ計算機
 
@@ -93,6 +94,15 @@ SVG本体を変更せず、同じ内蔵アイコンまたは任意のSVGで12種
 - 公開先ルート: `/works/06-svg-motion-studio`
 - 作品URL（mainマージ後）: https://ai-build-challenge.vercel.app/works/06-svg-motion-studio
 - 主な機能: 同一SVGで12種類を一括比較、Speed・Strength・Triggerの簡易調整、詳細設定、任意SVGの安全検証、原文保持、HTML・CSSコピー、reduced-motion対応
+
+### 07 Low Poly Tree Explorer
+
+低ポリゴンの3Dツリーを回転・ズーム・分解表示して触って楽しめるインタラクティブ3D作品です。
+
+- GitHub上のパス: [`app/works/07-low-poly-tree-explorer/`](app/works/07-low-poly-tree-explorer/)
+- 公開先ルート: `/works/07-low-poly-tree-explorer`
+- 作品URL（mainマージ後）: https://ai-build-challenge.vercel.app/works/07-low-poly-tree-explorer
+- 主な機能: 低ポリツリーのOrbit・Zoom・Explode・Reset・自動回転、WebGPURendererとWebGL 2フォールバック、キーボード・タッチ・reduced-motion対応
 
 ## 公開URL
 

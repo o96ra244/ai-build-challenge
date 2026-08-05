@@ -112,6 +112,33 @@
 - **学んだこと:** 検証用の解析結果と生成に使う原文を分離すると、安全性を確認しながらSVG文字列の完全な保持を実現できます。
 - **次回への改善点:** 実機端末と複数ブラウザでsandbox iframe内のフォーカス・モーションを比較できる確認手順を整えます。
 
+## 作品07
+
+- **作品番号:** 07
+- **作品名:** Low Poly Tree Explorer
+- **制作日:** 2026-08-05
+- **対象ユーザー:** ブラウザ上で立体を回転させ、形の成り立ちを気軽に眺めたい人、Three.jsやWebGPUの表現に興味がある人
+- **解決する問題:** 3Dモデルをただ見るだけでなく、回転・ズーム・分解を通して木の構造と低ポリゴン表現を理解できる短時間の体験を提供します。
+- **一文の差別化:** ひとつの低ポリツリーを、景色として眺める状態と構造として分解する状態の両方で探索できます。
+- **主な機能:** 低ポリツリーのOrbit、ホイール・ピンチ・ボタンによるZoom、組み立てる／分解するExplode、自動回転、視点リセット、レスポンシブ表示
+- **操作方法:** マウスまたは1本指のドラッグで回転し、ホイールまたはピンチでズームします。`分解する`、`組み立てる`、`自動回転`、`視点をリセット`、ズームボタンはキーボードでも操作できます。
+- **低ポリツリーの構成:** 6分割の幹と枝、複数のIcosahedronGeometryによる葉の塊、7角形の低ポリ島、土台と3つの石を組み合わせています。各パーツは幹・枝・内側の葉・外側の葉・地面・装飾へ分類しています。
+- **技術構成:** Next.js App Router、React、TypeScript、Three.js 0.185.1、CSS Modules、Vitest
+- **WebGPURenderer利用:** `three/webgpu`の`WebGPURenderer`をClient Componentから動的に読み込み、`await renderer.init()`後にシーンを描画します。実際のバックエンド名を推測せず、画面にはWebGPU APIの利用可能性だけを表示します。
+- **WebGL 2フォールバック方針:** WebGPURendererの既定フォールバックを利用し、WebGPU APIが利用できない環境では同じGeometryとライト構成をThree.jsのWebGL 2バックエンドで描画します。フォールバックbackend自体は今回のブラウザ確認では実測していません。
+- **OrbitControls:** パンを無効にし、距離・極角に上限を設定したOrbitControlsで、マウス・タッチの回転とホイール・ピンチのズームを受け付けます。canvas外はページの通常スクロールを維持します。
+- **Explode設計:** progressを0〜1へclampし、幹・枝・葉・地面・石ごとに異なる方向と距離を事前定義します。葉は外側・上方向、枝は幹から外側、地面と石は下方向へ控えめに移動し、三次easingで補間します。
+- **パフォーマンス対策:** GeometryとMaterialは初期化時に一度だけ生成し、pixel ratioを最大1.5、delta timeを最大0.05秒に制限します。ResizeObserver、IntersectionObserver、visibilitychangeでサイズ変更・画面外・タブ非表示時の描画を抑え、静止時はanimation loopを停止します。
+- **アクセシビリティ対応:** 見出し、native button、`aria-pressed`、操作ステータスの`aria-live`、canvasのアクセシブルな説明、`:focus-visible`、色に依存しない状態テキストを実装しています。
+- **reduced-motion対応:** 初期自動回転をOFFにし、Explodeの遷移時間とOrbitの減衰を短縮します。`LowPolyTreeScene.setReducedMotion`で実行中も設定を反映し、ONへの変更時は自動回転を停止してUIへ通知します。OFFへ戻しても自動回転は勝手に再開せず、明示的なボタン操作で再開できます。分解操作中も次フレームから最新の遷移時間を使います。
+- **GitHub上のパス:** `app/works/07-low-poly-tree-explorer/`
+- **想定公開URL:** https://ai-build-challenge.vercel.app/works/07-low-poly-tree-explorer
+- **検証結果:** `npm run lint`（警告なし）、`npm run typecheck`、`npm run test`（11ファイル・305件）、`npm run build`、`git diff --check`に成功しました。ビルド出力で`/works/07-low-poly-tree-explorer`の静的生成を確認しました。テストではreduced-motion ON/OFFのExplode時間、Orbit dampingの有限値、自動回転停止とOFF復帰時の非再開方針を確認しています。
+- **ブラウザ確認結果:** macOSのCodex In-app Browserで、viewport overrideの1440×900相当と390×844を確認しました。今回の修正後は通常設定で自動回転ONと`aria-pressed=true`、停止後のOFF表示と`aria-pressed=false`、自動回転ボタンからの明示的な再開、Explodeの分解表示、コンソールerror・warningなしを確認しました。WebGPURenderer初期化、WebGPU API利用可能の表示、木全体の初期表示、低ポリの幹・枝・葉・島・石、マウスドラッグOrbit、Reset、ズームボタン、キーボードのEnter／SpaceによるExplode・Auto rotate、390pxの横スクロールなし、canvas外の縦スクロール、pressed状態のボタン表示は既存確認を維持しています。接続中ブラウザには`prefers-reduced-motion`エミュレーション機能がなく、OS設定も変更していないため、ページを再読み込みせずにOS設定をON／OFFした実動作、実際の短縮遷移、damping変更は未確認です。390pxではcanvas 348×523px、ボタン高さ約60px、文書幅とviewport幅が390pxでした。実機スマートフォンの1本指Orbit・ピンチ、実機トラックパッドのホイール、WebGL 2フォールバックbackend、タブ非表示・復帰時の実動作は未確認です。ブラウザ自動操作では`:focus-visible`の疑似クラス成立までは取得できなかったため、CSSルールとネイティブbuttonのフォーカス順で確認しています。
+- **既知の制約:** 外部モデル、テクスチャ、複数モデル切替、WebXR、エディター機能、モデル保存、スクリーンショット書き出しには対応しません。実機端末、OS設定によるreduced-motionの実動作、WebGL 2フォールバックbackendはこの環境だけでは確認できません。
+- **学んだこと:** Object3Dをモデル定義へ持ち込まず、数値のパーツ定義とThree.jsの生成処理を分けると、Explodeの境界値とカメラプリセットをGPUなしでテストできます。
+- **次回への改善点:** 複数ブラウザと実機タッチでOrbit・ピンチ・タブ復帰を確認し、WebGL 2へ強制切り替えた環境でフォールバック経路を検証します。
+
 次の作品を追加する際は、以下のテンプレートを複製して記録します。
 
 ---
