@@ -95,14 +95,14 @@ SVG本体を変更せず、同じ内蔵アイコンまたは任意のSVGで12種
 - 作品URL（mainマージ後）: https://ai-build-challenge.vercel.app/works/06-svg-motion-studio
 - 主な機能: 同一SVGで12種類を一括比較、Speed・Strength・Triggerの簡易調整、詳細設定、任意SVGの安全検証、原文保持、HTML・CSSコピー、reduced-motion対応
 
-### 07 Gravity Bloom
+### 07 Low Poly Tree Explorer
 
-光の核で粒子を引き寄せ、解放して花状の衝撃波を作るインタラクティブ3D作品です。ポインター、タッチ、キーボードで直接遊べます。
+低ポリゴンの3Dツリーを回転・ズーム・分解表示して触って楽しめるインタラクティブ3D作品です。
 
-- GitHub上のパス: [`app/works/07-gravity-bloom/`](app/works/07-gravity-bloom/)
-- 公開先ルート: `/works/07-gravity-bloom`
-- 作品URL（mainマージ後）: https://ai-build-challenge.vercel.app/works/07-gravity-bloom
-- 主な機能: 粒子の引き寄せと解放、花状ブルーム、フリープレイ、30秒チャレンジ、WebGL 2フォールバック、キーボード・タッチ・reduced-motion対応
+- GitHub上のパス: [`app/works/07-low-poly-tree-explorer/`](app/works/07-low-poly-tree-explorer/)
+- 公開先ルート: `/works/07-low-poly-tree-explorer`
+- 作品URL（mainマージ後）: https://ai-build-challenge.vercel.app/works/07-low-poly-tree-explorer
+- 主な機能: 低ポリツリーのOrbit・Zoom・Explode・Reset・自動回転、WebGPURendererとWebGL 2フォールバック、キーボード・タッチ・reduced-motion対応
 
 ## 公開URL
 

@@ -1,0 +1,407 @@
+.page {
+  --ink: #1f2b25;
+  --muted: #5d6b61;
+  --line: #c7d1c7;
+  --accent: #23604a;
+  --accent-dark: #174634;
+  --panel: rgba(249, 251, 247, 0.92);
+  width: min(calc(100% - 32px), 1360px);
+  min-height: 100svh;
+  margin-inline: auto;
+  padding: clamp(20px, 3vw, 48px) max(16px, calc((100vw - 1240px) / 2));
+  color: var(--ink);
+  background:
+    radial-gradient(circle at 84% 5%, rgba(217, 235, 215, 0.82), transparent 28rem),
+    linear-gradient(140deg, #f6f5ef 0%, #eff4ed 54%, #e8f0e7 100%);
+}
+
+.header {
+  max-width: 960px;
+  margin-bottom: clamp(26px, 4vw, 46px);
+}
+
+.eyebrow,
+.kicker,
+.controlLabel {
+  margin: 0 0 8px;
+  color: var(--accent);
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.header h1 {
+  max-width: 950px;
+  margin: 0;
+  font-size: clamp(3rem, 8vw, 7.6rem);
+  line-height: 0.9;
+  letter-spacing: -0.075em;
+  text-wrap: balance;
+}
+
+.lead {
+  max-width: 700px;
+  margin: 22px 0 0;
+  color: var(--muted);
+  font-size: clamp(1rem, 1.8vw, 1.25rem);
+  line-height: 1.65;
+}
+
+.experience {
+  min-width: 0;
+}
+
+.experienceHeader {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 14px;
+}
+
+.experienceHeader h2 {
+  margin: 0;
+  font-size: clamp(1.7rem, 3.5vw, 2.8rem);
+  line-height: 1.05;
+  letter-spacing: -0.055em;
+}
+
+.experienceLead {
+  max-width: 720px;
+  margin: 9px 0 0;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.runtimeBadge {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+  margin: 0;
+  padding: 7px 12px;
+  border: 1px solid rgba(35, 96, 74, 0.26);
+  border-radius: 999px;
+  color: var(--accent-dark);
+  background: rgba(228, 241, 228, 0.76);
+  font-size: 0.78rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.runtimeBadgeError {
+  border-color: rgba(145, 57, 39, 0.35);
+  color: #7f2e21;
+  background: #fae9e2;
+}
+
+.runtimeDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #6d9e57;
+}
+
+.stageShell {
+  overflow: hidden;
+  min-width: 0;
+  border: 1px solid rgba(31, 43, 37, 0.2);
+  border-radius: 26px;
+  background: #dbe8df;
+  box-shadow: 0 24px 72px rgba(48, 76, 55, 0.15);
+}
+
+.canvasHost {
+  position: relative;
+  height: clamp(520px, 70svh, 720px);
+  min-height: 520px;
+  overflow: hidden;
+  background: #dbe8df;
+}
+
+.canvasHost canvas {
+  position: absolute;
+  inset: 0;
+  touch-action: none;
+}
+
+.canvasOverlay,
+.canvasError {
+  position: absolute;
+  z-index: 2;
+  top: 50%;
+  left: 50%;
+  margin: 0;
+  padding: 12px 18px;
+  border-radius: 999px;
+  color: var(--accent-dark);
+  background: rgba(249, 251, 247, 0.88);
+  box-shadow: 0 8px 28px rgba(46, 73, 50, 0.12);
+  transform: translate(-50%, -50%);
+}
+
+.canvasError {
+  max-width: min(90%, 620px);
+  border: 1px solid rgba(145, 57, 39, 0.28);
+  border-radius: 12px;
+  color: #7f2e21;
+  background: rgba(255, 244, 239, 0.94);
+  text-align: center;
+}
+
+.canvasHint {
+  position: absolute;
+  z-index: 2;
+  right: 18px;
+  bottom: 16px;
+  margin: 0;
+  padding: 7px 10px;
+  border: 1px solid rgba(31, 43, 37, 0.12);
+  border-radius: 8px;
+  color: #385347;
+  background: rgba(247, 250, 245, 0.76);
+  font-size: 0.82rem;
+  font-weight: 700;
+  pointer-events: none;
+}
+
+.controlPanel {
+  padding: 18px clamp(16px, 2.2vw, 28px) 20px;
+  border-top: 1px solid rgba(31, 43, 37, 0.14);
+  background: var(--panel);
+}
+
+.controlHeader {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.controlLabel {
+  margin-bottom: 0;
+  font-size: 0.7rem;
+}
+
+.statusMessage {
+  min-height: 1.5em;
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.controlRows {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 12px;
+}
+
+.primaryControls,
+.zoomControls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.controlPanel button {
+  min-height: 46px;
+  padding: 8px 15px;
+  border: 1px solid #9aad9e;
+  border-radius: 9px;
+  color: var(--ink);
+  background: #fff;
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.controlPanel button:hover:not(:disabled) {
+  border-color: var(--accent);
+  background: #f1f7ef;
+}
+
+.controlPanel button[aria-pressed="true"]:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: #fff;
+  background: var(--accent);
+}
+
+.controlPanel button[aria-pressed="true"] {
+  border-color: var(--accent);
+  color: #fff;
+  background: var(--accent);
+}
+
+.controlPanel .primaryButton {
+  border-color: var(--accent-dark);
+  color: #fff;
+  background: var(--accent-dark);
+}
+
+.controlPanel .primaryButton:hover:not(:disabled) {
+  border-color: var(--accent-dark);
+  color: #fff;
+  background: var(--accent-dark);
+}
+
+.controlPanel button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.zoomControls {
+  align-items: center;
+}
+
+.zoomControls > span {
+  margin-right: 2px;
+  color: var(--muted);
+  font-size: 0.88rem;
+  font-weight: 800;
+}
+
+.zoomControls button {
+  width: 46px;
+  padding: 0;
+  font-size: 1.35rem;
+  line-height: 1;
+}
+
+.statusDetails {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px 16px;
+  margin: 14px 0 0;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.statusDetails span::before {
+  margin-right: 5px;
+  color: var(--accent);
+  content: "•";
+}
+
+.infoSection {
+  max-width: 860px;
+  margin: clamp(42px, 7vw, 88px) 0 0;
+}
+
+.infoSection h2 {
+  margin: 0 0 14px;
+  font-size: clamp(1.6rem, 3vw, 2.4rem);
+  letter-spacing: -0.05em;
+}
+
+.infoSection p:last-child {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.75;
+}
+
+.backLink {
+  margin-top: 38px;
+}
+
+.backLink a {
+  display: inline-flex;
+  min-height: 46px;
+  align-items: center;
+  color: var(--accent-dark);
+  font-weight: 800;
+  text-underline-offset: 4px;
+}
+
+.page :is(button, a):focus-visible {
+  outline: 3px solid #b45d20;
+  outline-offset: 3px;
+}
+
+@media (max-width: 760px) {
+  .page {
+    width: min(calc(100% - 20px), 1360px);
+    padding-inline: 10px;
+  }
+
+  .header {
+    margin-bottom: 28px;
+  }
+
+  .header h1 {
+    font-size: clamp(2.8rem, 14vw, 5rem);
+  }
+
+  .experienceHeader {
+    display: block;
+  }
+
+  .runtimeBadge {
+    margin-top: 14px;
+  }
+
+  .canvasHost {
+    height: clamp(430px, 62svh, 560px);
+    min-height: 430px;
+  }
+
+  .canvasHint {
+    right: 10px;
+    bottom: 10px;
+    max-width: calc(100% - 20px);
+    font-size: 0.75rem;
+  }
+
+  .controlHeader {
+    display: block;
+  }
+
+  .statusMessage {
+    margin-top: 6px;
+  }
+
+  .controlRows {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .primaryControls {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .primaryControls button {
+    min-width: 0;
+    padding-inline: 7px;
+    font-size: 0.84rem;
+  }
+
+  .zoomControls {
+    justify-content: flex-end;
+  }
+}
+
+@media (max-width: 420px) {
+  .stageShell {
+    border-radius: 18px;
+  }
+
+  .primaryControls button {
+    font-size: 0.78rem;
+  }
+
+  .statusDetails {
+    display: grid;
+    gap: 4px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page * {
+    scroll-behavior: auto !important;
+    transition: none !important;
+  }
+}

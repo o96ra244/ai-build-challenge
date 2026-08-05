@@ -46,8 +46,8 @@ export const works: readonly Work[] = [
   },
   {
     number: 7,
-    title: "Gravity Bloom",
-    description: "光の核で粒子を引き寄せ、解放して花状の衝撃波を作るインタラクティブ3D作品です。",
-    href: "/works/07-gravity-bloom",
+    title: "Low Poly Tree Explorer",
+    description: "低ポリゴンの3Dツリーを回転・ズーム・分解表示して触って楽しめるインタラクティブ作品です。",
+    href: "/works/07-low-poly-tree-explorer",
   },
 ];
