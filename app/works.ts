@@ -53,7 +53,7 @@ export const works: readonly Work[] = [
   {
     number: 8,
     title: "Low Poly Rover Garage",
-    description: "12種類の低ポリ部品を組み替え、64通りのローバーをGarageとTEST COURSEで楽しめます。",
+    description: "12種類の低ポリ部品を組み替え、64通りのローバーをGARAGEとDIRT TRIALで楽しめます。",
     href: "/works/08-low-poly-rover-garage",
   },
 ];

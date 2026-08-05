@@ -41,13 +41,6 @@ export type ModuleTransitionTransform = {
   readonly scale: Vector3Tuple;
 };
 
-export type CourseDriveState = {
-  readonly position: Vector3Tuple;
-  readonly rotation: Vector3Tuple;
-  readonly travel: number;
-  readonly dustIntensity: number;
-};
-
 const FRONT_MOUNT: Vector3Tuple = [0, 1.82, 2.42];
 const CABIN_MOUNT: Vector3Tuple = [0, 2.05, 0];
 const REAR_MOUNT: Vector3Tuple = [0, 1.72, -2.32];
@@ -324,11 +317,11 @@ export function getCameraPreset(
 
   if (mode === "course") {
     return {
-      position: isMobile ? [10.4, 8.4, 13.2] : [11.8, 9.4, 13.8],
-      target: [0, 0.1, 0],
-      fov: isMobile ? 53 : 48,
-      minDistance: 12,
-      maxDistance: 28,
+      position: isMobile ? [14.8, 18.5, 21.5] : [21.5, 22.5, 25.5],
+      target: [0, 0, 0],
+      fov: isMobile ? 58 : 54,
+      minDistance: 18,
+      maxDistance: 44,
     };
   }
 
@@ -338,41 +331,6 @@ export function getCameraPreset(
     fov: isMobile ? 48 : 43,
     minDistance: 6.4,
     maxDistance: 16.8,
-  };
-}
-
-export function getCourseDuration(reducedMotion: boolean): number {
-  return reducedMotion ? 1500 : 7800;
-}
-
-export function getCourseDriveState(progress: number, reducedMotion: boolean): CourseDriveState {
-  const safeProgress = clampProgress(progress);
-  const wrappedProgress = safeProgress === 1 ? 0 : safeProgress;
-  const angle = wrappedProgress * Math.PI * 2;
-  const sinAngle = Math.sin(angle);
-  const cosAngle = Math.cos(angle);
-  const sinDoubleAngle = Math.sin(angle * 2);
-  const cosTripleAngle = Math.cos(angle * 3);
-  const x = 5.05 * sinAngle + 0.28 * sinDoubleAngle;
-  const z = 4.45 * cosAngle + 0.22 * cosTripleAngle;
-  const dx = 5.05 * cosAngle * Math.PI * 2 + 0.28 * Math.cos(angle * 2) * Math.PI * 4;
-  const dz = -4.45 * sinAngle * Math.PI * 2 - 0.22 * Math.sin(angle * 3) * Math.PI * 6;
-  const tangentLength = Math.max(0.001, Math.hypot(dx, dz));
-  const bobAmount = reducedMotion ? 0.012 : 0.055;
-  const pitchAmount = reducedMotion ? 0.008 : 0.028;
-  const courseHump = Math.sin(angle * 0.5) ** 2;
-  const bob = finiteOr(courseHump * bobAmount + Math.sin(angle * 4) * bobAmount * 0.28 + Math.sin(angle * 7) * bobAmount * 0.12);
-  const pitch = finiteOr(courseHump * pitchAmount * 0.5 + Math.cos(angle * 4) * pitchAmount + Math.cos(angle * 7) * pitchAmount * 0.25 - pitchAmount * 1.25);
-  const travel = finiteOr(safeProgress * 30.9);
-  const dustIntensity = reducedMotion
-    ? 0
-    : finiteOr(0.24 + (Math.sin(angle * 3 - 0.45) ** 2) * 0.42);
-
-  return {
-    position: [finiteOr(x), bob, finiteOr(z)],
-    rotation: [pitch, finiteOr(Math.atan2(dx / tangentLength, dz / tangentLength)), 0],
-    travel,
-    dustIntensity,
   };
 }
 

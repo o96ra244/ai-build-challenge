@@ -12,8 +12,6 @@ import {
   getAutoRotateAfterMotionPreference,
   getCameraPreset,
   getCombinationCount,
-  getCourseDriveState,
-  getCourseDuration,
   getInitialAutoRotate,
   getModuleTransitionDuration,
   getModuleTransitionTransform,
@@ -100,32 +98,6 @@ describe("roverModel", () => {
     expect(clampProgress(Number.NEGATIVE_INFINITY)).toBe(0);
   });
 
-  it("TEST COURSEは閉じた1周の経路と車体姿勢を返す", () => {
-    const normalStart = getCourseDriveState(0, false);
-    const normalMiddle = getCourseDriveState(0.5, false);
-    const normalEnd = getCourseDriveState(1, false);
-    const reducedMiddle = getCourseDriveState(0.5, true);
-
-    expect(normalEnd.position).toEqual(normalStart.position);
-    expect(normalEnd.rotation).toEqual(normalStart.rotation);
-    expect(normalEnd.travel).toBeGreaterThan(normalMiddle.travel);
-    expect(normalStart.dustIntensity).toBeGreaterThan(0);
-    expect(reducedMiddle.dustIntensity).toBe(0);
-    expect(Math.abs(normalMiddle.position[1])).toBeGreaterThan(Math.abs(reducedMiddle.position[1]));
-    for (const progress of [-1, 0, 0.25, 0.5, 0.75, 1, 2, Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY]) {
-      const state = getCourseDriveState(progress, false);
-      expectFiniteTuple(state.position);
-      expectFiniteTuple(state.rotation);
-      expect(Number.isFinite(state.travel)).toBe(true);
-      expect(Number.isFinite(state.dustIntensity)).toBe(true);
-      expect(Object.is(state.dustIntensity, -0)).toBe(false);
-    }
-    expect(getCourseDuration(true)).toBeGreaterThanOrEqual(1200);
-    expect(getCourseDuration(true)).toBeLessThanOrEqual(1800);
-    expect(getCourseDuration(false)).toBeGreaterThanOrEqual(7000);
-    expect(getCourseDuration(false)).toBeLessThanOrEqual(9000);
-  });
-
   it("移動距離から車輪回転量を安全に求める", () => {
     expect(getWheelRotation(0, 0.8)).toBe(0);
     expect(getWheelRotation(1.6, 0.8)).toBe(2);
@@ -155,7 +127,8 @@ describe("roverModel", () => {
 
     expect(desktop.fov).toBeLessThan(mobile.fov);
     expect(course.fov).toBeGreaterThan(desktop.fov);
-    expect(course.target).toEqual([0, 0.1, 0]);
+    expect(course.target).toEqual([0, 0, 0]);
+    expect(course.position[1]).toBeGreaterThan(desktop.position[1]);
     for (const preset of [desktop, mobile, course, narrow, invalid]) {
       expectFiniteTuple(preset.position);
       expectFiniteTuple(preset.target);

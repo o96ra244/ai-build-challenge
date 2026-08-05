@@ -106,11 +106,18 @@ SVG本体を変更せず、同じ内蔵アイコンまたは任意のSVGで12種
 
 ### 08 Low Poly Rover Garage
 
-低ポリの小型ローバーをFront・Cabin・Rearの3カテゴリから組み替え、Garageで眺めてからTEST COURSEを1周できるインタラクティブ3D作品です。
+低ポリの小型ローバーをFront・Cabin・Rearの3カテゴリから組み替え、GARAGEで眺めてからDIRT TRIALを手動で1周するインタラクティブ3D作品です。
 
 - GitHub上のパス: [`app/works/08-low-poly-rover-garage/`](app/works/08-low-poly-rover-garage/)
 - 想定公開URL: https://ai-build-challenge.vercel.app/works/08-low-poly-rover-garage
-- 主な機能: 12種類のモジュールによる64通りの構成、対象カテゴリだけの交換アニメーション、GarageのOrbit・Zoom・Reset・自動回転、固定カメラのTEST COURSE、車輪・タービン・砂ぼこり、WebGPURendererと互換描画、キーボード・タッチ・reduced-motion対応
+- 主な機能: 12種類のモジュールによる64通りの構成、対象カテゴリだけの交換アニメーション、GARAGEのOrbit・Zoom・Reset・自動回転、DIRT TRIALの広い低ポリ地形、起伏、コース外減速、簡易円形衝突、4チェックポイント、1周タイムアタック、ベストタイム（ページ内のみ）、pause、reset、車輪・タービン・砂ぼこり、WebGPURendererと互換描画
+- 操作方法: PCはW／矢印上でアクセル、S／矢印下でブレーキ・後退、A／矢印左とD／矢印右で旋回、Rで最後のチェックポイントへ戻し、Pでpause／再開します。スマートフォンは左旋回・右旋回・アクセル・ブレーキ／後退の4つの押し続けるbuttonを使います。
+- 走行フロー: DIRT TRIALを開くとコース全体を表示し、スタート後に3・2・1・GOのカウントダウンを行います。4つのチェックポイントを順番に通過して正方向にゴールラインを横切るとclearします。
+- アクセシビリティ: 可視のキーボード操作説明、可視ラベル付きnative button、`aria-pressed`、pause／clear通知、focus-visible、canvasの`aria-hidden="true"`・`role="presentation"`、reduced-motion対応を実装しています。タイマーと速度の頻繁な更新はaria-liveにしません。
+- 検証: `npm run lint`、`npm run typecheck`、`npm run test`（13ファイル・327件）、`npm run build`（12静的ルート）、`git diff --check`に成功しています。
+- ブラウザ確認: Playwright接続ブラウザのローカル本番ビルドで1440×900、390×844、320×800を確認しました。GARAGE／DIRT TRIAL、READY、3・2・1・GO後のRUNNING、Wキー保持による速度変化、pause時のタイマー停止、単一pointerの押下・解除、4操作buttonのdisabled／`aria-pressed`、横スクロールなし、stage寸法維持、console error／warningなしを確認しました。PerformanceObserverで測定したCLSは0.00048013170817656016でした。
+- 未確認: 実機スマートフォンの2本指同時入力、実機Macキーボード・トラックパッド、pointercancelの実端末挙動、手動での1周clear・best time更新・全checkpoint・衝突・コース外減速、OS設定をページ再読み込みなしで切り替えるreduced-motion、タブ非表示・復帰、WebGPU APIなし環境、200%ズームは未確認です。
+- 既知の制約: コースは1つ・1周、外部モデル・テクスチャ・物理エンジン・音声・保存・ランキング通信は使用しません。ベストタイムはページを離れると保持しません。
 
 ## 公開URL
 

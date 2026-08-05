@@ -145,21 +145,23 @@
 - **作品名:** Low Poly Rover Garage
 - **制作日:** 2026-08-05
 - **対象ユーザー:** 低ポリ3Dやメカデザインをブラウザで気軽に楽しみたい人、部品の組み合わせによるデザイン変化を試したい人、短時間で理解できるインタラクティブ作品を見たい人
-- **解決する問題:** 完成済みの3Dモデルを眺めるだけでなく、車体の構成変更と動作確認を専門ソフトなしで同じ画面から試せる体験を提供します。
-- **差別化:** Front・Cabin・Rearの3カテゴリに各4種類のGeometry生成モジュールを用意し、4×4×4の64通りを1台のローバーへ即時反映できます。作品07の自然物の観察・分解に対し、作品08はメカ部品の選択・組み替え、Garage観察、固定コース走行を中心にしています。
-- **主な機能:** コンパクトな固定シャーシ、4輪・短いホイールベース・太い配管・リベット・整備台と低ポリ小物、12種類のモジュール、対象カテゴリだけの交換アニメーション、GarageのOrbit・Zoom・視点リセット・自動回転、TEST COURSEのゲート・コーン・岩・段差・旗・車輪回転・タービン回転・砂ぼこり、WebGPU API表示と互換描画表示
+- **解決する問題:** 完成済みの3Dモデルを眺めるだけでなく、車体の構成変更と手動走行を専門ソフトなしで同じ画面から試せる体験を提供します。
+- **差別化:** Front・Cabin・Rearの3カテゴリに各4種類のGeometry生成モジュールを用意し、4×4×4の64通りを1台のローバーへ即時反映できます。作品07の自然物の観察・分解に対し、作品08はメカ部品の選択・組み替え、GARAGE観察、広いDIRT TRIALの手動タイムアタックを中心にしています。
+- **主な機能:** 低ポリの固定シャーシ、4輪・太い配管・リベット・整備台と低ポリ小物、12種類のモジュール、対象カテゴリだけの交換アニメーション、GARAGEのOrbit・Zoom・視点リセット・自動回転、DIRT TRIALの広い決定論的ダート地形、3〜5箇所のバンプ、S字と複数コーナーを含む閉じたコース、8つの簡易衝突対象、4つの順番付きチェックポイント、正方向ゴール判定、車輪回転・選択時のみのタービン回転・砂ぼこり、WebGPU API表示と互換描画表示
 - **モジュール構成:** Frontはツインランプ、ドリルノーズ、スカウトセンサー、ユーティリティウインチ。Cabinはバブルキャノピー、アーマードキャブ、オープンコックピット、オフセットカプセル。Rearはカーゴラック、タービンパック、ツールタンク、コイルジェネレーター。合計64通りの構成です。
+- **操作方法:** PCはW／矢印上でアクセル、S／矢印下でブレーキ・後退、A／矢印左とD／矢印右で旋回、Rで最後のチェックポイントへ戻し、Pでpause／再開します。カウントダウン中はGOまで車両を動かさず、入力欄やbutton操作中のキーは奪いません。スマートフォンはnative button 4個で左右旋回とアクセル・ブレーキ／後退を同時入力できます。
+- **走行状態:** `READY`、`COUNTDOWN`、`RUNNING`、`PAUSED`、`COURSE CLEAR`を管理します。タイマーはGOで開始し、pause・タブ非表示・window blurで停止し、clearで確定します。ベストタイムはReact stateのページ内だけで保持し、localStorage・Cookie・DBには保存しません。
 - **GitHub上のパス:** `app/works/08-low-poly-rover-garage/`
 - **想定公開URL:** https://ai-build-challenge.vercel.app/works/08-low-poly-rover-garage
 - **使用技術:** Next.js App Router、React、TypeScript、Three.js 0.185.1、`three/webgpu`のWebGPURenderer、OrbitControls、CSS Modules、Vitest、npm
-- **アクセシビリティ対応:** 見出し、mode toggleのnative button・`aria-pressed`、fieldset・legend、native radio、可視ラベル、現在の構成テキスト、`aria-live`、native disabled、focus-visible、色以外のチェック表示、走行中のモード・モジュール・操作無効化、canvasの`aria-hidden`・`role="presentation"`を実装しました。
-- **reduced-motion対応:** 初期自動回転をOFFにし、モジュール遷移を短縮します。TEST COURSEは通常約7.8秒、reduced-motion時約1.5秒で、上下動・ピッチ・砂ぼこりを抑え、固定カメラで走行します。自動回転はOFFへ戻っても勝手に再開しません。
-- **検証結果:** `npm run lint`（警告なし）、`npm run typecheck`、`npm run test`（12ファイル・315件）、`npm run build`、`git diff --check`に成功しました。ビルド出力で`/works/08-low-poly-rover-garage`を含む12ルートの静的生成を確認しました。
-- **ブラウザ確認結果:** Codex In-app Browserのローカル本番サーバー（`npx next start -p 3108`）で1440×900と390×844を確認しました。Garageの全幅ステージ、64通り表示、12個のnative radio、説明文を表示しない選択タイル、ユーティリティウインチ・オフセットカプセル・コイルジェネレーターの切り替え、TEST COURSEのループ・ゲート・コーン・岩・段差・旗、COURSE READY／RUNNING／COURSE CLEAR、約7.8秒の1周、走行中のモード・走行ボタン無効化、再走行、Garage復帰後の自動回転OFFを確認しました。1440×900ではcanvas 1358×330pxと横いっぱいのstage、390×844ではcanvas 368×520px、部品タイル4個の2列表示を確認し、いずれも文書幅とviewport幅が一致して横スクロールはありません。consoleのerror・warningはありませんでした。
-- **未確認事項:** 自動操作で矢印キー／Spaceによるradio選択変更を確実に成立させる実動作、実機スマートフォンの1本指Orbit・ピンチ、実機Macトラックパッドの操作、OS設定をページ再読み込みなしで切り替えるreduced-motion、タブ非表示・復帰の実動作、WebGPU APIなし環境の互換描画backend、200%ズーム、Vercel Previewまたは本番表示は未確認です。
-- **既知の制約:** 自由運転、コース選択、物理・衝突、音声、保存・共有、外部モデル・テクスチャ、キャラクター、武器表現、複数車両表示には対応しません。コースは固定ルートの1周のみで、モジュール構成はページ内だけで扱い、localStorageやCookieへ保存しません。
-- **学んだこと:** モジュールの座標・変換とCourseの経路計算を純粋関数へ分離すると、64通りの組み替えと閉じた走行状態をUIやGPUなしで安全に検証でき、WebGPUシーン側はGeometry生成とライフサイクル制御へ集中できます。
-- **次回への改善点:** 12モジュールを複数ブラウザと実機タッチで比較し、WebGPUなし環境の実backend、固定コースの実機描画、タブ復帰時の走行停止を定量的に確認します。
+- **アクセシビリティ対応:** 見出し、mode toggleのnative button・`aria-pressed`、fieldset・legend、native radio、可視ラベル、キーボード操作一覧、可視ラベル付きDIRT TRIAL操作button、pause／clearの`aria-live`、native disabled、focus-visible、色以外の押下状態、走行中のモード・モジュール・操作制御、canvasの`aria-hidden`・`role="presentation"`を実装しました。タイマー・速度・checkpointの頻繁な値はaria-liveにしません。
+- **reduced-motion対応:** Garageの自動回転を初期OFFにし、モジュール遷移を短縮します。DIRT TRIALではカメラのheading追従、車体のpitch／rollと上下動、砂ぼこりを抑えますが、操作・速度・タイマー・checkpoint判定は維持します。OFFへ戻してもGarageの自動回転は勝手に再開しません。
+- **検証結果:** `npm run lint`（警告なし）、`npm run typecheck`、`npm run test`（13ファイル・327件）、`npm run build`（作品01〜08を含む12静的ルート）、`git diff --check`に成功しました。純粋モデルのfocused testは13件で、キー入力マッピング、同時押し、terrain、track、dt上限、有限値、衝突、checkpoint順序、正方向goal、タイマー、簡易waypoint完走を確認しています。
+- **ブラウザ確認結果:** Playwright接続ブラウザのローカル本番ビルド（`npx next start -p 3108`）で1440×900、390×844、320×800を確認しました。GARAGEの12モジュール・64通りとDIRT TRIALのREADY、3・2・1・GO後のRUNNING、Wキー保持による速度変化、pause通知とタイマー停止、Garage復帰後の自動回転OFFを確認しました。390pxでは4つのnative操作button、各58px高、pointerdown中の`aria-pressed=true`と解除後falseを確認し、320pxではstage 298×528px、1440pxではstage 1358×612px、いずれも文書幅とviewport幅が一致しました。console error／warningは0件でした。PerformanceObserverでready→countdown→running→pauseを測定したCLSは0.00048013170817656016で、stage外寸は維持されました。
+- **既知の制約:** コースは1つ・1周、外部モデル・テクスチャ・物理エンジン・音声・保存・ランキング通信は使用しません。ベストタイムはページ内だけで保持し、複数コースや複数車両には対応しません。
+- **学んだこと:** モジュール、地形・コース判定、運転計算を純粋なデータと関数へ分離すると、64通りの組み替えとfiniteな手動走行状態をGPUなしで検証でき、WebGPUシーン側をGeometry生成とライフサイクル制御へ集中できます。
+- **未確認事項:** 実機スマートフォンの2本指同時入力、実機Macキーボード・トラックパッド、pointercancelの実端末挙動、手動での1周clear・best time更新・全checkpoint・衝突・コース外減速、OS設定をページ再読み込みなしで切り替えるreduced-motion、タブ非表示・復帰、WebGPU APIなし環境、200%ズーム、Vercel Previewまたは本番表示は未確認です。
+- **次回への改善点:** 実機スマートフォンとMac入力で手動完走・clear結果・pointercancel・reduced-motion・タブ復帰を追加確認し、WebGPU APIなし環境と200%ズームでフォールバックとレイアウトを確認します。
 
 次の作品を追加する際は、以下のテンプレートを複製して記録します。
 
