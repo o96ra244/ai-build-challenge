@@ -43,7 +43,7 @@ npm run dev
 
 ## 作品一覧
 
-現在の作品数: **5件**
+現在の作品数: **6件**
 
 ### 01 画像比率リサイズ計算機
 
@@ -84,6 +84,15 @@ npm run dev
 - GitHub上のパス: [`app/works/05-responsive-grid-planner/`](app/works/05-responsive-grid-planner/)
 - 公開先ルート: `/works/05-responsive-grid-planner`
 - 作品URL（mainマージ後）: https://ai-build-challenge.vercel.app/works/05-responsive-grid-planner
+
+### 06 SVG Motion Studio
+
+SVG本体を変更せず、同じ内蔵アイコンまたは任意のSVGで12種類のCSSモーションを比較・調整してHTML・CSSを生成するWebツールです。
+
+- GitHub上のパス: [`app/works/06-svg-motion-studio/`](app/works/06-svg-motion-studio/)
+- 公開先ルート: `/works/06-svg-motion-studio`
+- 作品URL（mainマージ後）: https://ai-build-challenge.vercel.app/works/06-svg-motion-studio
+- 主な機能: 同一SVGで12種類を一括比較、Speed・Strength・Triggerの簡易調整、詳細設定、任意SVGの安全検証、原文保持、HTML・CSSコピー、reduced-motion対応
 
 ## 公開URL
 

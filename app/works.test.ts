@@ -3,9 +3,9 @@ import { describe, expect, it } from "vitest";
 import { works } from "./works";
 
 describe("works", () => {
-  it("作品を番号順に5件登録している", () => {
-    expect(works).toHaveLength(5);
-    expect(works.map((work) => work.number)).toEqual([1, 2, 3, 4, 5]);
+  it("作品を番号順に6件登録している", () => {
+    expect(works).toHaveLength(6);
+    expect(works.map((work) => work.number)).toEqual([1, 2, 3, 4, 5, 6]);
   });
 
   it("作品01の登録内容を維持している", () => {
@@ -51,6 +51,16 @@ describe("works", () => {
       description:
         "カードの最小幅や余白から、画面幅ごとの列数とCSS Gridコードを生成します。",
       href: "/works/05-responsive-grid-planner",
+    });
+  });
+
+  it("作品06を登録している", () => {
+    expect(works[5]).toEqual({
+      number: 6,
+      title: "SVG Motion Studio",
+      description:
+        "SVG本体を変更せず、内蔵または任意のSVGへ用途別CSSアニメーションを設定・生成します。",
+      href: "/works/06-svg-motion-studio",
     });
   });
 
