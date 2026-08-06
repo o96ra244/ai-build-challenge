@@ -3,9 +3,9 @@ import { describe, expect, it } from "vitest";
 import { works } from "./works";
 
 describe("works", () => {
-  it("作品を番号順に7件登録している", () => {
-    expect(works).toHaveLength(7);
-    expect(works.map((work) => work.number)).toEqual([1, 2, 3, 4, 5, 6, 7]);
+  it("作品を番号順に8件登録している", () => {
+    expect(works).toHaveLength(8);
+    expect(works.map((work) => work.number)).toEqual([1, 2, 3, 4, 5, 6, 7, 8]);
   });
 
   it("作品01の登録内容を維持している", () => {
@@ -70,6 +70,15 @@ describe("works", () => {
       title: "Low Poly Tree Explorer",
       description: "低ポリゴンの3Dツリーを回転・ズーム・分解表示して触って楽しめるインタラクティブ作品です。",
       href: "/works/07-low-poly-tree-explorer",
+    });
+  });
+
+  it("作品08を登録している", () => {
+    expect(works[7]).toEqual({
+      number: 8,
+      title: "Low Poly Rover Garage",
+      description: "12モジュールをGARAGEで組み替え、小さなTEST YARDで坂・障害物・ジャンプの走行感を試せます。",
+      href: "/works/08-low-poly-rover-garage",
     });
   });
 
