@@ -139,6 +139,26 @@
 - **学んだこと:** Object3Dをモデル定義へ持ち込まず、数値のパーツ定義とThree.jsの生成処理を分けると、Explodeの境界値とカメラプリセットをGPUなしでテストできます。
 - **次回への改善点:** 複数ブラウザと実機タッチでOrbit・ピンチ・タブ復帰を確認し、WebGL 2へ強制切り替えた環境でフォールバック経路を検証します。
 
+## 作品08
+
+- **作品番号:** 08
+- **作品名:** Low Poly Rover Garage
+- **制作日:** 2026-08-06
+- **対象ユーザー:** 低ポリゴンの乗り物を組み替え、短い試走で車体の違いと物理挙動を確かめたい人、Three.jsとRapierの小さな実装例を読みたい人
+- **解決する問題:** 車体パーツの組み合わせと走行物理を別々に確認する手間を減らし、構成変更から小規模な走行テストまでを同じページで完結させます。
+- **差別化:** Front・Cabin・Rearの12モジュールから64通りを組み立て、同じ車体を48×36の固定TEST YARDへ持ち込み、坂・起伏・丸太・箱・岩・小さなジャンプ台を短時間で試せます。
+- **主な機能:** GARAGEの4×4×4モジュール選択、選択中構成の表示とswapアニメーション、Orbit・Zoom・Reset・Auto rotate、Rapierの4輪ray-cast vehicle、4WD・前輪操舵・ブレーキ・リカバリー、Pause、PCキーとスマートフォン向けpointer操作
+- **操作方法:** `W`／`↑`で前進、`S`／`↓`でブレーキ・後退、`A`／`←`で左、`D`／`→`で右、`R`でStart PadへRecover、`P`でPause／Resume。画面下のネイティブ操作ボタンでも同じ入力を行えます。
+- **技術構成:** Next.js App Router、TypeScript、Three.js `WebGPURenderer`、`@dimforge/rapier3d-compat` 0.19.3、CSS Modules、Vitest。RapierはTEST YARDへ入る時だけlazy loadします。
+- **物理設計:** RapierのDynamicRayCastVehicleControllerを車体の唯一の運動源とし、動的chassis、4輪、前輪steer、4WD、brake、suspension、CCD、sleeping、固定タイムステップ1/60、最大4サブステップ、Pause・hidden時の停止、Recover・disposeを実装しました。
+- **衝突形状の設計:** 床、坂、whoops、丸太、動的crate、固定rock、jump ramp、外周fenceのshape定義を共有し、同じ定義からThree.jsのvisualとRapierのcolliderを生成しています。
+- **PR #9の扱い:** 旧PR #9はスコープ拡大により操作・物理・描画・検証の一貫性を確保できなかったため、マージせずクローズしました。作品08は`main`から小さな完成版として再実装しています。
+- **検証結果:** `npm install`（397パッケージ、脆弱性0）、`npm run lint`（警告なし）、`npm run typecheck`、`npm run test`（16ファイル・323件）、`npm run build`、`git diff --check`、`npm ls @dimforge/rapier3d-compat`を実行しました。
+- **ブラウザ確認結果:** ローカルproductionサーバーで1440×900、390×844、320×800を確認しました。初期GARAGE、12ラジオ、64 builds表示、構成選択とTEST YARDへの引き継ぎ、Zoom・Auto rotate、Rapier初期化、Pause・Resume、Recover、ネイティブ操作ボタン、横スクロールなし、コンソールのerror・warningなしを確認しています。in-app Browserのキーボード配送が安定せず、W／S／A／D／矢印／P／Rの実走行入力は未確認ですが、キー割り当てと移動結果の検証は単体テストで確認しています。実機タッチ、実機トラックパッド、OSのreduced-motion切り替え、WebGL 2フォールバックは未確認です。
+- **既知の制約:** オープンワールド、Waystone、minimap、timer、score、checkpoint、NPC、敵、音声、保存、ランキング、terrain streaming、外部モデル・テクスチャ・WebXRには対応しません。TEST YARDは固定サイズの短い試走用です。
+- **学んだこと:** AIへ大きな仕様を渡すほど品質が自動的に上がるわけではないため、主要体験を絞り、検証可能な範囲へ限定する必要があります。また、visualとcolliderを同一データから生成し、入力の正負ではなく実際の移動結果を検証する必要があります。
+- **次回への改善点:** 実機のタッチ・トラックパッド、OSのreduced-motion変更、WebGL 2フォールバック、長時間走行時の負荷を複数ブラウザで確認し、必要なら車体ごとのサスペンション調整UIを追加します。
+
 次の作品を追加する際は、以下のテンプレートを複製して記録します。
 
 ---

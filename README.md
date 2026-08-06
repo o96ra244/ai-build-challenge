@@ -44,7 +44,7 @@ npm run dev
 
 ## 作品一覧
 
-現在の作品数: **7件**
+現在の作品数: **8件**
 
 ### 01 画像比率リサイズ計算機
 
@@ -103,6 +103,15 @@ SVG本体を変更せず、同じ内蔵アイコンまたは任意のSVGで12種
 - 公開先ルート: `/works/07-low-poly-tree-explorer`
 - 作品URL（mainマージ後）: https://ai-build-challenge.vercel.app/works/07-low-poly-tree-explorer
 - 主な機能: 低ポリツリーのOrbit・Zoom・Explode・Reset・自動回転、WebGPURendererとWebGL 2フォールバック、キーボード・タッチ・reduced-motion対応
+
+### 08 Low Poly Rover Garage
+
+12種類の低ポリパーツをGARAGEで組み替え、同じローバーを小さなTEST YARDへ持ち込んで坂・起伏・丸太・箱・岩・ジャンプ台の走行感を確認する3Dツールです。
+
+- GitHub上のパス: [`app/works/08-low-poly-rover-garage/`](app/works/08-low-poly-rover-garage/)
+- 公開予定URL: https://ai-build-challenge.vercel.app/works/08-low-poly-rover-garage
+- 主な機能: Front・Cabin・Rear各4モジュール、64通りの組み合わせ、Orbit・Zoom・Reset・Auto rotate、Rapierの4輪ray-cast vehicle、TEST YARDのPause・Recover、PCキーボード・スマートフォンpointer操作
+- 使用技術: Three.js WebGPURenderer、`@dimforge/rapier3d-compat` 0.19.3、CSS Modules、Vitest
 
 ## 公開URL
 
