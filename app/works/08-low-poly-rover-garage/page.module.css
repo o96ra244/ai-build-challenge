@@ -226,6 +226,19 @@
   text-align: center;
 }
 
+.canvasError button {
+  min-height: 38px;
+  margin: 8px auto 0;
+  padding: 7px 13px;
+  border: 1px solid #9a4d3d;
+  border-radius: 8px;
+  color: #7f2e21;
+  background: #fffdf7;
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+
 .canvasHint {
   position: absolute;
   z-index: 2;
@@ -243,74 +256,161 @@
   pointer-events: none;
 }
 
-.trialHud {
+.frontierHud {
   position: absolute;
   z-index: 3;
   top: 14px;
   left: 14px;
-  width: min(100% - 28px, 530px);
-  min-height: 112px;
+  width: min(100% - 28px, 640px);
+  min-height: 158px;
   padding: 12px 14px;
-  border: 1px solid rgba(255, 255, 255, 0.56);
+  border: 1px solid rgba(255, 255, 255, 0.64);
   border-radius: 13px;
   color: #f9f5e9;
-  background: rgba(25, 42, 42, 0.88);
+  background: rgba(25, 42, 42, 0.9);
   box-shadow: 0 8px 24px rgba(21, 34, 32, 0.22);
   pointer-events: none;
 }
 
-.trialHudHeader,
-.trialHudGrid {
+.frontierHudHeader,
+.frontierHudGrid {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
   gap: 12px;
 }
 
-.trialHudHeader {
+.frontierHudHeader {
   padding-bottom: 7px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.22);
   font-size: 0.74rem;
   letter-spacing: 0.1em;
 }
 
-.trialHudHeader span {
+.frontierHudHeader span {
   color: #f7ca68;
   font-size: 0.68rem;
   font-weight: 800;
 }
 
-.trialHudGrid {
+.frontierHudGrid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 9px;
+  gap: 7px 10px;
   padding-top: 9px;
 }
 
-.trialHudGrid span {
+.frontierHudGrid span {
   display: grid;
-  gap: 4px;
+  gap: 3px;
   min-width: 0;
   color: #b9d4c8;
-  font-size: 0.6rem;
+  font-size: 0.58rem;
   font-weight: 800;
   letter-spacing: 0.06em;
   line-height: 1.15;
 }
 
-.trialHudGrid strong {
+.frontierHudGrid strong {
   min-width: 0;
   overflow: hidden;
   color: #fff;
-  font-size: clamp(0.83rem, 1.4vw, 1.05rem);
+  font-size: clamp(0.78rem, 1.25vw, 0.96rem);
   font-variant-numeric: tabular-nums;
   letter-spacing: 0;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
+.frontierMiniMap {
+  position: absolute;
+  top: 12px;
+  right: 13px;
+  width: 104px;
+  height: auto;
+  overflow: visible;
+  border-radius: 7px;
+}
+
+.frontierMiniMapBackground {
+  fill: rgba(16, 33, 35, 0.86);
+  stroke: rgba(255, 255, 255, 0.45);
+  stroke-width: 0.8;
+}
+
+.frontierMiniMapArea {
+  fill: rgba(147, 198, 157, 0.2);
+  stroke: rgba(230, 220, 156, 0.26);
+  stroke-width: 0.5;
+}
+
+.frontierMiniMapAreaVisited {
+  fill: rgba(247, 202, 104, 0.42);
+  stroke: rgba(255, 253, 247, 0.58);
+  stroke-width: 0.75;
+}
+
+.frontierMiniMapWaystone,
+.frontierMiniMapWaystoneVisited {
+  fill: #f7ca68;
+  stroke: #fffdf7;
+  stroke-width: 0.7;
+}
+
+.frontierMiniMapWaystoneVisited {
+  fill: #82d7b5;
+}
+
+.frontierMiniMapPlayer {
+  fill: #ff8e5d;
+  stroke: #fffdf7;
+  stroke-width: 0.65;
+}
+
+.frontierSubmode,
+.frontierActionButtons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.frontierSubmode {
+  margin-top: 7px;
+}
+
+.frontierControls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-top: 7px;
+}
+
+.frontierState {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.8rem;
+  line-height: 1.35;
+  text-align: right;
+}
+
+.frontierState strong {
+  color: var(--accent-dark);
+  letter-spacing: 0.08em;
+}
+
+.frontierRecoveryHint {
+  min-height: 1.35em;
+  margin: 7px 0 0;
+  color: var(--accent-dark);
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
 .countdownOverlay,
-.trialOverlayMessage {
+.frontierOverlayMessage {
   position: absolute;
   z-index: 4;
   top: 50%;
@@ -333,14 +433,14 @@
   transform: translate(-50%, -50%);
 }
 
-.trialOverlayMessage {
+.frontierOverlayMessage {
   min-width: 190px;
   gap: 5px;
   font-size: 0.85rem;
   line-height: 1.35;
 }
 
-.trialOverlayMessage span {
+.frontierOverlayMessage span {
   color: #f7ca68;
   font-size: 1.4rem;
   font-variant-numeric: tabular-nums;
@@ -422,8 +522,7 @@
   text-align: right;
 }
 
-.controlRows,
-.courseControls {
+.controlRows {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -499,27 +598,6 @@
   padding: 0;
   font-size: 1.3rem;
   line-height: 1;
-}
-
-.courseState {
-  display: grid;
-  gap: 2px;
-  margin: 0;
-  color: var(--muted);
-  font-size: 0.8rem;
-  line-height: 1.35;
-  text-align: right;
-}
-
-.courseState strong {
-  color: var(--accent-dark);
-  letter-spacing: 0.08em;
-}
-
-.trialActionButtons {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 7px;
 }
 
 .keyboardHelp {
@@ -841,8 +919,7 @@
     text-align: left;
   }
 
-  .controlRows,
-  .courseControls {
+  .controlRows {
     align-items: stretch;
     flex-direction: column;
   }
@@ -863,30 +940,6 @@
     font-size: 0.78rem;
   }
 
-  .courseControls .primaryButton {
-    width: 100%;
-  }
-
-  .trialActionButtons {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    width: 100%;
-  }
-
-  .trialActionButtons button {
-    min-width: 0;
-    padding-inline: 7px;
-    font-size: 0.76rem;
-  }
-
-  .trialActionButtons .primaryButton {
-    grid-column: span 2;
-  }
-
-  .courseState {
-    text-align: left;
-  }
-
   .zoomControls {
     justify-content: flex-end;
   }
@@ -895,17 +948,47 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .trialHud {
+  .frontierHud {
     top: 10px;
     left: 10px;
     width: calc(100% - 20px);
-    min-height: 122px;
+    min-height: 172px;
     padding: 10px;
   }
 
-  .trialHudGrid {
+  .frontierHudGrid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+    padding-right: 112px;
     gap: 7px 12px;
+  }
+
+  .frontierMiniMap {
+    top: 10px;
+    right: 10px;
+    width: min(30vw, 110px);
+    max-width: 120px;
+  }
+
+  .frontierControls {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .frontierActionButtons,
+  .frontierSubmode {
+    width: 100%;
+  }
+
+  .frontierActionButtons button,
+  .frontierSubmode button {
+    flex: 1 1 0;
+    min-width: 0;
+    padding-inline: 7px;
+    font-size: 0.76rem;
+  }
+
+  .frontierState {
+    text-align: left;
   }
 
   .mobileControls {

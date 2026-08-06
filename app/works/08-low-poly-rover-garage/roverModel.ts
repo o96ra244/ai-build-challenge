@@ -2,7 +2,7 @@ export type Vector3Tuple = readonly [number, number, number];
 
 export type ModuleCategory = "front" | "cabin" | "rear";
 
-export type ExperienceMode = "garage" | "course";
+export type ExperienceMode = "garage" | "frontier";
 
 export type FrontModuleId = "twin-lamp" | "drill-nose" | "scout-sensor" | "utility-winch";
 export type CabinModuleId = "bubble-canopy" | "armored-cab" | "open-cockpit" | "offset-capsule";
@@ -315,13 +315,13 @@ export function getCameraPreset(
   const aspect = safeWidth / safeHeight;
   const isMobile = safeWidth < 700 || aspect < 0.78;
 
-  if (mode === "course") {
+  if (mode === "frontier") {
     return {
-      position: isMobile ? [64, 72, 84] : [47, 55, 66],
-      target: [0, 0, 0],
-      fov: isMobile ? 60 : 58,
-      minDistance: 52,
-      maxDistance: 180,
+      position: isMobile ? [42, 46, 58] : [56, 60, 76],
+      target: [-90, 4, -52],
+      fov: isMobile ? 62 : 58,
+      minDistance: 18,
+      maxDistance: 250,
     };
   }
 

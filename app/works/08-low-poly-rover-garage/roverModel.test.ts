@@ -121,15 +121,15 @@ describe("roverModel", () => {
   it("カメラプリセットとmotion preferenceを安全に返す", () => {
     const desktop = getCameraPreset("garage", 1440, 900);
     const mobile = getCameraPreset("garage", 390, 844);
-    const course = getCameraPreset("course", 1440, 900);
+    const frontier = getCameraPreset("frontier", 1440, 900);
     const narrow = getCameraPreset("garage", 1, 1);
-    const invalid = getCameraPreset("course", 0, Number.POSITIVE_INFINITY);
+    const invalid = getCameraPreset("frontier", 0, Number.POSITIVE_INFINITY);
 
     expect(desktop.fov).toBeLessThan(mobile.fov);
-    expect(course.fov).toBeGreaterThan(desktop.fov);
-    expect(course.target).toEqual([0, 0, 0]);
-    expect(course.position[1]).toBeGreaterThan(desktop.position[1]);
-    for (const preset of [desktop, mobile, course, narrow, invalid]) {
+    expect(frontier.fov).toBeGreaterThan(desktop.fov);
+    expect(frontier.target).toEqual([-90, 4, -52]);
+    expect(frontier.position[1]).toBeGreaterThan(desktop.position[1]);
+    for (const preset of [desktop, mobile, frontier, narrow, invalid]) {
       expectFiniteTuple(preset.position);
       expectFiniteTuple(preset.target);
       expect(Number.isFinite(preset.fov)).toBe(true);

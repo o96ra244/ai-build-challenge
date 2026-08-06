@@ -21,42 +21,79 @@ import {
   type Vector3Tuple,
 } from "./roverModel";
 import {
-  COURSE_CENTERLINE,
-  COURSE_CHECKPOINTS,
-  COURSE_OBSTACLES,
-  START_POSITION,
-  TERRAIN_BOUNDS,
-  TRACK_WIDTH,
-  getTerrainHeight,
-  getTerrainNormal,
-} from "./courseGeometry";
-import {
   EMPTY_DRIVE_INPUT,
-  createInitialDriveState,
-  getDriveForwardVector,
-  getCheckpointResetState,
-  stepDrive,
+  getVisitedAreaCount,
   type DriveInput,
-  type DriveState,
 } from "./driveModel";
+import {
+  CLIMBABLE_OBSTACLES,
+  DYNAMIC_PROPS,
+  FIXED_OBSTACLES,
+  FRONTIER_AREAS,
+  FRONTIER_LANDMARKS,
+  HEIGHTFIELD_COLUMNS,
+  HEIGHTFIELD_HEIGHTS,
+  HEIGHTFIELD_ROWS,
+  WAYSTONES,
+  getFrontierArea,
+  getFrontierHeight,
+  getHeightfieldIndex,
+  getSurfaceType,
+  type FrontierAreaId,
+  type FrontierMode as DataFrontierMode,
+} from "./frontierWorld";
+import {
+  loadRapier,
+  RoverPhysicsWorld,
+  type PhysicsSnapshot,
+} from "./RoverPhysicsWorld";
+import { VEHICLE_CONFIG, WHEEL_CONFIGS } from "./vehicleConfig";
 
 export type LowPolyRoverSceneOptions = {
   readonly reducedMotion: boolean;
   readonly selection: RoverSelection;
   readonly onAutoRotateChange: (enabled: boolean) => void;
-  readonly onTrialStatusChange: (status: TrialStatus) => void;
-  readonly onCountdownChange: (countdown: number | null) => void;
-  readonly onTrialHudChange: (hud: TrialHud) => void;
-  readonly onTrialClear: (elapsedMilliseconds: number) => void;
+  readonly onFrontierStatusChange: (status: FrontierRunStatus) => void;
+  readonly onFrontierCountdownChange: (countdown: number | null) => void;
+  readonly onFrontierHudChange: (hud: FrontierHud) => void;
+  readonly onFrontierWaystone: (id: string, label: string) => void;
+  readonly onFrontierComplete: (elapsedMilliseconds: number) => void;
+  readonly onFrontierAnnouncement: (message: string) => void;
 };
 
-export type TrialStatus = "ready" | "countdown" | "running" | "paused" | "clear";
+export type FrontierMode = DataFrontierMode;
 
-export type TrialHud = {
-  readonly elapsedMilliseconds: number;
+export type FrontierRunStatus = "ready" | "countdown" | "running" | "paused" | "clear";
+
+export type FrontierHud = {
+  readonly mode: FrontierMode;
+  readonly status: FrontierRunStatus;
+  readonly areaLabel: string;
+  readonly surface: string;
   readonly speed: number;
-  readonly checkpointIndex: number;
-  readonly onTrack: boolean;
+  readonly groundedWheels: number;
+  readonly traction: number;
+  readonly visitedAreas: number;
+  readonly visitedAreaIds: readonly FrontierAreaId[];
+  readonly waystoneCount: number;
+  readonly visitedWaystoneIds: readonly string[];
+  readonly nextWaystoneDistance: number | null;
+  readonly elapsedMilliseconds: number;
+  readonly x: number;
+  readonly z: number;
+  readonly heading: number;
+  readonly recoveryReady: boolean;
+  readonly rolloverSeconds: number;
+};
+
+type DynamicPropInstance = {
+  readonly bodyIndex: number;
+  readonly group: THREE.Group;
+};
+
+type WaystoneVisual = {
+  readonly group: THREE.Group;
+  readonly ring: THREE.Mesh;
 };
 
 export type LowPolyRoverSceneInitResult = {
@@ -227,69 +264,38 @@ function reverseTransitionProgress(progress: number, mode: ModuleTransitionMode)
   return clampProgress(reversed);
 }
 
-function createCourseRibbonGeometry(): THREE.BufferGeometry {
-  const positions: number[] = [];
-  const indices: number[] = [];
-
-  for (let index = 0; index < COURSE_CENTERLINE.length; index += 1) {
-    const state = COURSE_CENTERLINE[index] ?? START_POSITION;
-    const previous = COURSE_CENTERLINE[(index + COURSE_CENTERLINE.length - 1) % COURSE_CENTERLINE.length] ?? START_POSITION;
-    const next = COURSE_CENTERLINE[(index + 1) % COURSE_CENTERLINE.length] ?? START_POSITION;
-    const dx = next[0] - previous[0];
-    const dz = next[1] - previous[1];
-    const tangentLength = Math.max(0.001, Math.hypot(dx, dz));
-    const normalX = -dz / tangentLength;
-    const normalZ = dx / tangentLength;
-    const terrain = getTerrainHeight(state[0], state[1]) + 0.06;
-    positions.push(
-      state[0] + normalX * TRACK_WIDTH / 2,
-      terrain,
-      state[1] + normalZ * TRACK_WIDTH / 2,
-      state[0] - normalX * TRACK_WIDTH / 2,
-      terrain,
-      state[1] - normalZ * TRACK_WIDTH / 2,
-    );
-  }
-
-  for (let index = 0; index < COURSE_CENTERLINE.length; index += 1) {
-    const current = index * 2;
-    const next = ((index + 1) % COURSE_CENTERLINE.length) * 2;
-    indices.push(current, next, current + 1, current + 1, next, next + 1);
-  }
-
-  const geometry = new THREE.BufferGeometry();
-  geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
-  geometry.setIndex(indices);
-  geometry.computeVertexNormals();
-  return geometry;
-}
-
 function createTerrainGeometry(): THREE.BufferGeometry {
-  const columns = 30;
-  const rows = 22;
   const positions: number[] = [];
   const indices: number[] = [];
-  const width = TERRAIN_BOUNDS.maxX - TERRAIN_BOUNDS.minX;
-  const depth = TERRAIN_BOUNDS.maxZ - TERRAIN_BOUNDS.minZ;
+  const colors: number[] = [];
+  const surfaceColors: Record<string, THREE.Color> = {
+    meadow: new THREE.Color(0x86bb82),
+    dirt: new THREE.Color(0xb7865e),
+    stone: new THREE.Color(0x98a4a3),
+    "loose-soil": new THREE.Color(0xd19a66),
+  };
 
-  for (let row = 0; row <= rows; row += 1) {
-    const z = TERRAIN_BOUNDS.minZ + depth * row / rows;
-    for (let column = 0; column <= columns; column += 1) {
-      const x = TERRAIN_BOUNDS.minX + width * column / columns;
-      positions.push(x, getTerrainHeight(x, z) - 0.08, z);
+  for (let row = 0; row < HEIGHTFIELD_ROWS; row += 1) {
+    const z = -120 + 240 * row / (HEIGHTFIELD_ROWS - 1);
+    for (let column = 0; column < HEIGHTFIELD_COLUMNS; column += 1) {
+      const x = -160 + 320 * column / (HEIGHTFIELD_COLUMNS - 1);
+      positions.push(x, HEIGHTFIELD_HEIGHTS[getHeightfieldIndex(column, row)] ?? getFrontierHeight(x, z), z);
+      const color = surfaceColors[getSurfaceType(x, z)] ?? surfaceColors.meadow;
+      colors.push(color.r, color.g, color.b);
     }
   }
 
-  for (let row = 0; row < rows; row += 1) {
-    for (let column = 0; column < columns; column += 1) {
-      const current = row * (columns + 1) + column;
-      const nextRow = (row + 1) * (columns + 1) + column;
+  for (let row = 0; row < HEIGHTFIELD_ROWS - 1; row += 1) {
+    for (let column = 0; column < HEIGHTFIELD_COLUMNS - 1; column += 1) {
+      const current = row * HEIGHTFIELD_COLUMNS + column;
+      const nextRow = (row + 1) * HEIGHTFIELD_COLUMNS + column;
       indices.push(current, nextRow, current + 1, current + 1, nextRow, nextRow + 1);
     }
   }
 
   const geometry = new THREE.BufferGeometry();
   geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+  geometry.setAttribute("color", new THREE.Float32BufferAttribute(colors, 3));
   geometry.setIndex(indices);
   geometry.computeVertexNormals();
   return geometry;
@@ -303,11 +309,13 @@ export class LowPolyRoverScene {
   private readonly roverGroup = new THREE.Group();
   private readonly moduleRoot = new THREE.Group();
   private readonly garageRoot = new THREE.Group();
-  private readonly courseRoot = new THREE.Group();
+  private readonly frontierRoot = new THREE.Group();
   private readonly dustRoot = new THREE.Group();
   private readonly moduleInstances: ModuleInstance[] = [];
   private readonly wheelSpinGroups: THREE.Group[] = [];
   private readonly dustParticles: THREE.Mesh[] = [];
+  private readonly dynamicPropInstances: DynamicPropInstance[] = [];
+  private readonly waystoneVisuals = new Map<string, WaystoneVisual>();
   private reducedMotion: boolean;
   private selection: RoverSelection;
   private mode: ExperienceMode = "garage";
@@ -315,12 +323,12 @@ export class LowPolyRoverScene {
   private readonly handleVisibility = (): void => {
     this.pageVisible = document.visibilityState === "visible";
     if (!this.pageVisible) {
-      this.pauseTrial();
+      this.pauseFrontier();
     }
     this.updateLoopState();
   };
   private readonly handleWindowBlur = (): void => {
-    this.pauseTrial();
+    this.pauseFrontier();
   };
   private readonly render = (time: number): void => this.renderFrame(time);
   private renderer: WebGPURenderer | null = null;
@@ -333,17 +341,20 @@ export class LowPolyRoverScene {
   private lastTime = 0;
   private controlsActiveUntil = 0;
   private animationLoopActive = false;
-  private trialStatus: TrialStatus = "ready";
-  private pausedFrom: "countdown" | "running" = "running";
+  private frontierMode: FrontierMode = "free-roam";
+  private frontierStatus: FrontierRunStatus = "running";
+  private frontierPausedFrom: FrontierRunStatus = "running";
   private countdownElapsed = 0;
   private countdownValue = 0;
-  private trialElapsedMilliseconds = 0;
-  private trialHudLastSentAt = 0;
-  private driveState: DriveState = createInitialDriveState();
+  private frontierElapsedMilliseconds = 0;
+  private frontierHudLastSentAt = 0;
   private driveInput: DriveInput = EMPTY_DRIVE_INPUT;
-  private onTrack = true;
   private cameraInitialized = false;
-  private wheelSpin = 0;
+  private physics: RoverPhysicsWorld | null = null;
+  private frontierLoading = false;
+  private frontierLoadToken = 0;
+  private waystoneIds: readonly string[] = [];
+  private exploredAreaIds: readonly FrontierAreaId[] = [];
 
   public constructor(container: HTMLElement, options: LowPolyRoverSceneOptions) {
     this.container = container;
@@ -354,10 +365,9 @@ export class LowPolyRoverScene {
 
   public async init(): Promise<LowPolyRoverSceneInitResult> {
     this.scene.background = new THREE.Color(BACKGROUND_COLOR);
-    this.scene.fog = new THREE.Fog(BACKGROUND_COLOR, 34, 175);
+    this.scene.fog = new THREE.Fog(BACKGROUND_COLOR, 46, 360);
     this.buildLighting();
     this.buildGarage();
-    this.buildCourse();
     this.buildFixedChassis();
     this.scene.add(this.roverGroup);
     this.roverGroup.add(this.moduleRoot);
@@ -486,7 +496,7 @@ export class LowPolyRoverScene {
   }
 
   public setAutoRotate(enabled: boolean): void {
-    if (this.disposed || !this.controls || this.mode === "course" || this.isTrialActive()) {
+    if (this.disposed || !this.controls || this.mode === "frontier") {
       return;
     }
 
@@ -506,7 +516,7 @@ export class LowPolyRoverScene {
     }
 
     this.controls.dampingFactor = getOrbitDampingFactor(enabled);
-    const nextAutoRotate = this.mode === "course"
+    const nextAutoRotate = this.mode === "frontier"
       ? false
       : getAutoRotateAfterMotionPreference(enabled, this.controls.autoRotate);
     if (nextAutoRotate !== this.controls.autoRotate) {
@@ -516,19 +526,16 @@ export class LowPolyRoverScene {
     this.updateLoopState();
   }
 
-  public setMode(mode: ExperienceMode): void {
-    if (this.disposed || !this.controls || this.isTrialActive() || this.mode === mode) {
+  public async setMode(mode: ExperienceMode): Promise<void> {
+    if (this.disposed || !this.controls || this.mode === mode) {
       return;
     }
 
     this.clearDriveInput();
     this.mode = mode;
     this.garageRoot.visible = mode === "garage";
-    this.courseRoot.visible = mode === "course";
+    this.frontierRoot.visible = mode === "frontier";
     this.dustRoot.visible = false;
-    this.driveState = createInitialDriveState();
-    this.applyDriveState(this.driveState, 0, 0);
-    this.wheelSpin = 0;
     this.wheelSpinGroups.forEach((group) => group.rotation.set(0, 0, 0));
     const viewport = this.getViewportSize();
     const cameraPreset = getCameraPreset(mode, viewport.width, viewport.height);
@@ -541,15 +548,30 @@ export class LowPolyRoverScene {
     this.controls.maxDistance = cameraPreset.maxDistance;
     this.controls.autoRotate = false;
     this.controls.update();
-    if (mode === "course") {
-      this.trialStatus = "ready";
-      this.trialElapsedMilliseconds = 0;
-      this.onTrack = true;
+    if (mode === "frontier") {
+      await this.ensureFrontier();
+      if (this.disposed) {
+        return;
+      }
+      this.frontierStatus = "running";
+      this.frontierMode = "free-roam";
+      this.frontierElapsedMilliseconds = 0;
+      this.waystoneIds = [];
+      this.resetWaystoneVisuals();
       this.cameraInitialized = false;
-      this.updateOverviewCamera(0, true);
-      this.emitTrialHud();
-      this.options.onCountdownChange(null);
-      this.options.onTrialStatusChange("ready");
+      this.syncRover(this.physics?.snapshot ?? null, 0);
+      this.emitFrontierHud(true);
+      this.options.onFrontierCountdownChange(null);
+      this.options.onFrontierStatusChange("running");
+    } else {
+      this.frontierStatus = "ready";
+      this.disposeFrontierPhysics();
+      this.roverGroup.position.set(0, 0, 0);
+      this.roverGroup.quaternion.identity();
+      this.wheelSpinGroups.forEach((group) => {
+        group.position.y = 0.88;
+        group.rotation.set(0, 0, 0);
+      });
     }
     this.options.onAutoRotateChange(false);
     this.controlsActiveUntil = performance.now() + (this.reducedMotion ? 80 : 300);
@@ -557,7 +579,7 @@ export class LowPolyRoverScene {
   }
 
   public setDriveInput(input: DriveInput): void {
-    if (this.disposed || this.mode !== "course" || (this.trialStatus !== "countdown" && this.trialStatus !== "running")) {
+    if (this.disposed || this.mode !== "frontier" || (this.frontierStatus !== "countdown" && this.frontierStatus !== "running")) {
       return;
     }
 
@@ -566,81 +588,106 @@ export class LowPolyRoverScene {
 
   public clearDriveInput(): void {
     this.driveInput = EMPTY_DRIVE_INPUT;
+    this.physics?.clearInput();
   }
 
-  public startTrial(): void {
-    if (this.disposed || !this.renderer || this.mode !== "course" || this.isTrialActive()) {
+  public setFrontierMode(mode: FrontierMode): void {
+    if (this.disposed || this.mode !== "frontier" || this.frontierMode === mode) {
       return;
     }
 
-    this.driveState = createInitialDriveState();
+    this.frontierMode = mode;
     this.clearDriveInput();
-    this.trialElapsedMilliseconds = 0;
+    this.frontierElapsedMilliseconds = 0;
+    this.waystoneIds = [];
+    this.resetWaystoneVisuals();
+    this.physics?.resetToStart();
+    this.frontierStatus = mode === "free-roam" ? "running" : "ready";
+    this.countdownValue = 0;
+    this.countdownElapsed = 0;
+    this.options.onFrontierCountdownChange(null);
+    this.options.onFrontierStatusChange(this.frontierStatus);
+    this.syncRover(this.physics?.snapshot ?? null, 0);
+    this.emitFrontierHud(true);
+    this.updateLoopState();
+  }
+
+  public startWaystoneRun(): void {
+    if (this.disposed || !this.renderer || this.mode !== "frontier" || this.frontierMode !== "waystone-run") {
+      return;
+    }
+
+    this.physics?.resetToStart();
+    this.clearDriveInput();
+    this.waystoneIds = [];
+    this.resetWaystoneVisuals();
+    this.frontierElapsedMilliseconds = 0;
     this.countdownElapsed = 0;
     this.countdownValue = 3;
-    this.trialHudLastSentAt = 0;
-    this.trialStatus = "countdown";
+    this.frontierHudLastSentAt = 0;
+    this.frontierStatus = "countdown";
     this.cameraInitialized = false;
-    this.wheelSpin = 0;
     this.wheelSpinGroups.forEach((group) => group.rotation.set(0, 0, 0));
-    this.applyDriveState(this.driveState, 0, 0);
-    this.options.onCountdownChange(this.countdownValue);
-    this.options.onTrialStatusChange("countdown");
-    this.emitTrialHud();
+    this.syncRover(this.physics?.snapshot ?? null, 0);
+    this.options.onFrontierCountdownChange(this.countdownValue);
+    this.options.onFrontierStatusChange("countdown");
+    this.emitFrontierHud(true);
     this.updateLoopState();
   }
 
-  public pauseTrial(): void {
-    if (this.disposed || (this.trialStatus !== "countdown" && this.trialStatus !== "running")) {
+  public pauseFrontier(): void {
+    if (this.disposed || this.mode !== "frontier" || (this.frontierStatus !== "countdown" && this.frontierStatus !== "running")) {
       return;
     }
 
-    this.pausedFrom = this.trialStatus;
-    this.trialStatus = "paused";
-    this.clearDriveInput();
+    this.frontierPausedFrom = this.frontierStatus;
+    this.frontierStatus = "paused";
+    this.driveInput = EMPTY_DRIVE_INPUT;
+    this.physics?.stopVehicle();
     this.dustRoot.visible = false;
-    this.options.onTrialStatusChange("paused");
+    this.options.onFrontierStatusChange("paused");
+    this.options.onFrontierAnnouncement("PAUSED。再開操作が必要です。");
     this.controlsActiveUntil = performance.now() + 180;
     this.updateLoopState();
   }
 
-  public resumeTrial(): void {
-    if (this.disposed || this.mode !== "course" || this.trialStatus !== "paused") {
+  public resumeFrontier(): void {
+    if (this.disposed || this.mode !== "frontier" || this.frontierStatus !== "paused") {
       return;
     }
 
-    this.trialStatus = this.pausedFrom;
-    this.options.onTrialStatusChange(this.trialStatus);
-    if (this.trialStatus === "countdown") {
-      this.options.onCountdownChange(this.countdownValue);
+    this.frontierStatus = this.frontierPausedFrom;
+    this.options.onFrontierStatusChange(this.frontierStatus);
+    if (this.frontierStatus === "countdown") {
+      this.options.onFrontierCountdownChange(this.countdownValue);
     }
     this.updateLoopState();
   }
 
-  public resetToCheckpoint(): void {
-    if (this.disposed || this.mode !== "course" || (this.trialStatus !== "running" && this.trialStatus !== "paused")) {
+  public recoverFrontier(): void {
+    if (this.disposed || this.mode !== "frontier" || (this.frontierStatus !== "running" && this.frontierStatus !== "paused") || !this.physics) {
       return;
     }
 
-    this.driveState = getCheckpointResetState(this.driveState.checkpointIndex);
     this.clearDriveInput();
-    this.applyDriveState(this.driveState, 0, 0);
-    this.emitTrialHud();
+    this.physics.recoverToLastSafe();
+    this.syncRover(this.physics.snapshot, 0);
+    this.options.onFrontierAnnouncement("最後の安全地点へ復帰しました。速度と入力をリセットしました。");
+    this.emitFrontierHud(true);
     this.controlsActiveUntil = performance.now() + 180;
     this.updateLoopState();
   }
 
-  public restartTrial(): void {
-    if (this.disposed || this.mode !== "course" || this.trialStatus === "running") {
+  public restartWaystoneRun(): void {
+    if (this.disposed || this.mode !== "frontier" || this.frontierMode !== "waystone-run" || this.frontierStatus === "running" || this.frontierStatus === "countdown") {
       return;
     }
 
-    this.trialStatus = "ready";
-    this.startTrial();
+    this.startWaystoneRun();
   }
 
   public zoomBy(direction: "in" | "out"): void {
-    if (this.disposed || !this.controls || this.mode === "course" || this.isTrialActive()) {
+    if (this.disposed || !this.controls || this.mode === "frontier") {
       return;
     }
 
@@ -658,7 +705,7 @@ export class LowPolyRoverScene {
   }
 
   public reset(): void {
-    if (this.disposed || !this.controls || this.mode === "course" || this.isTrialActive()) {
+    if (this.disposed || !this.controls || this.mode === "frontier") {
       return;
     }
 
@@ -697,6 +744,7 @@ export class LowPolyRoverScene {
     }
     this.renderer = null;
     this.controls = null;
+    this.disposeFrontierPhysics();
     this.moduleInstances.length = 0;
   }
 
@@ -734,79 +782,148 @@ export class LowPolyRoverScene {
     this.scene.add(garage);
   }
 
-  private buildCourse(): void {
-    const course = this.courseRoot;
-    course.name = "dirt-trial-environment";
-    course.visible = false;
-    addMesh(course, createTerrainGeometry(), createMaterial(COLORS.soil, { roughness: 0.98 }));
-    addMesh(course, createCourseRibbonGeometry(), createMaterial(COLORS.crateDark, { roughness: 1 }));
-
-    const addGate = (x: number, z: number, heading: number, color: number, marker: number): void => {
-      const tangentX = Math.sin(heading);
-      const tangentZ = Math.cos(heading);
-      const normalX = -tangentZ;
-      const normalZ = tangentX;
-      const terrain = getTerrainHeight(x, z);
-      const left: Vector3Tuple = [x + normalX * 2.35, terrain + 0.95, z + normalZ * 2.35];
-      const right: Vector3Tuple = [x - normalX * 2.35, terrain + 0.95, z - normalZ * 2.35];
-      addCylinder(course, 0.09, 0.09, 1.9, 6, left, COLORS.frame);
-      addCylinder(course, 0.09, 0.09, 1.9, 6, right, COLORS.frame);
-      addBeam(course, [left[0], terrain + 1.9, left[2]], [right[0], terrain + 1.9, right[2]], 0.1, color);
-      addBox(course, [0.54, 0.42, 0.08], [left[0], terrain + 1.48, left[2]], marker);
-    };
-
-    addGate(START_POSITION[0], START_POSITION[1], Math.PI / 2, COLORS.orange, COLORS.yellow);
-    for (const checkpoint of COURSE_CHECKPOINTS) {
-      addGate(checkpoint.x, checkpoint.z, checkpoint.heading, COLORS.bodyLight, checkpoint.index % 2 === 0 ? COLORS.yellow : COLORS.orange);
+  private async ensureFrontier(): Promise<void> {
+    if (this.physics || this.frontierLoading || this.disposed) {
+      return;
     }
 
-    for (const obstacle of COURSE_OBSTACLES) {
-      const terrain = getTerrainHeight(obstacle.x, obstacle.z);
-      if (obstacle.id.includes("tire")) {
-        addMesh(
-          course,
-          new THREE.TorusGeometry(obstacle.radius * 0.72, 0.18, 6, 10),
-          createMaterial(COLORS.rubber, { roughness: 0.96 }),
-          [obstacle.x, terrain + obstacle.radius * 0.7, obstacle.z],
-          [Math.PI / 2, 0, 0],
-        );
-      } else if (obstacle.id.includes("post")) {
-        addCylinder(course, 0.16, 0.2, 1.4, 6, [obstacle.x, terrain + 0.7, obstacle.z], COLORS.orange);
+    this.frontierLoading = true;
+    const token = ++this.frontierLoadToken;
+    try {
+      const rapier = await loadRapier();
+      if (this.disposed || token !== this.frontierLoadToken) {
+        return;
+      }
+
+      this.physics = new RoverPhysicsWorld(rapier);
+      this.buildFrontier();
+    } finally {
+      this.frontierLoading = false;
+    }
+  }
+
+  private disposeFrontierPhysics(): void {
+    this.frontierLoadToken += 1;
+    this.frontierLoading = false;
+    this.physics?.dispose();
+    this.physics = null;
+    this.frontierRoot.visible = false;
+    this.dustRoot.visible = false;
+  }
+
+  private buildFrontier(): void {
+    const frontier = this.frontierRoot;
+    if (frontier.children.length > 0) {
+      frontier.visible = true;
+      return;
+    }
+    frontier.name = "frontier-world-320x240";
+    frontier.visible = true;
+
+    const terrainMaterial = new THREE.MeshStandardMaterial({
+      vertexColors: true,
+      flatShading: true,
+      roughness: 0.98,
+      metalness: 0,
+    });
+    addMesh(frontier, createTerrainGeometry(), terrainMaterial);
+
+    for (const area of FRONTIER_AREAS) {
+      const ring = new THREE.Mesh(
+        new THREE.RingGeometry(12, 12.35, 8),
+        createMaterial(area.surface === "stone" ? 0x728b91 : area.surface === "loose-soil" ? 0xd39a64 : 0x5f9b79),
+      );
+      ring.position.set(area.center[0], getFrontierHeight(area.center[0], area.center[1]) + 0.08, area.center[1]);
+      ring.rotation.x = -Math.PI / 2;
+      frontier.add(ring);
+    }
+
+    for (const waystone of WAYSTONES) {
+      const terrain = getFrontierHeight(waystone.x, waystone.z);
+      const marker = new THREE.Group();
+      marker.name = `waystone-${waystone.id}`;
+      addCylinder(marker, 0.54, 0.66, 2.2, 6, [0, 1.1, 0], COLORS.bodyLight);
+      addMesh(marker, new THREE.OctahedronGeometry(0.7, 0), createMaterial(COLORS.yellow, { metalness: 0.18 }), [0, 2.55, 0]);
+      const ring = addMesh(marker, new THREE.TorusGeometry(2.8, 0.08, 6, 10), createMaterial(COLORS.orange), [0, 0.16, 0], [Math.PI / 2, 0, 0]);
+      marker.position.set(waystone.x, terrain, waystone.z);
+      frontier.add(marker);
+      this.waystoneVisuals.set(waystone.id, { group: marker, ring });
+    }
+
+    for (const obstacle of [...CLIMBABLE_OBSTACLES, ...FIXED_OBSTACLES]) {
+      const terrain = getFrontierHeight(obstacle.x, obstacle.z);
+      const material = obstacle.kind === "pillar" || obstacle.kind === "ruin"
+        ? createMaterial(0x728a91, { roughness: 1 })
+        : createMaterial(obstacle.kind === "log" ? 0x8a5d43 : 0x9b896e, { roughness: 1 });
+      if (obstacle.kind === "log") {
+        addCylinder(frontier, obstacle.radius * 0.55, obstacle.radius * 0.65, obstacle.radius * 2.2, 7, [obstacle.x, terrain + obstacle.height * 0.55, obstacle.z], 0x8a5d43, [0, 0, Math.PI / 2]);
       } else {
-        addMesh(
-          course,
-          new THREE.IcosahedronGeometry(obstacle.radius, 0),
-          createMaterial(COLORS.padLine, { roughness: 1 }),
-          [obstacle.x, terrain + obstacle.radius * 0.65, obstacle.z],
-          [0.12, obstacle.x * 0.07, -0.08],
-          [1, 0.8, 0.9],
-        );
+        addMesh(frontier, new THREE.IcosahedronGeometry(obstacle.radius, 0), material, [obstacle.x, terrain + obstacle.height * 0.62, obstacle.z], [0.12, obstacle.x * 0.03, -0.08], [1, 0.72, 0.9]);
       }
     }
 
-    for (let index = 1; index < COURSE_CENTERLINE.length; index += 2) {
-      const point = COURSE_CENTERLINE[index] ?? START_POSITION;
-      const terrain = getTerrainHeight(point[0], point[1]);
-      addMesh(course, new THREE.ConeGeometry(0.22, 0.48, 5), createMaterial(COLORS.orange), [point[0] + 0.9, terrain + 0.24, point[1] + 0.9]);
-      addMesh(course, new THREE.ConeGeometry(0.16, 0.36, 5), createMaterial(COLORS.yellow), [point[0] - 0.9, terrain + 0.18, point[1] - 0.9]);
+    for (const prop of DYNAMIC_PROPS) {
+      const group = new THREE.Group();
+      group.name = prop.id;
+      if (prop.kind === "box") {
+        addBox(group, [prop.radius * 1.5, prop.height, prop.radius * 1.5], [0, 0, 0], COLORS.crate, [0, 0.12, 0]);
+        addBox(group, [prop.radius * 1.1, 0.12, prop.radius * 0.15], [0, prop.height * 0.52, 0], COLORS.yellow);
+      } else if (prop.kind === "log") {
+        addCylinder(group, prop.radius * 0.45, prop.radius * 0.5, prop.radius * 2, 7, [0, 0, 0], 0x8a5d43, [0, 0, Math.PI / 2]);
+      } else {
+        addMesh(group, new THREE.IcosahedronGeometry(prop.radius, 0), createMaterial(0xa48e76, { roughness: 1 }), [0, 0, 0], [0.12, 0.24, -0.08], [1, 0.75, 0.9]);
+      }
+      frontier.add(group);
+      this.dynamicPropInstances.push({ bodyIndex: this.dynamicPropInstances.length, group });
     }
 
-    for (let index = 0; index < 7; index += 1) {
-      const particle = addMesh(
-        this.dustRoot,
-        new THREE.SphereGeometry(0.16 + (index % 3) * 0.05, 6, 4),
-        new THREE.MeshStandardMaterial({
-          color: 0xf1d3a2,
-          flatShading: true,
-          transparent: true,
-          opacity: 0.26,
-          depthWrite: false,
-        }),
-      );
-      particle.visible = false;
-      this.dustParticles.push(particle);
+    for (const landmark of FRONTIER_LANDMARKS) {
+      const group = new THREE.Group();
+      group.name = landmark.id;
+      const y = getFrontierHeight(landmark.x, landmark.z);
+      if (landmark.kind === "camp") {
+        addBox(group, [5.4, 0.18, 4.4], [0, 0.1, 0], COLORS.pad);
+        addMesh(group, new THREE.ConeGeometry(3.1, 3.8, 4), createMaterial(0xd67b55), [0, 2.0, 0], [0, Math.PI / 4, 0]);
+        addCylinder(group, 0.08, 0.08, 4.8, 6, [3.8, 2.4, 0], COLORS.frame);
+        addBox(group, [1.2, 0.62, 0.08], [3.8, 4.3, 0], COLORS.yellow);
+      } else if (landmark.kind === "spiral-tree") {
+        addCylinder(group, 0.6, 0.85, 5.6, 7, [0, 2.8, 0], 0x75523f);
+        addMesh(group, new THREE.SphereGeometry(2.9, 8, 5), createMaterial(0x4f9a79), [0, 6.2, 0], [0, 0, 0], [1.1, 1.3, 1.1]);
+        addMesh(group, new THREE.TorusGeometry(2.2, 0.18, 5, 8), createMaterial(0xe0b34f), [0, 6.2, 0], [Math.PI / 2, 0, 0]);
+      } else if (landmark.kind === "crystal") {
+        for (const offset of [-2.1, 0, 2.1]) {
+          addMesh(group, new THREE.ConeGeometry(0.9, 6.8 + Math.abs(offset), 6), createMaterial(0x7fc7d3, { metalness: 0.12, roughness: 0.32 }), [offset, 3.2, Math.abs(offset) * 0.45], [0.08, offset * 0.05, -0.08]);
+        }
+      } else if (landmark.kind === "wind-tower") {
+        addCylinder(group, 0.42, 0.7, 7, 6, [0, 3.5, 0], 0x8b7a61);
+        addBeam(group, [-3.5, 5.5, 0], [3.5, 5.5, 0], 0.12, COLORS.yellow);
+        addBeam(group, [0, 5.5, -3.5], [0, 5.5, 3.5], 0.12, COLORS.orange);
+      } else if (landmark.kind === "stonework") {
+        addCylinder(group, 0.72, 0.9, 6.4, 6, [-2.8, 3.2, 0], 0x718791);
+        addCylinder(group, 0.72, 0.9, 6.4, 6, [2.8, 3.2, 0], 0x718791);
+        addBeam(group, [-2.8, 6.3, 0], [2.8, 6.3, 0], 0.34, 0x718791);
+      } else {
+        addBeam(group, [-4.5, 0.3, 0], [-2.5, 6.6, 0], 0.28, 0x8d7c88);
+        addBeam(group, [4.5, 0.3, 0], [2.5, 6.6, 0], 0.28, 0x8d7c88);
+        addBeam(group, [-2.5, 6.6, 0], [2.5, 6.6, 0], 0.32, 0x8d7c88);
+      }
+      group.position.set(landmark.x, y, landmark.z);
+      group.scale.setScalar(landmark.scale);
+      frontier.add(group);
     }
-    this.scene.add(course);
+
+    if (this.dustParticles.length === 0) {
+      for (let index = 0; index < 8; index += 1) {
+        const particle = addMesh(
+          this.dustRoot,
+          new THREE.SphereGeometry(0.16 + (index % 3) * 0.05, 6, 4),
+          new THREE.MeshStandardMaterial({ color: 0xf1d3a2, flatShading: true, transparent: true, opacity: 0.26, depthWrite: false }),
+        );
+        particle.visible = false;
+        this.dustParticles.push(particle);
+      }
+    }
+    this.scene.add(frontier);
   }
 
   private buildFixedChassis(): void {
@@ -849,41 +966,39 @@ export class LowPolyRoverScene {
   }
 
   private buildWheels(parent: THREE.Group): void {
-    for (const x of [-2.32, 2.32]) {
-      for (const z of [-1.42, 1.42]) {
-        const wheelSpinGroup = new THREE.Group();
-        wheelSpinGroup.position.set(x, 0.88, z);
-        const tire = addMesh(
-          wheelSpinGroup,
-          new THREE.CylinderGeometry(WHEEL_RADIUS, WHEEL_RADIUS, 0.48, 12),
-          createMaterial(COLORS.rubber, { roughness: 0.95 }),
-          [0, 0, 0],
-          [0, 0, Math.PI / 2],
-        );
-        tire.scale.set(1, 1, 0.92);
-        addCylinder(
-          wheelSpinGroup,
-          0.34,
-          0.34,
-          0.52,
-          10,
-          [0, 0, 0],
-          COLORS.hub,
-          [0, 0, Math.PI / 2],
-        );
-        addCylinder(
-          wheelSpinGroup,
-          0.13,
-          0.13,
-          0.56,
-          8,
-          [0, 0, 0],
-          COLORS.darkMetal,
-          [0, 0, Math.PI / 2],
-        );
-        parent.add(wheelSpinGroup);
-        this.wheelSpinGroups.push(wheelSpinGroup);
-      }
+    for (const wheel of WHEEL_CONFIGS) {
+      const wheelSpinGroup = new THREE.Group();
+      wheelSpinGroup.position.set(wheel.x, 0.88, wheel.z);
+      const tire = addMesh(
+        wheelSpinGroup,
+        new THREE.CylinderGeometry(WHEEL_RADIUS, WHEEL_RADIUS, 0.48, 12),
+        createMaterial(COLORS.rubber, { roughness: 0.95 }),
+        [0, 0, 0],
+        [0, 0, Math.PI / 2],
+      );
+      tire.scale.set(1, 1, 0.92);
+      addCylinder(
+        wheelSpinGroup,
+        0.34,
+        0.34,
+        0.52,
+        10,
+        [0, 0, 0],
+        COLORS.hub,
+        [0, 0, Math.PI / 2],
+      );
+      addCylinder(
+        wheelSpinGroup,
+        0.13,
+        0.13,
+        0.56,
+        8,
+        [0, 0, 0],
+        COLORS.darkMetal,
+        [0, 0, Math.PI / 2],
+      );
+      parent.add(wheelSpinGroup);
+      this.wheelSpinGroups.push(wheelSpinGroup);
     }
   }
 
@@ -1161,52 +1276,45 @@ export class LowPolyRoverScene {
     this.lastTime = safeTime;
     this.updateModuleTransitions(deltaSeconds);
 
-    if (this.trialStatus === "countdown") {
+    if (this.mode === "frontier" && this.physics) {
+      if (this.frontierStatus === "countdown") {
       this.countdownElapsed += deltaSeconds * 1000;
       const nextCountdown = this.countdownElapsed >= 3000
         ? 0
         : Math.max(1, 3 - Math.floor(this.countdownElapsed / 1000));
       if (nextCountdown !== this.countdownValue) {
         this.countdownValue = nextCountdown;
-        this.options.onCountdownChange(nextCountdown > 0 ? nextCountdown : null);
+        this.options.onFrontierCountdownChange(nextCountdown > 0 ? nextCountdown : null);
       }
-      this.applyDriveState(this.driveState, safeTime, deltaSeconds);
-      this.updateOverviewCamera(deltaSeconds, false);
       if (this.countdownElapsed >= 3000) {
-        this.trialStatus = "running";
-        this.trialElapsedMilliseconds = 0;
-        this.options.onCountdownChange(0);
-        this.options.onTrialStatusChange("running");
-        this.emitTrialHud();
+        this.frontierStatus = "running";
+        this.frontierElapsedMilliseconds = 0;
+        this.options.onFrontierCountdownChange(0);
+        this.options.onFrontierStatusChange("running");
+        this.emitFrontierHud(true);
       }
     }
 
-    if (this.trialStatus === "running") {
-      this.trialElapsedMilliseconds += deltaSeconds * 1000;
-      const result = stepDrive(this.driveState, this.driveInput, deltaSeconds);
-      this.driveState = result.state;
-      this.onTrack = result.onTrack;
-      this.applyDriveState(this.driveState, safeTime, deltaSeconds);
-      for (const instance of this.moduleInstances) {
-        if (instance.definition.id === "turbine-pack" && instance.target === 1 && instance.turbineRotor) {
-          const turbineMotion = Math.min(1, Math.abs(this.driveState.speed) / 5) * deltaSeconds * 2.4;
-          instance.turbineRotor.rotation.z += this.driveInput.throttle === 1 ? turbineMotion : turbineMotion * 0.18;
-        }
+      const physicsActive = this.frontierStatus === "running";
+      const snapshot = physicsActive
+        ? this.physics.advance(deltaSeconds, this.driveInput)
+        : this.physics.snapshot;
+      if (physicsActive) {
+        this.trackExploredArea(snapshot);
       }
-      this.updateDust(this.driveState, safeTime);
-      if (result.checkpointPassed || result.collided || safeTime - this.trialHudLastSentAt >= 100) {
-        this.emitTrialHud(safeTime);
+      if (physicsActive && this.frontierMode === "waystone-run") {
+        this.frontierElapsedMilliseconds += deltaSeconds * 1000;
+        this.checkWaystones(snapshot);
       }
-      if (result.lapCompleted) {
-        this.finishTrial();
+      this.syncRover(snapshot, deltaSeconds);
+      this.updateFrontierCamera(deltaSeconds);
+      this.updateDynamicProps();
+      this.updateDust(snapshot, safeTime);
+      if (safeTime - this.frontierHudLastSentAt >= 100) {
+        this.emitFrontierHud();
       }
-    } else if (this.mode !== "course" || this.trialStatus !== "countdown") {
+    } else {
       this.dustRoot.visible = false;
-      if (this.mode === "course" && (this.trialStatus === "ready" || this.trialStatus === "countdown")) {
-        this.updateOverviewCamera(deltaSeconds, false);
-      } else if (this.mode === "course") {
-        this.updateFollowCamera(deltaSeconds);
-      }
     }
 
     if (this.mode === "garage") {
@@ -1220,29 +1328,31 @@ export class LowPolyRoverScene {
     }
   }
 
-  private applyDriveState(state: DriveState, time: number, deltaSeconds: number): void {
-    const terrainHeight = getTerrainHeight(state.x, state.z);
-    const normal = getTerrainNormal(state.x, state.z);
-    const suspension = this.reducedMotion || Math.abs(state.speed) < 0.1
-      ? 0
-      : Math.sin(time * 0.012) * Math.min(0.06, Math.abs(state.speed) * 0.006);
-    const motionFactor = this.reducedMotion ? 0.22 : 1;
-    const pitch = Math.atan2(normal[2], Math.max(0.1, normal[1])) * motionFactor;
-    const roll = Math.atan2(-normal[0], Math.max(0.1, normal[1])) * motionFactor;
-    const verticalOffset = Number.isFinite(state.verticalOffset) ? Math.max(0, Math.min(4, state.verticalOffset)) : 0;
-    this.roverGroup.position.set(state.x, terrainHeight + 0.12 + verticalOffset + suspension, state.z);
-    this.roverGroup.rotation.set(pitch, state.heading, roll);
-    this.wheelSpin = state.wheelRotation;
-    this.wheelSpinGroups.forEach((group) => {
-      group.rotation.x = state.wheelRotation;
-    });
-    if (this.mode === "course" && (this.trialStatus === "running" || this.trialStatus === "paused" || this.trialStatus === "clear")) {
-      this.updateFollowCamera(deltaSeconds);
+  private syncRover(snapshot: PhysicsSnapshot | null, deltaSeconds: number): void {
+    if (!snapshot) {
+      return;
+    }
+    const visualOriginY = 1.35;
+    this.roverGroup.position.set(snapshot.x, snapshot.y - visualOriginY, snapshot.z);
+    this.roverGroup.quaternion.set(snapshot.rotation.x, snapshot.rotation.y, snapshot.rotation.z, snapshot.rotation.w);
+    for (const [index, group] of this.wheelSpinGroups.entries()) {
+      const suspensionLength = snapshot.wheelSuspensionLengths[index] ?? VEHICLE_CONFIG.suspensionRestLength;
+      const suspensionDelta = Number.isFinite(suspensionLength) ? suspensionLength - VEHICLE_CONFIG.suspensionRestLength : 0;
+      group.position.y = 0.88 - suspensionDelta;
+      group.rotation.x = snapshot.wheelRotations[index] ?? 0;
+    }
+    for (const instance of this.moduleInstances) {
+      if (instance.definition.id !== "turbine-pack" || instance.target !== 1 || !instance.turbineRotor) {
+        continue;
+      }
+      const turbineMotion = Math.min(1, Math.abs(snapshot.speed) / 5) * Math.max(0, deltaSeconds) * 2.4;
+      instance.turbineRotor.rotation.z += this.driveInput.throttle === 1 && this.frontierStatus === "running" ? turbineMotion : turbineMotion * 0.12;
     }
   }
 
-  private updateDust(state: DriveState, time: number): void {
-    const active = this.trialStatus === "running"
+  private updateDust(state: PhysicsSnapshot, time: number): void {
+    const active = this.mode === "frontier"
+      && this.frontierStatus === "running"
       && !this.reducedMotion
       && this.driveInput.throttle === 1
       && Math.abs(state.speed) > 1.1;
@@ -1254,7 +1364,7 @@ export class LowPolyRoverScene {
       return;
     }
 
-    const intensity = Math.min(1, Math.abs(state.speed) / 6) * (this.onTrack ? 0.72 : 1.05);
+    const intensity = Math.min(1, Math.abs(state.speed) / 8) * (state.surface === "loose-soil" ? 1.08 : 0.78);
     this.dustParticles.forEach((particle, index) => {
       const phase = time * 0.004 * (1 + (index % 3) * 0.12) + index * 0.73;
       const localX = -0.4 - index * 0.1 + Math.sin(phase) * 0.12;
@@ -1268,86 +1378,145 @@ export class LowPolyRoverScene {
     });
   }
 
-  private finishTrial(): void {
-    this.trialStatus = "clear";
-    this.clearDriveInput();
+  private checkWaystones(snapshot: PhysicsSnapshot): void {
+    if (this.frontierMode !== "waystone-run" || this.frontierStatus !== "running") {
+      return;
+    }
+    for (const waystone of WAYSTONES) {
+      if (this.waystoneIds.includes(waystone.id)) {
+        continue;
+      }
+      if (Math.hypot(snapshot.x - waystone.x, snapshot.z - waystone.z) > waystone.radius) {
+        continue;
+      }
+      this.waystoneIds = [...this.waystoneIds, waystone.id];
+      this.markWaystoneVisual(waystone.id);
+      this.options.onFrontierWaystone(waystone.id, waystone.label);
+      this.options.onFrontierAnnouncement(`${waystone.label} Waystoneを起動しました。`);
+      if (this.waystoneIds.length >= WAYSTONES.length) {
+        this.finishWaystoneRun();
+      }
+      break;
+    }
+  }
+
+  private finishWaystoneRun(): void {
+    this.frontierStatus = "clear";
+    this.driveInput = EMPTY_DRIVE_INPUT;
+    this.physics?.stopVehicle();
     this.dustRoot.visible = false;
-    this.driveState = {
-      ...this.driveState,
-      speed: 0,
-      verticalOffset: 0,
-      verticalVelocity: 0,
-    };
-    this.applyDriveState(this.driveState, 0, 0);
-    this.options.onTrialStatusChange("clear");
-    this.options.onTrialClear(this.trialElapsedMilliseconds);
-    this.emitTrialHud();
+    this.options.onFrontierStatusChange("clear");
+    this.options.onFrontierComplete(this.frontierElapsedMilliseconds);
+    this.options.onFrontierAnnouncement(`WAYSTONE RUN COMPLETE。タイム ${this.frontierElapsedMilliseconds.toFixed(0)}ms`);
+    this.emitFrontierHud(true);
     this.options.onAutoRotateChange(false);
     this.controlsActiveUntil = performance.now() + 420;
   }
 
-  private emitTrialHud(time = performance.now()): void {
-    this.trialHudLastSentAt = Number.isFinite(time) ? time : performance.now();
-    this.options.onTrialHudChange({
-      elapsedMilliseconds: Math.max(0, Number.isFinite(this.trialElapsedMilliseconds) ? this.trialElapsedMilliseconds : 0),
-      speed: Math.abs(Number.isFinite(this.driveState.speed) ? this.driveState.speed : 0),
-      checkpointIndex: this.driveState.checkpointIndex,
-      onTrack: this.onTrack,
+  private trackExploredArea(snapshot: PhysicsSnapshot): void {
+    const areaId = getFrontierArea(snapshot.x, snapshot.z).id;
+    if (this.exploredAreaIds.includes(areaId)) {
+      return;
+    }
+    this.exploredAreaIds = [...this.exploredAreaIds, areaId];
+  }
+
+  private resetWaystoneVisuals(): void {
+    for (const visual of this.waystoneVisuals.values()) {
+      visual.group.scale.setScalar(1);
+      visual.ring.scale.setScalar(1);
+      visual.ring.visible = true;
+    }
+  }
+
+  private markWaystoneVisual(id: string): void {
+    const visual = this.waystoneVisuals.get(id);
+    if (!visual) {
+      return;
+    }
+    visual.group.scale.setScalar(0.78);
+    visual.ring.scale.setScalar(0.52);
+    visual.ring.visible = false;
+  }
+
+  private emitFrontierHud(force = false): void {
+    const time = performance.now();
+    if (!force && time - this.frontierHudLastSentAt < 100) {
+      return;
+    }
+    this.frontierHudLastSentAt = Number.isFinite(time) ? time : 0;
+    const snapshot = this.physics?.snapshot;
+    if (!snapshot) {
+      return;
+    }
+    const remainingWaystones = WAYSTONES.filter((waystone) => !this.waystoneIds.includes(waystone.id));
+    const nextWaystoneDistance = remainingWaystones.length === 0
+      ? null
+      : Math.min(...remainingWaystones.map((waystone) => Math.hypot(snapshot.x - waystone.x, snapshot.z - waystone.z)));
+    this.options.onFrontierHudChange({
+      mode: this.frontierMode,
+      status: this.frontierStatus,
+      areaLabel: snapshot.areaLabel,
+      surface: snapshot.surface.toUpperCase(),
+      speed: Math.abs(snapshot.speed),
+      groundedWheels: snapshot.groundedWheels,
+      traction: snapshot.traction,
+      visitedAreas: this.frontierMode === "free-roam" ? this.exploredAreaIds.length : getVisitedAreaCount(this.waystoneIds, WAYSTONES),
+      visitedAreaIds: this.exploredAreaIds,
+      waystoneCount: this.waystoneIds.length,
+      visitedWaystoneIds: this.waystoneIds,
+      nextWaystoneDistance: Number.isFinite(nextWaystoneDistance) ? nextWaystoneDistance : null,
+      elapsedMilliseconds: Math.max(0, Number.isFinite(this.frontierElapsedMilliseconds) ? this.frontierElapsedMilliseconds : 0),
+      x: snapshot.x,
+      z: snapshot.z,
+      heading: snapshot.heading,
+      recoveryReady: snapshot.recoveryReady,
+      rolloverSeconds: snapshot.rolloverSeconds,
     });
   }
 
-  private updateOverviewCamera(deltaSeconds: number, immediate: boolean): void {
-    const viewport = this.getViewportSize();
-    const preset = getCameraPreset("course", viewport.width, viewport.height);
-    const desiredPosition = new THREE.Vector3(...preset.position);
-    const desiredTarget = new THREE.Vector3(...preset.target);
-    const blend = immediate || !this.cameraInitialized
-      ? 1
-      : 1 - Math.exp(-Math.max(0, deltaSeconds) * 4.5);
-    this.camera.position.lerp(desiredPosition, blend);
-    this.controls?.target.lerp(desiredTarget, blend);
-    this.camera.lookAt(this.controls?.target ?? desiredTarget);
-    this.cameraInitialized = true;
-  }
-
-  private updateFollowCamera(deltaSeconds: number): void {
-    if (this.mode !== "course") {
+  private updateFrontierCamera(deltaSeconds: number): void {
+    const snapshot = this.physics?.snapshot;
+    if (!snapshot) {
       return;
     }
-
     const viewport = this.getViewportSize();
     const mobile = viewport.width < 700 || viewport.width / Math.max(1, viewport.height) < 0.78;
-    const [forwardX, forwardZ] = getDriveForwardVector(this.driveState.heading);
-    const terrain = getTerrainHeight(this.driveState.x, this.driveState.z);
-    const distance = mobile ? 9.5 : 12.8;
-    const overviewPreset = getCameraPreset("course", viewport.width, viewport.height);
+    const forwardX = Math.sin(snapshot.heading);
+    const forwardZ = Math.cos(snapshot.heading);
     const desiredPosition = this.reducedMotion
-      ? new THREE.Vector3(
-        overviewPreset.position[0] + this.driveState.x * 0.04,
-        overviewPreset.position[1],
-        overviewPreset.position[2] + this.driveState.z * 0.04,
-      )
+      ? new THREE.Vector3(0, 146, 168)
       : new THREE.Vector3(
-        this.driveState.x - forwardX * distance + forwardZ * 3.2,
-        terrain + (mobile ? 10.5 : 12.4),
-        this.driveState.z - forwardZ * distance - forwardX * 2.4,
+        snapshot.x - forwardX * (mobile ? 20 : 30) + forwardZ * (mobile ? 5 : 8),
+        snapshot.y + (mobile ? 17 : 24),
+        snapshot.z - forwardZ * (mobile ? 20 : 30) - forwardX * (mobile ? 5 : 8),
       );
     const desiredTarget = this.reducedMotion
-      ? new THREE.Vector3(this.driveState.x * 0.08, 0, this.driveState.z * 0.08)
-      : new THREE.Vector3(
-        this.driveState.x + forwardX * 4,
-        terrain + 0.6,
-        this.driveState.z + forwardZ * 4,
-      );
-    const blend = 1 - Math.exp(-Math.max(0, clampDeltaSeconds(deltaSeconds)) * (this.reducedMotion ? 1.4 : 4.2));
+      ? new THREE.Vector3(0, 0, 0)
+      : new THREE.Vector3(snapshot.x + forwardX * 11, snapshot.y - 0.45, snapshot.z + forwardZ * 11);
+    const blend = !this.cameraInitialized
+      ? 1
+      : 1 - Math.exp(-Math.max(0, clampDeltaSeconds(deltaSeconds)) * (this.reducedMotion ? 1.2 : 3.4));
     this.camera.position.lerp(desiredPosition, blend);
     this.controls?.target.lerp(desiredTarget, blend);
     this.camera.lookAt(this.controls?.target ?? desiredTarget);
     this.cameraInitialized = true;
   }
 
-  private isTrialActive(): boolean {
-    return this.trialStatus === "countdown" || this.trialStatus === "running";
+  private updateDynamicProps(): void {
+    const snapshots = this.physics?.getDynamicPropSnapshots() ?? [];
+    for (const instance of this.dynamicPropInstances) {
+      const snapshot = snapshots[instance.bodyIndex];
+      if (!snapshot) {
+        continue;
+      }
+      instance.group.position.set(snapshot.x, snapshot.y, snapshot.z);
+      instance.group.quaternion.set(snapshot.rotation.x, snapshot.rotation.y, snapshot.rotation.z, snapshot.rotation.w);
+    }
+  }
+
+  private isFrontierActive(): boolean {
+    return this.mode === "frontier" && (this.frontierStatus === "countdown" || this.frontierStatus === "running");
   }
 
   private resize(): void {
@@ -1391,7 +1560,7 @@ export class LowPolyRoverScene {
   private shouldAnimate(time: number): boolean {
     return Boolean(
       (this.mode === "garage" && this.controls?.autoRotate)
-      || this.isTrialActive()
+      || this.isFrontierActive()
       || this.moduleInstances.some((instance) => instance.target !== instance.progress)
       || time < this.controlsActiveUntil,
     );
