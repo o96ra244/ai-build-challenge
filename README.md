@@ -44,7 +44,7 @@ npm run dev
 
 ## 作品一覧
 
-現在の作品数: **8件**
+現在の作品数: **9件**
 
 ### 01 画像比率リサイズ計算機
 
@@ -112,6 +112,16 @@ SVG本体を変更せず、同じ内蔵アイコンまたは任意のSVGで12種
 - 公開予定URL: https://ai-build-challenge.vercel.app/works/08-low-poly-rover-garage
 - 主な機能: Front・Cabin・Rear各4モジュール、64通りの組み合わせ、Orbit・Zoom・Reset・Auto rotate、Rapierの4輪ray-cast vehicle、TEST YARDのPause・Recover、PCキーボード・スマートフォンpointer操作
 - 使用技術: Three.js WebGPURenderer、`@dimforge/rapier3d-compat` 0.19.3、CSS Modules、Vitest
+
+### 09 PRISMATIC RELIC
+
+暗い展示空間に浮かぶ、コード生成の半透明人工鉱物へポインターで光を当て、屈折・虹色・内部発光の表情を変える一画面のインタラクティブ3D作品です。作品07のOrbit・Zoom・Explodeや作品08の組み替え・走行とは異なり、完成された構図を維持したまま光だけを曲げる体験に絞っています。
+
+- GitHub上のパス: [`app/works/09-prismatic-relic/`](app/works/09-prismatic-relic/)
+- 公開予定URL: https://ai-build-challenge.vercel.app/works/09-prismatic-relic
+- 主な機能: ポインターに連動するキーライト・リムライト・内部コア・小さなカメラ視差、ECLIPSE／AURORA／EMBERのプリセット、STILL MODE、reduced-motion、WebGL 2フォールバック
+- 使用技術: Three.js 0.185.1 `WebGPURenderer`、`MeshPhysicalNodeMaterial`、TSL、RenderPipelineの選択的Bloom、CSS Modules、Vitest
+- 外部素材: GLB・OBJ・画像・HDR・テクスチャ・CDN素材は使用せず、人工鉱物、背景、粒子、光条をコードから決定的に生成しています
 
 ## 公開URL
 

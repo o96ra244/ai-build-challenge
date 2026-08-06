@@ -3,9 +3,9 @@ import { describe, expect, it } from "vitest";
 import { works } from "./works";
 
 describe("works", () => {
-  it("作品を番号順に8件登録している", () => {
-    expect(works).toHaveLength(8);
-    expect(works.map((work) => work.number)).toEqual([1, 2, 3, 4, 5, 6, 7, 8]);
+  it("作品を番号順に9件登録している", () => {
+    expect(works).toHaveLength(9);
+    expect(works.map((work) => work.number)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9]);
   });
 
   it("作品01の登録内容を維持している", () => {
@@ -79,6 +79,15 @@ describe("works", () => {
       title: "Low Poly Rover Garage",
       description: "12モジュールをGARAGEで組み替え、小さなTEST YARDで坂・障害物・ジャンプの走行感を試せます。",
       href: "/works/08-low-poly-rover-garage",
+    });
+  });
+
+  it("作品09を登録している", () => {
+    expect(works[8]).toEqual({
+      number: 9,
+      title: "PRISMATIC RELIC",
+      description: "ポインターで光を曲げ、半透明の人工鉱物の屈折と内部発光を変化させるインタラクティブ3D作品です。",
+      href: "/works/09-prismatic-relic",
     });
   });
 
