@@ -16,16 +16,24 @@ export type QualityProfile = {
   readonly level: QualityLevel;
   readonly pixelRatio: number;
   readonly maxPixels: number;
-  readonly particleCount: number;
-  readonly geometryDetail: number;
+  readonly shadowMapSize: number;
   readonly bloomResolutionScale: number;
-  readonly bloomStrength: number;
 };
 
 export type DrawingBufferSize = {
   readonly width: number;
   readonly height: number;
   readonly pixelRatio: number;
+};
+
+export type LightingLoopState = {
+  readonly pageVisible: boolean;
+  readonly inViewport: boolean;
+  readonly holdLight: boolean;
+  readonly holdSettling: boolean;
+  readonly transitionActive: boolean;
+  readonly pointerNeedsRender: boolean;
+  readonly pointerDistance: number;
 };
 
 export function clamp(value: number, min: number, max: number): number {
@@ -45,7 +53,12 @@ export function normalizePointer(clientX: number, clientY: number, rect: Pointer
   };
 }
 
-export function smoothPointer(current: PointerPoint, target: PointerPoint, deltaSeconds: number, speed = 7): PointerPoint {
+export function getPointerLightStrength(pointer: PointerPoint): number {
+  const distance = Math.min(1, Math.hypot(pointer.x, pointer.y) / Math.SQRT2);
+  return 1.12 + distance * 0.68;
+}
+
+export function smoothPointer(current: PointerPoint, target: PointerPoint, deltaSeconds: number, speed = 8): PointerPoint {
   const safeDelta = Math.max(0, Number.isFinite(deltaSeconds) ? deltaSeconds : 0);
   const alpha = 1 - Math.exp(-safeDelta * Math.max(0, speed));
   return {
@@ -65,10 +78,8 @@ export function getQualityProfile(width: number, height: number, devicePixelRati
       level: "low",
       pixelRatio: Math.min(safeDpr, 1.1),
       maxPixels: 900_000,
-      particleCount: 42,
-      geometryDetail: 2,
-      bloomResolutionScale: 0.32,
-      bloomStrength: 0.38,
+      shadowMapSize: 512,
+      bloomResolutionScale: 0.3,
     };
   }
 
@@ -77,10 +88,8 @@ export function getQualityProfile(width: number, height: number, devicePixelRati
       level: "medium",
       pixelRatio: Math.min(safeDpr, 1.25),
       maxPixels: 1_600_000,
-      particleCount: 72,
-      geometryDetail: 2,
+      shadowMapSize: 768,
       bloomResolutionScale: 0.42,
-      bloomStrength: 0.46,
     };
   }
 
@@ -88,10 +97,8 @@ export function getQualityProfile(width: number, height: number, devicePixelRati
     level: "high",
     pixelRatio: Math.min(safeDpr, 1.5),
     maxPixels: 2_400_000,
-    particleCount: 96,
-    geometryDetail: 3,
+    shadowMapSize: 1024,
     bloomResolutionScale: 0.5,
-    bloomStrength: 0.52,
   };
 }
 
@@ -114,11 +121,15 @@ export function getDrawingBufferSize(
 }
 
 export function getTransitionProgress(elapsedMs: number, durationMs: number, reducedMotion: boolean): number {
-  if (reducedMotion) {
-    return 1;
-  }
-  if (durationMs <= 0) {
+  if (reducedMotion || durationMs <= 0) {
     return 1;
   }
   return clamp(elapsedMs / durationMs, 0, 1);
+}
+
+export function shouldAnimateLighting(state: LightingLoopState): boolean {
+  if (!state.pageVisible || !state.inViewport || state.holdLight && !state.holdSettling) {
+    return false;
+  }
+  return state.holdSettling || state.transitionActive || state.pointerNeedsRender || state.pointerDistance > 0.001;
 }

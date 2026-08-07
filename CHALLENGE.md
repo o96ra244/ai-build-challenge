@@ -162,23 +162,23 @@
 ## 作品09
 
 - **作品番号:** 09
-- **作品名:** PRISMATIC RELIC
+- **作品名:** THE THINKER — LIGHT STUDY
 - **制作日:** 2026-08-07
-- **対象ユーザー:** インタラクティブ3Dやデジタルアートに関心があり、Three.js・WebGPUの完成された視覚表現を見たい人
-- **解決する問題:** 一般的なThree.jsデモで前面に出やすい自由回転や設定UIではなく、完成された構図を鑑賞しながら光の表情だけを変える短時間の体験を提供します。
-- **差別化:** オブジェクトを自由回転させず、ポインターでキーライト、リムライト、内部コア、屈折色を連動させて、人工鉱物の構図を保ったまま光を曲げます。作品07のOrbit・Zoom・Explode、作品08の組み替え・走行とは主要体験が異なります。
-- **主な機能:** 決定的にコード生成した外殻と別形状の内部コア、MeshPhysicalNodeMaterialのtransmission・thickness・IOR・dispersion・iridescence、位置・法線・時間・ポインターに反応するTSL、ECLIPSE／AURORA／EMBER、STILL MODE、reduced-motion、WebGL 2フォールバック、選択的Bloom、レスポンシブ構図
-- **GitHub上のパス:** `app/works/09-prismatic-relic/`
-- **公開予定URL:** https://ai-build-challenge.vercel.app/works/09-prismatic-relic
-- **使用技術:** Next.js App Router、React、TypeScript、Three.js 0.185.1、`WebGPURenderer`、`MeshPhysicalNodeMaterial`、TSL、`RenderPipeline`、CSS Modules、Vitest
-- **外部素材:** GLB、OBJ、画像、HDR、外部テクスチャ、CDN素材、外部APIは使用していません。Geometry、背景グラデーション、粒子、光条はコード生成です。
-- **検証結果:** `npm run lint`、`npm run typecheck`、`npm run test`（19ファイル・338件）、`npm run build`、`git diff --check`に成功しました。ビルドでは`/works/09-prismatic-relic`を含む13ルートを生成しました。
-- **ブラウザ確認:** Codex In-app Browserのローカル本番サーバーで1440×900と390×844を確認しました。初期表示、全幅キャンバス、ECLIPSE／AURORA／EMBER切り替え、STILL MODE、ポインター移動によるヒント消去、`aria-pressed`更新、canvasの`aria-hidden`・`presentation`、横スクロールなし、`WEBGPU / SELECTIVE BLOOM`表示、コンソールのerror・warning 0件を確認しました。Visual refinementは、初回表示の露出・エッジ密度、全幅レイアウト、モバイル操作列・ステータス位置の3段階で調整し、1440×900と390×844の最終スクリーンショットを保存しました。
-- **未確認事項:** In-app BrowserのEnterキー配送でプリセットを切り替える操作、OSのreduced-motion実行中切替、実機タッチ、WebGL 2 backendの強制切替、Performance APIによるCLS値の直接取得は未確認です。ネイティブ`button`、`:focus-visible`、reduced-motion分岐、WebGL 2フォールバックはコードと単体テストで確認しました。
-- **WebGPU／WebGL 2の確認状況:** WebGPURendererの初期化と選択的Bloomは上記ブラウザで`WEBGPU / SELECTIVE BLOOM`として確認しました。WebGPU APIがない場合のWebGL 2フォールバックは実装済みですが、今回のブラウザで強制切替は行っていません。
-- **既知の制約:** スクリーンショットの保存機能、外部モデル読込、自由回転・ズーム、物理シミュレーション、音声、保存、WebXRには対応しません。実機タッチ、OS設定によるreduced-motionの実行中切替、WebGL 2 backendの強制確認は環境により未確認となる可能性があります。
-- **学び:** 物理Node Materialの標準特性に、位置・法線・時間・ポインターのTSL表現を重ねると、設定パネルを増やさず素材の表情を操作できます。高負荷な透過とBloomは、描画解像度と品質プロファイルを分けて管理する必要があります。
-- **次回への改善点:** 複数ブラウザと実機でタッチ追従、OSのreduced-motion切替、WebGL 2 backend、長時間表示時のGPU負荷を追加確認します。
+- **対象ユーザー:** 彫刻、デジタルアート、Three.js・WebGPUの視覚表現に関心があり、短時間で光と形の関係を観察したい人
+- **解決する問題:** 同じ3Dモデルでも照明の方向・硬さ・色・背景が変わると読み取り方が変わることを、照明比較を主役にしたまま視点操作も加えて観察できる体験にします。
+- **差別化:** ローカルの実在彫刻スキャンを固定のダークブロンズ素材で提示し、GALLERY／CHIAROSCURO／SPECTRUMでライト種別、方向、影、背景、露出、Bloomまで切り替えます。ポインターは主光源と小さなカメラ視差だけに反映し、光源マーカー・強度倍率で変化を追えるようにし、形状は変形しません。
+- **主な機能:** 3つの照明モード、ポインターの主光源・ターゲット追従、光源マーカーと距離ベースの強度表示、離脱時の中央復帰、ドラッグ／ホイール／ボタンによる回転・拡大縮小、視点リセット、HOLD LIGHT、ローカルSTLのロード進捗・エラー表示、reduced-motion、WebGPU／WebGL 2フォールバック、選択的Bloom、レスポンシブ構図
+- **GitHub上のパス:** `app/works/09-thinker-light-study/`
+- **公開予定URL:** https://ai-build-challenge.vercel.app/works/09-thinker-light-study
+- **使用技術:** Next.js App Router、React、TypeScript、Three.js 0.185.1、`WebGPURenderer`、`MeshStandardNodeMaterial`、TSL、`RenderPipeline`、CSS Modules、Vitest
+- **モデル出典・ライセンス:** Wikimedia CommonsのScan the Worldによる《The Thinker》STLを利用しています。CC BY-SA 4.0に基づく帰属・リンク・変更表示を `public/models/09-thinker/ATTRIBUTION.md` と画面内creditへ実装しました。公式・美術館の承認を示す表現は使用していません。
+- **最適化:** `/tmp`に取得した約39.93MiBの原本を、空間グリッドによる決定的な頂点クラスタリング、重複・退化三角形除去、法線再計算、バイナリSTL再出力で約3.52MB・70,376三角形へ削減しました。実行スクリプトは `scripts/prepare-thinker-model.mjs` です。
+- **検証結果:** `npm run lint`（警告なし）、`npm run typecheck`、`npm run test`（21ファイル・347件）、`npm run build`、`git diff --check`に成功しました。単体テストでは資産サイズ・三角形数・帰属、モデル正規化、プリセット差分、ポインター正規化・強度範囲・品質プロファイル・停止条件、視点操作、作品登録を確認しています。
+- **ブラウザ確認:** Codex In-app Browserで1440×900と390×844を確認し、初期の人物認識、3モード、光源マーカー・強度倍率、ボタンによる回転・拡大縮小・リセット、ドラッグ回転、ホイール拡大、HOLD LIGHT、creditリンク、ローカルモデル描画、横スクロールなしを確認しました。dispose修正後の再マウントでは新規のconsole error・warningは発生していません。同一セッションの過去ログには、修正前に記録したWebGPUの送信中テクスチャ破棄エラーが残っています。WebGL 2強制切替、実機タッチ・トラックパッド、OS設定によるreduced-motion切替、直接のCLS計測は未確認です。
+- **WebGPU／WebGL 2の確認状況:** ブラウザ上で`WEBGPU / SELECTIVE BLOOM`表示、WebGPURenderer初期化、選択的Bloom、ローカルSTLの描画を確認しました。WebGPU APIが利用できない場合の既定フォールバックは実装しますが、WebGL 2 backendの強制切替実測は未確認です。
+- **既知の制約:** モデル編集・保存、複数モデル切替、音声、WebXR、外部ランタイムモデル取得には対応しません。視点回転・ズームは画面内の展示構図を保つ範囲に制限しています。WebGPU／WebGL 2の実測、実機入力、OS設定変更、CLSの直接値はこの環境で確認できた範囲だけを報告します。
+- **学び:** 形状を変えずに照明プリセットの構造差を出すには、ライト種別・位置・ターゲット・fill・rim・shadow・背景・露出・Bloomをひとつのデータとして管理し、GPUなしの純粋ロジックテストで差分を保証するのが有効です。
+- **次回への改善点:** 複数ブラウザと実機でタッチ入力、OSのreduced-motion切替、WebGL 2 backend、長時間表示時のGPU負荷を追加確認します。
 
 次の作品を追加する際は、以下のテンプレートを複製して記録します。
 

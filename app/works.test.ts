@@ -85,9 +85,9 @@ describe("works", () => {
   it("作品09を登録している", () => {
     expect(works[8]).toEqual({
       number: 9,
-      title: "PRISMATIC RELIC",
-      description: "ポインターで光を曲げ、半透明の人工鉱物の屈折と内部発光を変化させるインタラクティブ3D作品です。",
-      href: "/works/09-prismatic-relic",
+      title: "THE THINKER — LIGHT STUDY",
+      description: "《考える人》へ光を当て、3つの照明モードで影と輪郭の変化を観察するインタラクティブ3D作品です。",
+      href: "/works/09-thinker-light-study",
     });
   });
 
