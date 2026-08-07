@@ -56,4 +56,10 @@ export const works: readonly Work[] = [
     description: "12モジュールをGARAGEで組み替え、小さなTEST YARDで坂・障害物・ジャンプの走行感を試せます。",
     href: "/works/08-low-poly-rover-garage",
   },
+  {
+    number: 9,
+    title: "THE THINKER — LIGHT STUDY",
+    description: "《考える人》へ光を当て、3つの照明モードで影と輪郭の変化を観察するインタラクティブ3D作品です。",
+    href: "/works/09-thinker-light-study",
+  },
 ];

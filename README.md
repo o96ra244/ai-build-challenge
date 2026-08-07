@@ -44,7 +44,7 @@ npm run dev
 
 ## 作品一覧
 
-現在の作品数: **8件**
+現在の作品数: **9件**
 
 ### 01 画像比率リサイズ計算機
 
@@ -112,6 +112,16 @@ SVG本体を変更せず、同じ内蔵アイコンまたは任意のSVGで12種
 - 公開予定URL: https://ai-build-challenge.vercel.app/works/08-low-poly-rover-garage
 - 主な機能: Front・Cabin・Rear各4モジュール、64通りの組み合わせ、Orbit・Zoom・Reset・Auto rotate、Rapierの4輪ray-cast vehicle、TEST YARDのPause・Recover、PCキーボード・スマートフォンpointer操作
 - 使用技術: Three.js WebGPURenderer、`@dimforge/rapier3d-compat` 0.19.3、CSS Modules、Vitest
+
+### 09 THE THINKER — LIGHT STUDY
+
+オーギュスト・ロダン《考える人》のデジタルスキャンへ光を当て、同じ彫刻の輪郭と影が照明でどう変わるかを観察する一画面のインタラクティブ3D作品です。照明の比較を主役にしながら、造形物の回転・拡大縮小で気になる面を読み取れます。
+
+- GitHub上のパス: [`app/works/09-thinker-light-study/`](app/works/09-thinker-light-study/)
+- 公開予定URL: https://ai-build-challenge.vercel.app/works/09-thinker-light-study
+- 主な機能: GALLERY／CHIAROSCURO／SPECTRUMの3照明モード、ポインターとLIGHT POSITIONボタンによる主光源操作、光源マーカー・強度倍率表示、VIEWボタンによる制限付き回転・拡大縮小、視点リセット、小さなカメラ視差、HOLD LIGHT、reduced-motion、WebGPUとWebGL 2のフォールバック
+- 使用技術: Three.js 0.185.1 `WebGPURenderer`、`MeshStandardNodeMaterial`、TSL、RenderPipelineの選択的Bloom、CSS Modules、Vitest
+- モデル素材: Wikimedia CommonsのScan the Worldによる《The Thinker》STLをローカルへ配置し、決定的な空間グリッド方式で約84万から約7万三角形へ削減したバイナリSTLを使用しています。画面内creditと [`/works/09-thinker-light-study/attribution`](app/works/09-thinker-light-study/attribution/page.tsx) から、出典・ライセンス・改変内容を確認できます。
 
 ## 公開URL
 
