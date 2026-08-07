@@ -119,9 +119,9 @@ SVG本体を変更せず、同じ内蔵アイコンまたは任意のSVGで12種
 
 - GitHub上のパス: [`app/works/09-thinker-light-study/`](app/works/09-thinker-light-study/)
 - 公開予定URL: https://ai-build-challenge.vercel.app/works/09-thinker-light-study
-- 主な機能: GALLERY／CHIAROSCURO／SPECTRUMの3照明モード、ポインターによる主光源操作、光源マーカー・強度倍率表示、ドラッグ／ホイール／ボタンによる造形物の回転・拡大縮小、視点リセット、小さなカメラ視差、HOLD LIGHT、reduced-motion、WebGPUとWebGL 2のフォールバック
+- 主な機能: GALLERY／CHIAROSCURO／SPECTRUMの3照明モード、ポインターとLIGHT POSITIONボタンによる主光源操作、光源マーカー・強度倍率表示、VIEWボタンによる制限付き回転・拡大縮小、視点リセット、小さなカメラ視差、HOLD LIGHT、reduced-motion、WebGPUとWebGL 2のフォールバック
 - 使用技術: Three.js 0.185.1 `WebGPURenderer`、`MeshStandardNodeMaterial`、TSL、RenderPipelineの選択的Bloom、CSS Modules、Vitest
-- モデル素材: Wikimedia CommonsのScan the Worldによる《The Thinker》STLをローカルへ配置し、決定的な空間グリッド方式で約84万から約7万三角形へ削減したバイナリSTLを使用しています。出典・ライセンス・変更内容は `public/models/09-thinker/ATTRIBUTION.md` に記載しています。
+- モデル素材: Wikimedia CommonsのScan the Worldによる《The Thinker》STLをローカルへ配置し、決定的な空間グリッド方式で約84万から約7万三角形へ削減したバイナリSTLを使用しています。画面内creditと [`/works/09-thinker-light-study/attribution`](app/works/09-thinker-light-study/attribution/page.tsx) から、出典・ライセンス・改変内容を確認できます。
 
 ## 公開URL
 

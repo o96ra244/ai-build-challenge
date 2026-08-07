@@ -24,10 +24,12 @@ import {
   getDrawingBufferSize,
   getPointerLightStrength,
   getQualityProfile,
+  nudgePointer,
   normalizePointer,
   shouldAnimateLighting,
   smoothPointer,
   type PointerPoint,
+  type LightPositionDirection,
   type QualityProfile,
 } from "./lightingMath";
 import {
@@ -57,6 +59,8 @@ const MODEL_HEIGHT = 4.8;
 const MODEL_BASE_Y = 0.28;
 const MODEL_ROTATION_Y = 0.18;
 const ZERO_POINTER: PointerPoint = { x: 0, y: 0 };
+
+type LightInputSource = "pointer" | "keyboard";
 
 type Vec3Uniform = ReturnType<typeof uniform<"vec3", THREE.Vector3>>;
 
@@ -127,10 +131,7 @@ export class ThinkerLightScene {
   private readonly modelRoot = new THREE.Group();
   private readonly pointer = new THREE.Vector2();
   private readonly pointerTarget = { x: ZERO_POINTER.x, y: ZERO_POINTER.y };
-  private readonly dragStart = { x: 0, y: 0 };
-  private readonly dragLast = { x: 0, y: 0 };
-  private dragPointerId: number | null = null;
-  private dragActive = false;
+  private lightInputSource: LightInputSource = "pointer";
   private viewTransform: ViewTransform = DEFAULT_VIEW_TRANSFORM;
   private readonly lightMarkerMaterial = new THREE.MeshBasicMaterial({
     color: 0xffd8a3,
@@ -206,18 +207,6 @@ export class ThinkerLightScene {
     if (this.disposed || !this.renderer) {
       return;
     }
-    if (this.dragPointerId === event.pointerId) {
-      const deltaX = event.clientX - this.dragLast.x;
-      const deltaY = event.clientY - this.dragLast.y;
-      if (!this.dragActive && Math.hypot(event.clientX - this.dragStart.x, event.clientY - this.dragStart.y) > 4) {
-        this.dragActive = true;
-      }
-      if (this.dragActive) {
-        this.updateView({ yaw: deltaX * 0.006, pitch: deltaY * 0.004 });
-      }
-      this.dragLast.x = event.clientX;
-      this.dragLast.y = event.clientY;
-    }
     if (this.holdLight) {
       return;
     }
@@ -228,51 +217,13 @@ export class ThinkerLightScene {
       width: rect.width,
       height: rect.height,
     });
-    this.pointerTarget.x = next.x;
-    this.pointerTarget.y = next.y;
-    this.pointerActive = true;
-    this.pointerNeedsRender = true;
-    this.updateLoopState();
-  };
-  private readonly handlePointerDown = (event: PointerEvent): void => {
-    if (this.disposed || !this.renderer || event.button !== 0) {
-      return;
-    }
-    this.dragPointerId = event.pointerId;
-    this.dragActive = false;
-    this.dragStart.x = event.clientX;
-    this.dragStart.y = event.clientY;
-    this.dragLast.x = event.clientX;
-    this.dragLast.y = event.clientY;
-    this.renderer.domElement.setPointerCapture?.(event.pointerId);
-  };
-  private readonly handlePointerUp = (event: PointerEvent): void => {
-    if (this.dragPointerId !== event.pointerId) {
-      return;
-    }
-    this.renderer?.domElement.releasePointerCapture?.(event.pointerId);
-    this.dragPointerId = null;
-    this.dragActive = false;
+    this.setLightTarget(next, true, "pointer");
   };
   private readonly handlePointerLeave = (): void => {
-    this.dragPointerId = null;
-    this.dragActive = false;
-    this.pointerTarget.x = ZERO_POINTER.x;
-    this.pointerTarget.y = ZERO_POINTER.y;
-    this.pointerActive = false;
-    this.pointerNeedsRender = true;
-    this.updateLoopState();
-  };
-  private readonly handlePointerCancel = (event: PointerEvent): void => {
-    this.handlePointerUp(event);
-    this.handlePointerLeave();
-  };
-  private readonly handleWheel = (event: WheelEvent): void => {
-    if (this.disposed) {
+    if (this.lightInputSource !== "pointer") {
       return;
     }
-    event.preventDefault();
-    this.updateView({ scale: event.deltaY < 0 ? 0.06 : -0.06 });
+    this.setLightTarget(ZERO_POINTER, false, "pointer");
   };
   private readonly render = (time: number): void => this.renderFrame(time);
 
@@ -329,18 +280,13 @@ export class ThinkerLightScene {
     renderer.shadowMap.type = THREE.VSMShadowMap;
     renderer.domElement.setAttribute("aria-hidden", "true");
     renderer.domElement.setAttribute("role", "presentation");
-    renderer.domElement.tabIndex = -1;
     renderer.domElement.style.display = "block";
     renderer.domElement.style.width = "100%";
     renderer.domElement.style.height = "100%";
     this.container.appendChild(renderer.domElement);
     this.resize();
     this.renderer.domElement.addEventListener("pointermove", this.handlePointerMove, { passive: true });
-    this.renderer.domElement.addEventListener("pointerdown", this.handlePointerDown, { passive: true });
-    this.renderer.domElement.addEventListener("pointerup", this.handlePointerUp, { passive: true });
     this.renderer.domElement.addEventListener("pointerleave", this.handlePointerLeave, { passive: true });
-    this.renderer.domElement.addEventListener("pointercancel", this.handlePointerCancel, { passive: true });
-    this.renderer.domElement.addEventListener("wheel", this.handleWheel, { passive: false });
     this.resizeObserver = new ResizeObserver(this.handleResize);
     this.resizeObserver.observe(this.container);
     this.intersectionObserver = new IntersectionObserver(
@@ -434,6 +380,17 @@ export class ThinkerLightScene {
     this.updateLoopState();
   }
 
+  public nudgeLightPosition(direction: LightPositionDirection): void {
+    if (this.disposed || this.holdLight) {
+      return;
+    }
+    const next = nudgePointer(
+      { x: this.pointerTarget.x, y: this.pointerTarget.y },
+      direction,
+    );
+    this.setLightTarget(next, true, "keyboard");
+  }
+
   public rotateView(deltaYaw: number, deltaPitch = 0): void {
     if (this.disposed) {
       return;
@@ -467,11 +424,7 @@ export class ThinkerLightScene {
     renderer?.setAnimationLoop(null);
     this.animationLoopActive = false;
     renderer?.domElement.removeEventListener("pointermove", this.handlePointerMove);
-    renderer?.domElement.removeEventListener("pointerdown", this.handlePointerDown);
-    renderer?.domElement.removeEventListener("pointerup", this.handlePointerUp);
     renderer?.domElement.removeEventListener("pointerleave", this.handlePointerLeave);
-    renderer?.domElement.removeEventListener("pointercancel", this.handlePointerCancel);
-    renderer?.domElement.removeEventListener("wheel", this.handleWheel);
     this.resizeObserver?.disconnect();
     this.intersectionObserver?.disconnect();
     window.removeEventListener("resize", this.handleResize);
@@ -818,6 +771,15 @@ export class ThinkerLightScene {
     this.updateCameraParallax();
     this.lightMarkerNdc.set(x, y, 0.96).unproject(this.camera);
     this.lightMarker.position.copy(this.lightMarkerNdc);
+  }
+
+  private setLightTarget(next: PointerPoint, active: boolean, source: LightInputSource): void {
+    this.lightInputSource = source;
+    this.pointerTarget.x = next.x;
+    this.pointerTarget.y = next.y;
+    this.pointerActive = active;
+    this.pointerNeedsRender = true;
+    this.updateLoopState();
   }
 
   private updateView(delta: Partial<ViewTransform>): void {

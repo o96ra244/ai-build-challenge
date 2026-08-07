@@ -167,18 +167,18 @@
 - **対象ユーザー:** 彫刻、デジタルアート、Three.js・WebGPUの視覚表現に関心があり、短時間で光と形の関係を観察したい人
 - **解決する問題:** 同じ3Dモデルでも照明の方向・硬さ・色・背景が変わると読み取り方が変わることを、照明比較を主役にしたまま視点操作も加えて観察できる体験にします。
 - **差別化:** ローカルの実在彫刻スキャンを固定のダークブロンズ素材で提示し、GALLERY／CHIAROSCURO／SPECTRUMでライト種別、方向、影、背景、露出、Bloomまで切り替えます。ポインターは主光源と小さなカメラ視差だけに反映し、光源マーカー・強度倍率で変化を追えるようにし、形状は変形しません。
-- **主な機能:** 3つの照明モード、ポインターの主光源・ターゲット追従、光源マーカーと距離ベースの強度表示、離脱時の中央復帰、ドラッグ／ホイール／ボタンによる回転・拡大縮小、視点リセット、HOLD LIGHT、ローカルSTLのロード進捗・エラー表示、reduced-motion、WebGPU／WebGL 2フォールバック、選択的Bloom、レスポンシブ構図
+- **主な機能:** 3つの照明モード、ポインターとLIGHT POSITIONボタンによる主光源操作、光源マーカーと距離ベースの強度表示、離脱時の中央復帰、VIEWボタンによる制限付き回転・拡大縮小、視点リセット、HOLD LIGHT、ローカルSTLのロード進捗・エラー表示、reduced-motion、WebGPU／WebGL 2フォールバック、選択的Bloom、レスポンシブ構図
 - **GitHub上のパス:** `app/works/09-thinker-light-study/`
 - **公開予定URL:** https://ai-build-challenge.vercel.app/works/09-thinker-light-study
 - **使用技術:** Next.js App Router、React、TypeScript、Three.js 0.185.1、`WebGPURenderer`、`MeshStandardNodeMaterial`、TSL、`RenderPipeline`、CSS Modules、Vitest
-- **モデル出典・ライセンス:** Wikimedia CommonsのScan the Worldによる《The Thinker》STLを利用しています。CC BY-SA 4.0に基づく帰属・リンク・変更表示を `public/models/09-thinker/ATTRIBUTION.md` と画面内creditへ実装しました。公式・美術館の承認を示す表現は使用していません。
+- **モデル出典・ライセンス:** Wikimedia CommonsのScan the Worldによる《The Thinker》STLを利用しています。CC BY-SA 4.0に基づく帰属・リンク・変更表示を `public/models/09-thinker/ATTRIBUTION.md`、画面内credit、公開帰属ページへ実装しました。公式・美術館の承認を示す表現は使用していません。
 - **最適化:** `/tmp`に取得した約39.93MiBの原本を、空間グリッドによる決定的な頂点クラスタリング、重複・退化三角形除去、法線再計算、バイナリSTL再出力で約3.52MB・70,376三角形へ削減しました。実行スクリプトは `scripts/prepare-thinker-model.mjs` です。
-- **検証結果:** `npm run lint`（警告なし）、`npm run typecheck`、`npm run test`（21ファイル・347件）、`npm run build`、`git diff --check`に成功しました。単体テストでは資産サイズ・三角形数・帰属、モデル正規化、プリセット差分、ポインター正規化・強度範囲・品質プロファイル・停止条件、視点操作、作品登録を確認しています。
-- **ブラウザ確認:** Codex In-app Browserで1440×900と390×844を確認し、初期の人物認識、3モード、光源マーカー・強度倍率、ボタンによる回転・拡大縮小・リセット、ドラッグ回転、ホイール拡大、HOLD LIGHT、creditリンク、ローカルモデル描画、横スクロールなしを確認しました。dispose修正後の再マウントでは新規のconsole error・warningは発生していません。同一セッションの過去ログには、修正前に記録したWebGPUの送信中テクスチャ破棄エラーが残っています。WebGL 2強制切替、実機タッチ・トラックパッド、OS設定によるreduced-motion切替、直接のCLS計測は未確認です。
-- **WebGPU／WebGL 2の確認状況:** ブラウザ上で`WEBGPU / SELECTIVE BLOOM`表示、WebGPURenderer初期化、選択的Bloom、ローカルSTLの描画を確認しました。WebGPU APIが利用できない場合の既定フォールバックは実装しますが、WebGL 2 backendの強制切替実測は未確認です。
+- **検証結果:** `npm run lint`（警告なし）、`npm run typecheck`、`npm run test`（22ファイル・352件）、`npm run build`、`git diff --check`に成功しました。単体テストでは資産サイズ・三角形数・帰属、公開帰属ページ、モデル正規化、プリセット差分、ポインター正規化・キーボード移動・強度範囲・品質プロファイル・停止条件、視点操作の境界値・NaN・Infinity・連続操作、作品登録を確認しています。
+- **ブラウザ確認:** Codex In-app Browserで1440×900と390×844を確認し、初期の人物認識、3モード、LIGHT POSITION全ボタン、Enter／Spaceによる主光源移動、HOLD LIGHT中の5ボタン無効化、ポインター移動、キーボード位置のpointerleave保持、VIEW連打後の認識性、Canvasの縦スクロール非抑止、`touch-action: pan-y pinch-zoom`、creditと公開帰属ページ、横スクロールなしを確認しました。production server再起動後のconsole error・warningはありません。Tab／Shift+Tabは接続中ブラウザのキー配送が成立せず、native buttonのDOM順序とフォーカスCSSの確認に留めています。
+- **WebGPU／WebGL 2の確認状況:** ブラウザ上で`WEBGPU / SELECTIVE BLOOM`表示、WebGPURenderer初期化、選択的Bloom、ローカルSTLの描画を確認しました。WebGPU APIが利用できない場合のWebGL 2フォールバックは実装していますが、backendの強制切替実測は未確認です。
 - **既知の制約:** モデル編集・保存、複数モデル切替、音声、WebXR、外部ランタイムモデル取得には対応しません。視点回転・ズームは画面内の展示構図を保つ範囲に制限しています。WebGPU／WebGL 2の実測、実機入力、OS設定変更、CLSの直接値はこの環境で確認できた範囲だけを報告します。
 - **学び:** 形状を変えずに照明プリセットの構造差を出すには、ライト種別・位置・ターゲット・fill・rim・shadow・背景・露出・Bloomをひとつのデータとして管理し、GPUなしの純粋ロジックテストで差分を保証するのが有効です。
-- **次回への改善点:** 複数ブラウザと実機でタッチ入力、OSのreduced-motion切替、WebGL 2 backend、長時間表示時のGPU負荷を追加確認します。
+- **次回への改善点:** Tab／Shift+Tabのブラウザ配送、実機タッチ・トラックパッド、OSのreduced-motion切替、WebGL 2 backend、直接のCLS計測、長時間表示時のGPU負荷を追加確認します。
 
 次の作品を追加する際は、以下のテンプレートを複製して記録します。
 

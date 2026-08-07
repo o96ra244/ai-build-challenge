@@ -1,0 +1,148 @@
+.page {
+  min-height: 100dvh;
+  padding: clamp(1.2rem, 4vw, 4rem);
+  background:
+    radial-gradient(circle at 70% 8%, rgba(132, 94, 48, 0.2), transparent 32%),
+    linear-gradient(150deg, #171412 0%, #090a0d 100%);
+  color: #eee5d6;
+}
+
+.card {
+  width: min(100%, 52rem);
+  margin: 0 auto;
+  padding: clamp(1.4rem, 4vw, 3.6rem);
+  border: 1px solid rgba(215, 199, 174, 0.26);
+  background: rgba(20, 18, 17, 0.74);
+  box-shadow: 0 2rem 5rem rgba(0, 0, 0, 0.28);
+}
+
+.kicker,
+.sectionLabel,
+.facts dt,
+.actions {
+  font-family: "SFMono-Regular", "Roboto Mono", "Menlo", monospace;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.kicker {
+  margin: 0;
+  color: #d3b47e;
+  font-size: 0.64rem;
+}
+
+.card h1 {
+  max-width: 31rem;
+  margin: 1.6rem 0 1rem;
+  font-size: clamp(2.2rem, 7vw, 5.6rem);
+  font-weight: 500;
+  letter-spacing: -0.07em;
+  line-height: 0.9;
+}
+
+.intro,
+.section p,
+.section li,
+.facts dd {
+  color: rgba(224, 213, 195, 0.74);
+  font-size: 0.86rem;
+  line-height: 1.8;
+}
+
+.intro {
+  max-width: 40rem;
+  margin: 0;
+}
+
+.facts {
+  display: grid;
+  gap: 0;
+  margin: 3rem 0 0;
+  border-top: 1px solid rgba(215, 199, 174, 0.2);
+}
+
+.facts > div {
+  display: grid;
+  grid-template-columns: minmax(8rem, 0.35fr) 1fr;
+  gap: 1rem;
+  padding: 0.9rem 0;
+  border-bottom: 1px solid rgba(215, 199, 174, 0.14);
+}
+
+.facts dt {
+  color: #b6a081;
+  font-size: 0.58rem;
+}
+
+.facts dd {
+  margin: 0;
+}
+
+.section {
+  margin-top: 3rem;
+  padding-top: 1.4rem;
+  border-top: 1px solid rgba(215, 199, 174, 0.2);
+}
+
+.sectionLabel {
+  margin: 0 0 0.55rem;
+  color: #b6a081;
+  font-size: 0.58rem;
+}
+
+.section h2 {
+  margin: 0;
+  color: #f3eadc;
+  font-size: clamp(1.35rem, 3vw, 2.1rem);
+  font-weight: 500;
+}
+
+.section p {
+  margin: 0.8rem 0 0;
+}
+
+.section ul {
+  margin: 1rem 0 0;
+  padding-left: 1.2rem;
+}
+
+.section li + li {
+  margin-top: 0.45rem;
+}
+
+.facts a,
+.actions a {
+  color: #e0c18e;
+  text-underline-offset: 0.18em;
+}
+
+.facts a:hover,
+.actions a:hover {
+  color: #fff3d7;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 3rem;
+  font-size: 0.62rem;
+}
+
+.facts a:focus-visible,
+.actions a:focus-visible {
+  outline: 2px solid #f1d39f;
+  outline-offset: 4px;
+}
+
+@media (max-width: 580px) {
+  .facts > div {
+    grid-template-columns: 1fr;
+    gap: 0.25rem;
+  }
+
+  .actions {
+    display: grid;
+  }
+}

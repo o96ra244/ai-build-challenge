@@ -10,6 +10,10 @@ export type PointerRect = {
   readonly height: number;
 };
 
+export type LightPositionDirection = "up" | "down" | "left" | "right" | "center";
+
+export const LIGHT_POSITION_STEP = 0.2;
+
 export type QualityLevel = "high" | "medium" | "low";
 
 export type QualityProfile = {
@@ -51,6 +55,29 @@ export function normalizePointer(clientX: number, clientY: number, rect: Pointer
     x: clamp(normalizedX * 2 - 1, -1, 1),
     y: clamp(1 - normalizedY * 2, -1, 1),
   };
+}
+
+export function nudgePointer(
+  pointer: PointerPoint,
+  direction: LightPositionDirection,
+  step = LIGHT_POSITION_STEP,
+): PointerPoint {
+  const safeX = Number.isFinite(pointer.x) ? clamp(pointer.x, -1, 1) : 0;
+  const safeY = Number.isFinite(pointer.y) ? clamp(pointer.y, -1, 1) : 0;
+  const safeStep = Number.isFinite(step) ? Math.abs(step) : LIGHT_POSITION_STEP;
+
+  switch (direction) {
+    case "up":
+      return { x: safeX, y: clamp(safeY + safeStep, -1, 1) };
+    case "down":
+      return { x: safeX, y: clamp(safeY - safeStep, -1, 1) };
+    case "left":
+      return { x: clamp(safeX - safeStep, -1, 1), y: safeY };
+    case "right":
+      return { x: clamp(safeX + safeStep, -1, 1), y: safeY };
+    case "center":
+      return { x: 0, y: 0 };
+  }
 }
 
 export function getPointerLightStrength(pointer: PointerPoint): number {

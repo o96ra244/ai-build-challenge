@@ -5,6 +5,7 @@ import {
   getPointerLightStrength,
   getQualityProfile,
   getTransitionProgress,
+  nudgePointer,
   normalizePointer,
   shouldAnimateLighting,
   smoothPointer,
@@ -21,6 +22,21 @@ describe("lightingMath", () => {
   it("clamps out-of-range pointers and protects zero-size rectangles", () => {
     expect(normalizePointer(-100, 500, { left: 0, top: 0, width: 100, height: 100 })).toEqual({ x: -1, y: -1 });
     expect(normalizePointer(10, 20, { left: 10, top: 20, width: 0, height: 100 })).toEqual({ x: 0, y: 0 });
+  });
+
+  it("moves the light by a fixed keyboard step and clamps at the edges", () => {
+    expect(nudgePointer({ x: 0, y: 0 }, "up")).toEqual({ x: 0, y: 0.2 });
+    expect(nudgePointer({ x: 0, y: 0 }, "down")).toEqual({ x: 0, y: -0.2 });
+    expect(nudgePointer({ x: 0, y: 0 }, "left")).toEqual({ x: -0.2, y: 0 });
+    expect(nudgePointer({ x: 0, y: 0 }, "right")).toEqual({ x: 0.2, y: 0 });
+    expect(nudgePointer({ x: 0.8, y: -0.9 }, "right")).toEqual({ x: 1, y: -0.9 });
+    expect(nudgePointer({ x: -0.8, y: 0.9 }, "up")).toEqual({ x: -0.8, y: 1 });
+    expect(nudgePointer({ x: 0.8, y: -0.9 }, "center")).toEqual({ x: 0, y: 0 });
+  });
+
+  it("normalizes invalid keyboard positions before applying a nudge", () => {
+    expect(nudgePointer({ x: Number.NaN, y: Number.POSITIVE_INFINITY }, "left")).toEqual({ x: -0.2, y: 0 });
+    expect(nudgePointer({ x: 0, y: 0 }, "right", Number.POSITIVE_INFINITY)).toEqual({ x: 0.2, y: 0 });
   });
 
   it("maps pointer distance to a readable light-strength range", () => {

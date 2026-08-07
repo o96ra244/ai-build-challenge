@@ -10,12 +10,26 @@ import {
   LIGHTING_PRESETS,
   type LightingPresetId,
 } from "./lightingPresets";
+import type { LightPositionDirection } from "./lightingMath";
 import styles from "./page.module.css";
 
 type RuntimeStatus = "loading" | "ready" | "error";
 
 const MODEL_SOURCE = "https://commons.wikimedia.org/wiki/File:Scan_the_World_-_The_Thinker_(Auguste_Rodin).stl";
 const LICENSE_SOURCE = "https://creativecommons.org/licenses/by-sa/4.0/";
+const ATTRIBUTION_PATH = "/works/09-thinker-light-study/attribution";
+
+const LIGHT_POSITION_CONTROLS: readonly {
+  readonly direction: LightPositionDirection;
+  readonly label: string;
+  readonly glyph: string;
+}[] = [
+  { direction: "up", label: "主光源を上へ移動", glyph: "↑" },
+  { direction: "left", label: "主光源を左へ移動", glyph: "←" },
+  { direction: "center", label: "主光源を中央へ戻す", glyph: "●" },
+  { direction: "right", label: "主光源を右へ移動", glyph: "→" },
+  { direction: "down", label: "主光源を下へ移動", glyph: "↓" },
+];
 
 export function ThinkerLightStudy() {
   const canvasHostRef = useRef<HTMLDivElement>(null);
@@ -30,7 +44,7 @@ export function ThinkerLightStudy() {
   const [reducedMotion, setReducedMotion] = useState(false);
   const [hintVisible, setHintVisible] = useState(true);
   const [lightStrength, setLightStrength] = useState(1.12);
-  const [statusMessage, setStatusMessage] = useState("ポインターを動かして主光源を導けます。距離に応じて強さが変わります。");
+  const [statusMessage, setStatusMessage] = useState("ポインターまたはLIGHT POSITIONで主光源を動かせます。距離に応じて強さが変わります。");
 
   useEffect(() => {
     const container = canvasHostRef.current;
@@ -126,19 +140,28 @@ export function ThinkerLightStudy() {
 
   const rotateView = (deltaYaw: number, label: string): void => {
     sceneRef.current?.rotateView(deltaYaw);
-    setStatusMessage(`${label}：ドラッグでも造形物を回転できます。`);
+    setStatusMessage(`${label}：補助表示を回転しました。`);
     setHintVisible(false);
   };
 
   const zoomView = (deltaScale: number, label: string): void => {
     sceneRef.current?.zoomView(deltaScale);
-    setStatusMessage(`${label}：ホイールでも拡大縮小できます。`);
+    setStatusMessage(`${label}：補助表示の倍率を変更しました。`);
     setHintVisible(false);
   };
 
   const resetView = (): void => {
     sceneRef.current?.resetView();
     setStatusMessage("VIEW RESET：正面の展示構図へ戻しました。");
+    setHintVisible(false);
+  };
+
+  const nudgeLightPosition = (direction: LightPositionDirection, label: string): void => {
+    if (!isReady || holdLight) {
+      return;
+    }
+    sceneRef.current?.nudgeLightPosition(direction);
+    setStatusMessage(`${label}：主光源を移動しました。`);
     setHintVisible(false);
   };
 
@@ -171,7 +194,7 @@ export function ThinkerLightStudy() {
           </div>
         )}
         {hintVisible && isReady && !holdLight && (
-          <p className={styles.canvasHint}>MOVE TO DIRECT · LIGHT RESPONSE FOLLOWS DISTANCE</p>
+          <p className={styles.canvasHint}>POINTER OR LIGHT POSITION · LIGHT RESPONSE FOLLOWS DISTANCE</p>
         )}
       </div>
 
@@ -217,7 +240,9 @@ export function ThinkerLightStudy() {
           <a href={MODEL_SOURCE} target="_blank" rel="noreferrer">SOURCE</a>
           <span> · </span>
           <a href={LICENSE_SOURCE} target="_blank" rel="noreferrer">CC BY-SA 4.0</a>
+          <span className={styles.creditNote}>Optimized for web: polygon reduction, geometry cleanup and normal recalculation.</span>
           <span className={styles.creditNote}>Digital reproduction / lighting study · not official</span>
+          <Link className={styles.creditChangeLink} href={ATTRIBUTION_PATH}>ATTRIBUTION / CHANGES</Link>
         </div>
 
         <div className={styles.footerControls}>
@@ -245,54 +270,74 @@ export function ThinkerLightStudy() {
             <p className={styles.modePurpose}>{selectedPreset.purpose}</p>
           </div>
 
-          <div className={styles.viewDock} aria-label="造形物の表示操作">
-            <span className={styles.dockLabel}>VIEW</span>
-            <div className={styles.viewButtons}>
-              <button
-                type="button"
-                className={styles.viewButton}
-                aria-label="造形物を縮小"
-                disabled={!isReady}
-                onClick={() => zoomView(-0.06, "ZOOM OUT")}
-              >
-                −
-              </button>
-              <button
-                type="button"
-                className={styles.viewButton}
-                aria-label="造形物を左へ回転"
-                disabled={!isReady}
-                onClick={() => rotateView(-0.28, "ROTATE LEFT")}
-              >
-                ↶
-              </button>
-              <button
-                type="button"
-                className={`${styles.viewButton} ${styles.viewButtonReset}`}
-                aria-label="造形物の表示をリセット"
-                disabled={!isReady}
-                onClick={resetView}
-              >
-                RESET
-              </button>
-              <button
-                type="button"
-                className={styles.viewButton}
-                aria-label="造形物を右へ回転"
-                disabled={!isReady}
-                onClick={() => rotateView(0.28, "ROTATE RIGHT")}
-              >
-                ↷
-              </button>
-              <button
-                type="button"
-                className={styles.viewButton}
-                aria-label="造形物を拡大"
-                disabled={!isReady}
-                onClick={() => zoomView(0.06, "ZOOM IN")}
-              >
-                ＋
-              </button>
+          <div className={styles.toolDock}>
+            <div className={styles.viewDock} role="group" aria-label="造形物の表示操作">
+              <span className={styles.dockLabel}>VIEW</span>
+              <div className={styles.viewButtons}>
+                <button
+                  type="button"
+                  className={styles.viewButton}
+                  aria-label="造形物を縮小"
+                  disabled={!isReady}
+                  onClick={() => zoomView(-0.06, "ZOOM OUT")}
+                >
+                  −
+                </button>
+                <button
+                  type="button"
+                  className={styles.viewButton}
+                  aria-label="造形物を左へ回転"
+                  disabled={!isReady}
+                  onClick={() => rotateView(-0.28, "ROTATE LEFT")}
+                >
+                  ↶
+                </button>
+                <button
+                  type="button"
+                  className={`${styles.viewButton} ${styles.viewButtonReset}`}
+                  aria-label="造形物の表示をリセット"
+                  disabled={!isReady}
+                  onClick={resetView}
+                >
+                  RESET
+                </button>
+                <button
+                  type="button"
+                  className={styles.viewButton}
+                  aria-label="造形物を右へ回転"
+                  disabled={!isReady}
+                  onClick={() => rotateView(0.28, "ROTATE RIGHT")}
+                >
+                  ↷
+                </button>
+                <button
+                  type="button"
+                  className={styles.viewButton}
+                  aria-label="造形物を拡大"
+                  disabled={!isReady}
+                  onClick={() => zoomView(0.06, "ZOOM IN")}
+                >
+                  ＋
+                </button>
+              </div>
+            </div>
+
+            <div className={styles.lightPositionDock} role="group" aria-label="主光源位置操作">
+              <span className={styles.dockLabel}>LIGHT POSITION</span>
+              <div className={styles.lightPositionButtons}>
+                {LIGHT_POSITION_CONTROLS.map((control) => (
+                  <button
+                    type="button"
+                    key={control.direction}
+                    className={styles.lightPositionButton}
+                    aria-label={control.label}
+                    disabled={!isReady || holdLight}
+                    onClick={() => nudgeLightPosition(control.direction, control.label)}
+                  >
+                    {control.glyph}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
 
