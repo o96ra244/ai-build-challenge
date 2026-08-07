@@ -399,14 +399,17 @@
 
 .lightPositionButtons {
   display: grid;
-  grid-template-columns: repeat(3, 1.85rem);
-  grid-template-rows: repeat(3, 1.4rem);
+  grid-template-columns: repeat(3, 44px);
+  grid-template-rows: repeat(3, 44px);
   gap: 0.25rem;
 }
 
 .lightPositionButton {
-  min-width: 0;
-  min-height: 0;
+  width: 44px;
+  min-width: 44px;
+  height: 44px;
+  min-height: 44px;
+  box-sizing: border-box;
   padding: 0.18rem;
   border: 1px solid rgba(215, 199, 174, 0.3);
   border-radius: 0.15rem;
@@ -601,7 +604,7 @@
   .credit {
     top: auto;
     right: max(1.1rem, env(safe-area-inset-right));
-    bottom: 15.6rem;
+    bottom: 18.25rem;
     left: max(1.1rem, env(safe-area-inset-left));
     max-width: none;
     font-size: 0.59rem;
@@ -623,7 +626,7 @@
     display: grid;
     grid-template-columns: minmax(0, 1fr);
     align-items: stretch;
-    gap: 0.7rem;
+    gap: 0.55rem;
   }
 
   .modeDock {
@@ -634,12 +637,12 @@
   .modeButtons {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 0.38rem;
+    gap: 0.3rem;
   }
 
   .modeButton {
     min-width: 0;
-    min-height: 3.2rem;
+    min-height: 3rem;
     padding: 0.52rem 0.42rem;
     font-size: 0.55rem;
     letter-spacing: 0.055em;
@@ -662,13 +665,13 @@
     width: 100%;
     display: grid;
     grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
-    gap: 0.55rem;
+    gap: 0.45rem;
   }
 
   .viewDock,
   .lightPositionDock {
     min-width: 0;
-    gap: 0.42rem;
+    gap: 0.34rem;
   }
 
   .viewButtons {
@@ -689,13 +692,13 @@
   }
 
   .lightPositionButtons {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    grid-template-rows: repeat(3, 0.72rem);
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
     gap: 0.18rem;
   }
 
   .lightPositionButton {
-    min-height: 1.25rem;
     padding: 0.12rem;
     font-size: 0.56rem;
   }
@@ -714,7 +717,7 @@
   }
 
   .canvasHint {
-    bottom: 20.5rem;
+    bottom: 23rem;
     font-size: 0.52rem;
     letter-spacing: 0.14em;
   }
