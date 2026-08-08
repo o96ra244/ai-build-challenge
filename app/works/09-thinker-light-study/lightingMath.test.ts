@@ -22,6 +22,9 @@ describe("lightingMath", () => {
   it("clamps out-of-range pointers and protects zero-size rectangles", () => {
     expect(normalizePointer(-100, 500, { left: 0, top: 0, width: 100, height: 100 })).toEqual({ x: -1, y: -1 });
     expect(normalizePointer(10, 20, { left: 10, top: 20, width: 0, height: 100 })).toEqual({ x: 0, y: 0 });
+    expect(normalizePointer(10, 20, { left: 10, top: 20, width: 100, height: 0 })).toEqual({ x: 0, y: 0 });
+    expect(normalizePointer(Number.NaN, 20, { left: 0, top: 0, width: 100, height: 100 })).toEqual({ x: 0, y: 0 });
+    expect(normalizePointer(10, Number.POSITIVE_INFINITY, { left: 0, top: 0, width: 100, height: 100 })).toEqual({ x: 0, y: 0 });
   });
 
   it("moves the light by a fixed keyboard step and clamps at the edges", () => {

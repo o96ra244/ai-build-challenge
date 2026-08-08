@@ -180,6 +180,16 @@
 - **学び:** 形状を変えずに照明プリセットの構造差を出すには、ライト種別・位置・ターゲット・fill・rim・shadow・背景・露出・Bloomをひとつのデータとして管理し、GPUなしの純粋ロジックテストで差分を保証するのが有効です。
 - **次回への改善点:** Tab／Shift+Tabのブラウザ配送、実機タッチ・トラックパッド、OSのreduced-motion切替、WebGL 2 backend、直接のCLS計測、長時間表示時のGPU負荷を追加確認します。
 
+### 作品09 本番後ホットフィックス（2026-08-08）
+
+- **発見と原因:** 本番公開後のiPhone 16 Pro確認で、タイトル・ランタイム表示・数値readout・VIEW・HOLD LIGHT・長文説明・LIGHT POSITIONが同時に見えるため、彫刻を触って光を動かすという主操作が埋もれていました。Canvas上の広いUIレイヤーも、直接操作の優先順位を下げる要因でした。
+- **Primary Action:** マウスはCanvas上の`pointermove`で連続的に主光源を移動し、タッチ／ペンは`pointerdown`でタップ位置へ即時に移動します。ポインター座標は四隅を含めて`-1〜1`へclampし、`pan-y pinch-zoom`を維持します。
+- **画面整理:** メイン画面からVIEW、HOLD LIGHT、ランタイム詳細、KEY LIGHTの数値表示、距離応答表示、長文の日英説明を除去しました。タイトルは`09 / 15`、`THE THINKER`、`LIGHT STUDY`へ圧縮し、GALLERY／CHIAROSCURO／SPECTRUMの3モードを副操作として残しました。
+- **キーボード代替:** 初期閉じのnative`details`へLIGHT POSITIONを移し、44px以上の5ボタン、日本語`aria-label`、focus-visible、既存`aria-live`通知を提供しました。ヘッダー・ヒント・装飾・creditはCanvasへの入力を遮らず、実コントロールとリンクだけを操作可能にしています。
+- **帰属表示:** メイン画面のcreditを`The Thinker · Scan the World · CC BY-SA 4.0 · Credits`へ圧縮し、出典・ライセンス・変更内容・派生STL・非公式であることの詳細は公開帰属ページから確認できる状態を維持しました。
+- **検証範囲と結果:** production serverで1440×900、402×874、390×844、402×740を確認しました。初期表示、3モード、マウスの中央／左上／右下、タッチ相当のpointerdown、LIGHT POSITION開閉、Credits、INDEX、横overflow、Canvasの`touch-action`、console error / warningを確認し、4 viewportのconsole error / warningとpage errorは0件でした。390×844と402×740は、初回のコンパクト化確認、開示パネルとモード列の重なり確認後の退避、closed時の非表示確認を経て最終スクリーンショットを撮影しました。数値CLSは未計測です。
+- **既知の制約:** 実機iPhoneのタッチ、OSのreduced-motion切替、WebGL 2強制fallback、長時間表示時のGPU負荷、数値CLSはこの環境で未確認の場合があります。WebGPU／WebGL 2、ローカルSTL、TSL material、shadows／Bloom、observer・visibility・dispose・GPU queue disposal、ライセンス表示は既存実装を維持します。
+
 次の作品を追加する際は、以下のテンプレートを複製して記録します。
 
 ---

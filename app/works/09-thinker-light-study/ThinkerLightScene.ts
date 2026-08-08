@@ -60,7 +60,7 @@ const MODEL_BASE_Y = 0.28;
 const MODEL_ROTATION_Y = 0.18;
 const ZERO_POINTER: PointerPoint = { x: 0, y: 0 };
 
-type LightInputSource = "pointer" | "keyboard";
+type LightInputSource = "pointer" | "touch" | "keyboard";
 
 type Vec3Uniform = ReturnType<typeof uniform<"vec3", THREE.Vector3>>;
 
@@ -174,6 +174,8 @@ export class ThinkerLightScene {
   private renderer: WebGPURenderer | null = null;
   private renderPipeline: RenderPipeline | null = null;
   private bloomPass: ReturnType<typeof bloom> | null = null;
+  private deferredRenderPipeline: RenderPipeline | null = null;
+  private deferredBloomPass: ReturnType<typeof bloom> | null = null;
   private resizeObserver: ResizeObserver | null = null;
   private intersectionObserver: IntersectionObserver | null = null;
   private modelMesh: THREE.Mesh | null = null;
@@ -186,6 +188,8 @@ export class ThinkerLightScene {
   private inViewport = true;
   private animationLoopActive = false;
   private pointerNeedsRender = false;
+  private resizeGeneration = 0;
+  private resizeSettling = false;
   private lastTime = 0;
   private pointerActive = false;
   private lastReportedLightStrength = -1;
@@ -204,20 +208,16 @@ export class ThinkerLightScene {
     this.updateLoopState();
   };
   private readonly handlePointerMove = (event: PointerEvent): void => {
-    if (this.disposed || !this.renderer) {
+    if (event.pointerType !== "mouse") {
       return;
     }
-    if (this.holdLight) {
+    this.setLightFromClientPoint(event.clientX, event.clientY, true, "pointer");
+  };
+  private readonly handlePointerDown = (event: PointerEvent): void => {
+    if (event.pointerType !== "touch" && event.pointerType !== "pen") {
       return;
     }
-    const rect = this.renderer.domElement.getBoundingClientRect();
-    const next = normalizePointer(event.clientX, event.clientY, {
-      left: rect.left,
-      top: rect.top,
-      width: rect.width,
-      height: rect.height,
-    });
-    this.setLightTarget(next, true, "pointer");
+    this.setLightFromClientPoint(event.clientX, event.clientY, true, "touch");
   };
   private readonly handlePointerLeave = (): void => {
     if (this.lightInputSource !== "pointer") {
@@ -286,6 +286,7 @@ export class ThinkerLightScene {
     this.container.appendChild(renderer.domElement);
     this.resize();
     this.renderer.domElement.addEventListener("pointermove", this.handlePointerMove, { passive: true });
+    this.renderer.domElement.addEventListener("pointerdown", this.handlePointerDown, { passive: true });
     this.renderer.domElement.addEventListener("pointerleave", this.handlePointerLeave, { passive: true });
     this.resizeObserver = new ResizeObserver(this.handleResize);
     this.resizeObserver.observe(this.container);
@@ -424,6 +425,7 @@ export class ThinkerLightScene {
     renderer?.setAnimationLoop(null);
     this.animationLoopActive = false;
     renderer?.domElement.removeEventListener("pointermove", this.handlePointerMove);
+    renderer?.domElement.removeEventListener("pointerdown", this.handlePointerDown);
     renderer?.domElement.removeEventListener("pointerleave", this.handlePointerLeave);
     this.resizeObserver?.disconnect();
     this.intersectionObserver?.disconnect();
@@ -433,8 +435,8 @@ export class ThinkerLightScene {
     if (domElement?.parentElement === this.container) {
       this.container.removeChild(domElement);
     }
-    const bloomPass = this.bloomPass;
-    const renderPipeline = this.renderPipeline;
+    const bloomPass = this.bloomPass ?? this.deferredBloomPass;
+    const renderPipeline = this.renderPipeline ?? this.deferredRenderPipeline;
     const disposeResources = (): void => {
       const bloomDisposable = bloomPass as unknown as { dispose?: () => void } | null;
       bloomDisposable?.dispose?.();
@@ -453,6 +455,8 @@ export class ThinkerLightScene {
     }
     this.renderPipeline = null;
     this.bloomPass = null;
+    this.deferredRenderPipeline = null;
+    this.deferredBloomPass = null;
     this.renderer = null;
   }
 
@@ -687,7 +691,7 @@ export class ThinkerLightScene {
   }
 
   private renderFrame(time: number): void {
-    if (!this.renderer || this.disposed) {
+    if (!this.renderer || this.disposed || this.resizeSettling) {
       return;
     }
     const safeTime = Number.isFinite(time) ? time : 0;
@@ -782,6 +786,25 @@ export class ThinkerLightScene {
     this.updateLoopState();
   }
 
+  private setLightFromClientPoint(
+    clientX: number,
+    clientY: number,
+    active: boolean,
+    source: LightInputSource,
+  ): void {
+    if (this.disposed || !this.renderer || this.holdLight) {
+      return;
+    }
+    const rect = this.renderer.domElement.getBoundingClientRect();
+    const next = normalizePointer(clientX, clientY, {
+      left: rect.left,
+      top: rect.top,
+      width: rect.width,
+      height: rect.height,
+    });
+    this.setLightTarget(next, active, source);
+  }
+
   private updateView(delta: Partial<ViewTransform>): void {
     this.viewTransform = updateViewTransform(this.viewTransform, delta);
     this.applyViewTransform();
@@ -807,16 +830,48 @@ export class ThinkerLightScene {
     if (!this.renderer || this.disposed) {
       return;
     }
+    const generation = ++this.resizeGeneration;
+    this.resizeSettling = true;
+    this.renderer.setAnimationLoop(null);
+    this.animationLoopActive = false;
+    if (this.renderPipeline || this.bloomPass) {
+      this.deferredRenderPipeline = this.renderPipeline ?? this.deferredRenderPipeline;
+      this.deferredBloomPass = this.bloomPass ?? this.deferredBloomPass;
+      this.renderPipeline = null;
+      this.bloomPass = null;
+    }
     const viewport = this.getViewportSize();
     this.profile = getQualityProfile(viewport.width, viewport.height, window.devicePixelRatio || 1);
     const drawingBuffer = getDrawingBufferSize(viewport.width, viewport.height, window.devicePixelRatio || 1, this.profile);
     this.configureCamera(viewport.width, viewport.height);
     this.renderer.setPixelRatio(drawingBuffer.pixelRatio);
     this.renderer.setSize(viewport.width, viewport.height, false);
-    this.bloomPass?.setResolutionScale(this.profile.bloomResolutionScale);
     this.configureShadowQuality();
     this.updateCameraParallax();
-    this.updateLoopState();
+    const gpuQueue = (this.renderer.backend as unknown as {
+      device?: { queue?: { onSubmittedWorkDone?: () => Promise<void> } };
+    }).device?.queue;
+    const submittedWork = gpuQueue?.onSubmittedWorkDone?.();
+    const settleResize = (): void => {
+      if (this.disposed || generation !== this.resizeGeneration) {
+        return;
+      }
+      const bloomPass = this.deferredBloomPass;
+      const renderPipeline = this.deferredRenderPipeline;
+      this.deferredBloomPass = null;
+      this.deferredRenderPipeline = null;
+      const bloomDisposable = bloomPass as unknown as { dispose?: () => void } | null;
+      bloomDisposable?.dispose?.();
+      renderPipeline?.dispose();
+      this.setupPostProcessing();
+      this.resizeSettling = false;
+      this.updateLoopState();
+    };
+    if (submittedWork) {
+      void submittedWork.catch(() => undefined).then(settleResize);
+    } else {
+      settleResize();
+    }
   }
 
   private shouldAnimate(): boolean {
@@ -832,7 +887,7 @@ export class ThinkerLightScene {
   }
 
   private updateLoopState(): void {
-    if (!this.renderer || this.disposed) {
+    if (!this.renderer || this.disposed || this.resizeSettling) {
       return;
     }
     if (this.shouldAnimate()) {
