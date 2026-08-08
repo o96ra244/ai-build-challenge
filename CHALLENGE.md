@@ -190,6 +190,15 @@
 - **検証範囲と結果:** production serverで1440×900、402×874、390×844、402×740を確認しました。初期表示、3モード、マウスの中央／左上／右下、タッチ相当のpointerdown、LIGHT POSITION開閉、Credits、INDEX、横overflow、Canvasの`touch-action`、console error / warningを確認し、4 viewportのconsole error / warningとpage errorは0件でした。390×844と402×740は、初回のコンパクト化確認、開示パネルとモード列の重なり確認後の退避、closed時の非表示確認を経て最終スクリーンショットを撮影しました。数値CLSは未計測です。
 - **既知の制約:** 実機iPhoneのタッチ、OSのreduced-motion切替、WebGL 2強制fallback、長時間表示時のGPU負荷、数値CLSはこの環境で未確認の場合があります。WebGPU／WebGL 2、ローカルSTL、TSL material、shadows／Bloom、observer・visibility・dispose・GPU queue disposal、ライセンス表示は既存実装を維持します。
 
+### 作品09 SEO / OGP / X Card対応（2026-08-08）
+
+- **SEO metadata:** rootへ本番`metadataBase`を設定し、作品09へ固有title、description、canonicalを追加しました。作品固有titleの二重連結がないことをproduction HTMLで確認しています。
+- **Social metadata:** `openGraph`へwebsite、ja_JP、siteName、本番URL、作品固有title／description、画像寸法、altを設定し、Xへ`summary_large_image`のtitle／description／imageを設定しました。
+- **OGP画像:** UIホットフィックス後のproduction画面を1200×630 viewportで表示し、モデルロード完了後にSPECTRUMを選択した実画面から`public/og/09-thinker-light-study.png`を撮影しました。彫刻を中央に置き、3モード、compact credit、`The Thinker · Scan the World · CC BY-SA 4.0`を含め、browser chromeと個人情報は含めていません。
+- **検証結果:** production buildの実HTMLで`title`、description、canonical、`og:title`、`og:description`、`og:url`、`og:type`、`og:image`、`og:image:width`、`og:image:height`、`og:image:alt`、`twitter:card`、`twitter:title`、`twitter:description`、`twitter:image`を確認しました。OG画像はHTTP 200、`image/png`、1200×630でした。Previewでもページ表示、画像取得、本番canonicalを確認しました。
+- **退行防止:** `metadata.test.ts`で本番canonical、OG画像path、PNG signature、1200×630、website、ja_JP、alt、`summary_large_image`を確認します。
+- **既知の未確認事項:** X実投稿後のタイムライン表示、X側のキャッシュ更新、Facebook／LinkedIn等のクローラー表示差は未確認です。実際のHTMLと画像HTTP応答、Vercel Previewの取得までは確認済みです。
+
 次の作品を追加する際は、以下のテンプレートを複製して記録します。
 
 ---

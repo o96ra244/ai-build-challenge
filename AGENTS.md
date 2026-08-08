@@ -41,3 +41,20 @@ npm run build
 ```
 
 実施していない検証を成功と報告しません。実行できない場合は理由と代替確認手順を記載します。
+
+## SEO / Social sharing
+
+- 公開作品ごとに固有のtitle / descriptionを設定します。
+- canonical URLを設定します。
+- Open Graph metadataを設定します。
+- X向け`summary_large_image`を設定します。
+- OGP画像は原則として最終完成画面から作成します。
+- OGP画像は1200×630を基本とします。
+- browser chromeや個人情報を画像へ含めません。
+- OGP画像のaltを設定します。
+- 架空URLを使用しません。
+- Preview URLをcanonicalにしません。
+- 実HTMLでmetadata出力を検証します。
+- OG画像URLのHTTP 200と寸法を確認します。
+- ライセンス対象素材が画像へ含まれる場合、必要な帰属を維持します。
+- X投稿前にOGPを確認します。
