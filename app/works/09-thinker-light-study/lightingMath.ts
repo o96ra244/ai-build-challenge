@@ -45,7 +45,14 @@ export function clamp(value: number, min: number, max: number): number {
 }
 
 export function normalizePointer(clientX: number, clientY: number, rect: PointerRect): PointerPoint {
-  if (rect.width <= 0 || rect.height <= 0 || !Number.isFinite(rect.width) || !Number.isFinite(rect.height)) {
+  if (
+    !Number.isFinite(clientX)
+    || !Number.isFinite(clientY)
+    || rect.width <= 0
+    || rect.height <= 0
+    || !Number.isFinite(rect.width)
+    || !Number.isFinite(rect.height)
+  ) {
     return { x: 0, y: 0 };
   }
 

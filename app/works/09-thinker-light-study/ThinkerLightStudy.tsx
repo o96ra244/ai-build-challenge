@@ -5,7 +5,6 @@ import Link from "next/link";
 
 import type { ThinkerLightScene } from "./ThinkerLightScene";
 import {
-  getLightingPreset,
   INITIAL_PRESET_ID,
   LIGHTING_PRESETS,
   type LightingPresetId,
@@ -37,14 +36,10 @@ export function ThinkerLightStudy() {
   const [runtimeStatus, setRuntimeStatus] = useState<RuntimeStatus>("loading");
   const [runtimeError, setRuntimeError] = useState("");
   const [progress, setProgress] = useState<number | null>(null);
-  const [webGpuApiAvailable, setWebGpuApiAvailable] = useState<boolean | null>(null);
-  const [selectiveBloom, setSelectiveBloom] = useState(false);
   const [presetId, setPresetId] = useState<LightingPresetId>(INITIAL_PRESET_ID);
-  const [holdLight, setHoldLight] = useState(false);
-  const [reducedMotion, setReducedMotion] = useState(false);
   const [hintVisible, setHintVisible] = useState(true);
-  const [lightStrength, setLightStrength] = useState(1.12);
-  const [statusMessage, setStatusMessage] = useState("ポインターまたはLIGHT POSITIONで主光源を動かせます。距離に応じて強さが変わります。");
+  const [interactionHint, setInteractionHint] = useState("MOVE POINTER TO MOVE LIGHT");
+  const [statusMessage, setStatusMessage] = useState("彫刻上でポインターを動かすと主光源が移動します。");
 
   useEffect(() => {
     const container = canvasHostRef.current;
@@ -55,10 +50,13 @@ export function ThinkerLightStudy() {
     let disposed = false;
     let scene: ThinkerLightScene | null = null;
     const mediaQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
-    setReducedMotion(mediaQuery.matches);
+    setInteractionHint(
+      navigator.maxTouchPoints > 0 || "ontouchstart" in window
+        ? "TAP THE SCULPTURE TO MOVE LIGHT"
+        : "MOVE POINTER TO MOVE LIGHT",
+    );
     const handleMotionPreference = (): void => {
       const nextReducedMotion = mediaQuery.matches;
-      setReducedMotion(nextReducedMotion);
       sceneRef.current?.setReducedMotion(nextReducedMotion);
       setStatusMessage(nextReducedMotion ? "動きを控えめに設定しています。照明操作は利用できます。" : "通常の照明遷移へ戻しました。");
     };
@@ -72,11 +70,6 @@ export function ThinkerLightStudy() {
         scene = new Scene(container, {
           reducedMotion: mediaQuery.matches,
           presetId: INITIAL_PRESET_ID,
-          onLightChange: (strength) => {
-            if (!disposed) {
-              setLightStrength(strength);
-            }
-          },
         });
         sceneRef.current = scene;
         const result = await scene.init((nextProgress) => {
@@ -88,8 +81,6 @@ export function ThinkerLightStudy() {
           scene.dispose();
           return null;
         }
-        setWebGpuApiAvailable(result.webGpuApiAvailable);
-        setSelectiveBloom(result.selectiveBloom);
         if (!result.modelLoaded) {
           setRuntimeError(result.errorMessage ?? "最適化済みのローカルモデルを読み込めませんでした。");
           setRuntimeStatus("error");
@@ -105,16 +96,18 @@ export function ThinkerLightStudy() {
         }
         setRuntimeError(error instanceof Error ? error.message : "3D表示を開始できませんでした。");
         setRuntimeStatus("error");
-      });
+    });
 
     const hideHint = (): void => setHintVisible(false);
-    container.addEventListener("pointermove", hideHint, { once: true, passive: true });
+    container.addEventListener("pointermove", hideHint, { passive: true });
+    container.addEventListener("pointerdown", hideHint, { passive: true });
     const hintTimer = window.setTimeout(hideHint, 7200);
 
     return () => {
       disposed = true;
       window.clearTimeout(hintTimer);
       container.removeEventListener("pointermove", hideHint);
+      container.removeEventListener("pointerdown", hideHint);
       mediaQuery.removeEventListener("change", handleMotionPreference);
       scene?.dispose();
       sceneRef.current = null;
@@ -131,33 +124,8 @@ export function ThinkerLightStudy() {
     setHintVisible(false);
   };
 
-  const toggleHoldLight = (): void => {
-    const nextHoldLight = !holdLight;
-    setHoldLight(nextHoldLight);
-    sceneRef.current?.setHoldLight(nextHoldLight);
-    setStatusMessage(nextHoldLight ? "HOLD LIGHT：基準位置へ戻し、照明を固定しました。" : "HOLD LIGHTを解除し、主光源の操作を再開しました。");
-  };
-
-  const rotateView = (deltaYaw: number, label: string): void => {
-    sceneRef.current?.rotateView(deltaYaw);
-    setStatusMessage(`${label}：補助表示を回転しました。`);
-    setHintVisible(false);
-  };
-
-  const zoomView = (deltaScale: number, label: string): void => {
-    sceneRef.current?.zoomView(deltaScale);
-    setStatusMessage(`${label}：補助表示の倍率を変更しました。`);
-    setHintVisible(false);
-  };
-
-  const resetView = (): void => {
-    sceneRef.current?.resetView();
-    setStatusMessage("VIEW RESET：正面の展示構図へ戻しました。");
-    setHintVisible(false);
-  };
-
   const nudgeLightPosition = (direction: LightPositionDirection, label: string): void => {
-    if (!isReady || holdLight) {
+    if (!isReady) {
       return;
     }
     sceneRef.current?.nudgeLightPosition(direction);
@@ -165,17 +133,7 @@ export function ThinkerLightStudy() {
     setHintVisible(false);
   };
 
-  const selectedPreset = getLightingPreset(presetId);
   const isReady = runtimeStatus === "ready";
-  const runtimeLabel = runtimeStatus === "loading"
-    ? "LOADING LOCAL MODEL"
-    : runtimeStatus === "error"
-      ? "MODEL UNAVAILABLE"
-      : webGpuApiAvailable && selectiveBloom
-        ? "WEBGPU / SELECTIVE BLOOM"
-        : webGpuApiAvailable
-          ? "WEBGPU / DIRECT RENDER"
-          : "WEBGL 2 / FALLBACK";
 
   return (
     <section className={styles.experience} aria-labelledby="thinker-title">
@@ -193,8 +151,8 @@ export function ThinkerLightStudy() {
             <span className={styles.errorDetail}>{runtimeError}</span>
           </div>
         )}
-        {hintVisible && isReady && !holdLight && (
-          <p className={styles.canvasHint}>POINTER OR LIGHT POSITION · LIGHT RESPONSE FOLLOWS DISTANCE</p>
+        {hintVisible && isReady && (
+          <p className={styles.canvasHint}>{interactionHint}</p>
         )}
       </div>
 
@@ -202,54 +160,33 @@ export function ThinkerLightStudy() {
         <header className={styles.headerBlock}>
           <div className={styles.headerMeta}>
             <span>09 / 15</span>
-            <span className={styles.metaRule} aria-hidden="true" />
-            <span>LIGHTING STUDY</span>
           </div>
-          <p className={styles.eyebrow}>THE THINKER</p>
           <h1 id="thinker-title">
-            <span>LIGHT</span>
-            <span>STUDY</span>
+            <span>THE THINKER</span>
+            <span>LIGHT STUDY</span>
           </h1>
-          <p id="thinker-description" className={styles.lead}>
+          <p id="thinker-description" className={styles.srOnly}>
             同じ彫刻でも、光の角度と色で表情は変わる。
           </p>
-          <p className={styles.subtitle}>
-            A lighting study using a digital reproduction of Auguste Rodin’s The Thinker.
-          </p>
         </header>
-
-        <div className={styles.statusCluster} aria-live="polite">
-          <span className={`${styles.statusDot} ${runtimeStatus === "error" ? styles.statusDotError : ""}`} aria-hidden="true" />
-          <span>{runtimeLabel}</span>
-          <span className={styles.statusDivider} aria-hidden="true" />
-          <span>{reducedMotion ? "MOTION RESTRAINED" : holdLight ? "LIGHT HELD" : "LIVE LIGHT"}</span>
-        </div>
-
-        {isReady && (
-          <div className={styles.lightReadout} aria-hidden="true">
-            <span>KEY LIGHT</span>
-            <strong>× {lightStrength.toFixed(2)}</strong>
-            <span>{holdLight ? "HELD" : "DISTANCE RESPONSE"}</span>
-          </div>
-        )}
 
         <p className={styles.srOnly} aria-live="polite">{statusMessage}</p>
 
         <div className={styles.credit}>
-          <span>MODEL: “The Thinker” / Auguste Rodin · 3D scan by Scan the World · </span>
-          <a href={MODEL_SOURCE} target="_blank" rel="noreferrer">SOURCE</a>
+          <a href={MODEL_SOURCE} target="_blank" rel="noreferrer">The Thinker</a>
+          <span> · </span>
+          <a href={MODEL_SOURCE} target="_blank" rel="noreferrer">Scan the World</a>
           <span> · </span>
           <a href={LICENSE_SOURCE} target="_blank" rel="noreferrer">CC BY-SA 4.0</a>
-          <span className={styles.creditNote}>Optimized for web: polygon reduction, geometry cleanup and normal recalculation.</span>
-          <span className={styles.creditNote}>Digital reproduction / lighting study · not official</span>
-          <Link className={styles.creditChangeLink} href={ATTRIBUTION_PATH}>ATTRIBUTION / CHANGES</Link>
+          <span> · </span>
+          <Link href={ATTRIBUTION_PATH} prefetch={false}>Credits</Link>
         </div>
 
         <div className={styles.footerControls}>
           <div className={styles.modeDock} aria-label="照明モード">
-            <span className={styles.dockLabel}>LIGHT / 03</span>
+            <span className={styles.dockLabel}>LIGHTING MODES</span>
             <div className={styles.modeButtons}>
-              {LIGHTING_PRESETS.map((preset, index) => {
+              {LIGHTING_PRESETS.map((preset) => {
                 const selected = preset.id === presetId;
                 return (
                   <button
@@ -260,98 +197,30 @@ export function ThinkerLightStudy() {
                     disabled={!isReady}
                     onClick={() => selectPreset(preset.id)}
                   >
-                    <span className={styles.modeIndex}>{selected ? "●" : "0"}{index + 1}</span>
                     <span>{preset.label}</span>
-                    <span className={styles.selectedWord}>{selected ? "SELECTED" : ""}</span>
                   </button>
                 );
               })}
             </div>
-            <p className={styles.modePurpose}>{selectedPreset.purpose}</p>
           </div>
 
-          <div className={styles.toolDock}>
-            <div className={styles.viewDock} role="group" aria-label="造形物の表示操作">
-              <span className={styles.dockLabel}>VIEW</span>
-              <div className={styles.viewButtons}>
+          <details className={styles.lightPositionDisclosure}>
+            <summary className={styles.lightPositionSummary}>LIGHT POSITION</summary>
+            <div className={styles.lightPositionButtons} role="group" aria-label="主光源位置操作">
+              {LIGHT_POSITION_CONTROLS.map((control) => (
                 <button
                   type="button"
-                  className={styles.viewButton}
-                  aria-label="造形物を縮小"
+                  key={control.direction}
+                  className={styles.lightPositionButton}
+                  aria-label={control.label}
                   disabled={!isReady}
-                  onClick={() => zoomView(-0.06, "ZOOM OUT")}
+                  onClick={() => nudgeLightPosition(control.direction, control.label)}
                 >
-                  −
+                  {control.glyph}
                 </button>
-                <button
-                  type="button"
-                  className={styles.viewButton}
-                  aria-label="造形物を左へ回転"
-                  disabled={!isReady}
-                  onClick={() => rotateView(-0.28, "ROTATE LEFT")}
-                >
-                  ↶
-                </button>
-                <button
-                  type="button"
-                  className={`${styles.viewButton} ${styles.viewButtonReset}`}
-                  aria-label="造形物の表示をリセット"
-                  disabled={!isReady}
-                  onClick={resetView}
-                >
-                  RESET
-                </button>
-                <button
-                  type="button"
-                  className={styles.viewButton}
-                  aria-label="造形物を右へ回転"
-                  disabled={!isReady}
-                  onClick={() => rotateView(0.28, "ROTATE RIGHT")}
-                >
-                  ↷
-                </button>
-                <button
-                  type="button"
-                  className={styles.viewButton}
-                  aria-label="造形物を拡大"
-                  disabled={!isReady}
-                  onClick={() => zoomView(0.06, "ZOOM IN")}
-                >
-                  ＋
-                </button>
-              </div>
+              ))}
             </div>
-
-            <div className={styles.lightPositionDock} role="group" aria-label="主光源位置操作">
-              <span className={styles.dockLabel}>LIGHT POSITION</span>
-              <div className={styles.lightPositionButtons}>
-                {LIGHT_POSITION_CONTROLS.map((control) => (
-                  <button
-                    type="button"
-                    key={control.direction}
-                    className={styles.lightPositionButton}
-                    aria-label={control.label}
-                    disabled={!isReady || holdLight}
-                    onClick={() => nudgeLightPosition(control.direction, control.label)}
-                  >
-                    {control.glyph}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          <button
-            type="button"
-            className={`${styles.holdButton} ${holdLight ? styles.holdButtonSelected : ""}`}
-            aria-pressed={holdLight}
-            disabled={!isReady}
-            onClick={toggleHoldLight}
-          >
-            <span className={styles.holdIcon} aria-hidden="true" />
-            <span>HOLD LIGHT</span>
-            <span className={styles.holdState}>{holdLight ? "ON" : "OFF"}</span>
-          </button>
+          </details>
         </div>
 
         <Link className={styles.indexLink} href="/" aria-label="作品一覧へ戻る">INDEX ↗</Link>
