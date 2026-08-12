@@ -1,24 +1,14 @@
-export const CHAIN_STAGES = [
-  { id: "marble", label: "RED MARBLE / RAMP", timeout: 5.5 },
-  { id: "eraser", label: "ERASER → CLOTHESPIN", timeout: 5.5 },
-  { id: "blocks", label: "PENCIL / WOODEN BLOCKS", timeout: 6.5 },
-  { id: "car", label: "TOY CAR / BOOK RAMP", timeout: 5.5 },
-  { id: "seesaw", label: "RULER SEESAW", timeout: 4.5 },
-  { id: "blue-marble", label: "BLUE MARBLE → PAPER CUP", timeout: 5.5 },
-  { id: "bell", label: "BALANCE RULER → GOAL BELL", timeout: 4.5 },
-] as const;
+import { CHAIN_MOTIONS, getMotionDuration } from "./deskLayout";
 
-export type ChainStageId = (typeof CHAIN_STAGES)[number]["id"];
+export const CHAIN_STAGES = CHAIN_MOTIONS.map((motion) => ({
+  ...motion,
+  timeout: getMotionDuration(motion) + 2.5,
+})) as readonly (typeof CHAIN_MOTIONS[number] & { readonly timeout: number })[];
+
+export type ChainStage = (typeof CHAIN_STAGES)[number];
+export type ChainStageId = ChainStage["id"];
 export type ChainPhase = "ready" | "running" | "complete" | "error";
-export type ChainEvent =
-  | "red-marble-impact"
-  | "eraser-clothespin"
-  | "pencil-block-impact"
-  | "last-block-chock"
-  | "car-seesaw-impact"
-  | "seesaw-released"
-  | "blue-cup-caught"
-  | "bell-struck";
+export type ChainEvent = ChainStageId;
 
 export type ChainState = {
   readonly phase: ChainPhase;
@@ -50,13 +40,14 @@ export function resetChain(): ChainState {
   return createInitialChain();
 }
 
-export function getCurrentStage(state: ChainState): (typeof CHAIN_STAGES)[number] {
-  return CHAIN_STAGES[Math.min(CHAIN_STAGES.length - 1, Math.max(0, state.stageIndex))] ?? CHAIN_STAGES[0];
+export function getCurrentStage(state: ChainState): ChainStage {
+  return CHAIN_STAGES[Math.min(CHAIN_STAGES.length - 1, Math.max(0, state.stageIndex))] ?? CHAIN_STAGES[0]!;
 }
 
 export function getStageProgress(state: ChainState): number {
   const stage = getCurrentStage(state);
-  return state.phase === "complete" ? 1 : Math.min(1, Math.max(0, state.stageElapsed / stage.timeout));
+  const duration = getMotionDuration(stage);
+  return state.phase === "complete" ? 1 : Math.min(1, Math.max(0, state.stageElapsed / duration));
 }
 
 export function getRunProgress(state: ChainState): number {
@@ -66,11 +57,12 @@ export function getRunProgress(state: ChainState): number {
 
 export function advanceChain(state: ChainState, deltaSeconds: number): ChainAdvanceResult {
   if (state.phase !== "running") return { state, timedOut: false };
-  const nextElapsed = state.stageElapsed + finiteDelta(deltaSeconds);
+  const delta = finiteDelta(deltaSeconds);
+  const nextElapsed = state.stageElapsed + delta;
   const timedOut = nextElapsed > getCurrentStage(state).timeout;
   if (!timedOut) {
     return {
-      state: { ...state, stageElapsed: nextElapsed, totalElapsed: state.totalElapsed + finiteDelta(deltaSeconds) },
+      state: { ...state, stageElapsed: nextElapsed, totalElapsed: state.totalElapsed + delta },
       timedOut: false,
     };
   }
@@ -95,16 +87,7 @@ function nextStage(state: ChainState): ChainState {
 
 export function triggerChainEvent(state: ChainState, event: ChainEvent): ChainState {
   if (state.phase !== "running") return state;
-  const valid: Partial<Record<ChainStageId, ChainEvent>> = {
-    marble: "red-marble-impact",
-    eraser: "eraser-clothespin",
-    blocks: "last-block-chock",
-    car: "car-seesaw-impact",
-    seesaw: "seesaw-released",
-    "blue-marble": "blue-cup-caught",
-    bell: "bell-struck",
-  };
-  const stageId = getCurrentStage(state).id;
-  if (valid[stageId] !== event) return state;
+  const stage = getCurrentStage(state);
+  if (stage.id !== event) return state;
   return nextStage(state);
 }

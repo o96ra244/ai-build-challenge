@@ -186,17 +186,18 @@
 - **作品名:** KINETIC RELAY — Desk Chain Reaction
 - **制作日:** 2026-08-12
 - **対象ユーザー:** 身近な物の動きと、原因から結果へつながるWeb 3D作品を楽しみたい人
-- **再設計の理由:** 旧企画をPreview確認で不採用とし、初見で机上の連鎖だと理解できる、1コースの生活感ある作品へ再設計しました。
-- **舞台:** 夕方の子ども部屋の木製勉強机。壁、本棚、ノート、鉛筆立て、紙、文房具を背景に、装置を机上へ馴染ませています。
-- **連鎖:** 赤いビー玉が定規の坂を転がり、消しゴム、木製洗濯ばさみ、輪ゴム、鉛筆、7個の積み木、ミニカー、定規シーソー、青いビー玉、紙コップを順に動かし、最後に卓上ベルを鳴らします。
-- **物理と衝突:** 赤／青ビー玉、消しゴム、鉛筆、積み木、ミニカーをRapier dynamic bodyとして実装しました。斜面、机、定規、紙コップ壁は同じlayout定義からvisible geometryとcolliderを作り、stageは衝突sensorイベントでのみ進めます。
-- **主な機能:** START／RESTART、接触ごとのstage表示、GOALタグ、bell／flag／COMPLETE、native button、`aria-live`、reduced-motion、responsive camera、visibility／offscreen時の停止
-- **負荷設計:** WebGLRenderer、low-power、30fps active render、fixed 1/60 physics・最大2 substeps、desktop 1024／mobile 512 shadow map、DPR／約1.7M pixel上限、postprocessingなし、idle停止
+- **再設計の理由:** 旧企画をPreview確認で不採用とし、短時間のデモから、机・棚・壁を横断して原因と結果を追える長尺作品へ再構築しました。
+- **舞台:** 夕方の子ども部屋の木製勉強机。左壁、上下棚、ノート、鉛筆立て、紙、文房具、積み木を使い、同じ部屋の中で経路が折り返す構成です。
+- **連鎖:** ACT 1のred marbleから、eraser／clothespin／rubber band／pencil、ACT 2の10 blocks／chock／car、ACT 3のseesaw／blue gate／ramp、ACT 4のtube／switchback／tape／shelf、ACT 5のreturn chute／balance／striker／goal bellへ、29段階で役割を受け渡します。
+- **時間設計:** `getMotionDuration`の合計は約97.7秒。ブラウザでは最終stageの完了表示まで約100〜120秒の範囲に収まり、目標の80〜120秒を満たすことを5回連続で確認しました。
+- **物理と因果:** Rapierのroom colliderとendpoint sensorを使い、各motion bodyをpathに沿って決定的に進めるhybrid構成です。stage eventは可視物体が支持されたendpointへ到達した時だけ発生し、原因・動作・次stageの順序を静的テストでも確認しています。
+- **主な機能:** START／RESTART、29段階の接触表示、GOALタグ／bell／flag／COMPLETE、OrbitControlsのFOLLOW／FREE／HOME、native button、`aria-live`、reduced-motion、visibility／offscreen時の停止
+- **負荷設計:** WebGLRenderer、low-power、active時30fps、fixed 1/60 physics・最大2 substeps、shadow caster 1個、desktop 1024／mobile 512 shadow map、DPR／約1.7M pixel上限、postprocessingなし、idle停止
 - **GitHub上のパス:** `app/works/10-kinetic-relay/`
 - **公開URL:** https://ai-build-challenge.vercel.app/works/10-kinetic-relay
-- **検証結果:** `npm run lint`、`npm run typecheck`、`npm run test`（29 files / 371 tests）、`npm run build`、`git diff --check` がすべて成功しました。production buildを`npx next start`で起動し、1440×900と390×844で初期表示・responsive camera・canvas寸法・横overflowなしを確認しました。metadataはproduction HTMLでtitle、description、canonical、本番OG image、`summary_large_image`を確認し、OGP画像は1200×630、local production serverでHTTP 200でした。
-- **連続完走:** production browserで同じ1コースを5回連続実行し、5回とも`COMPLETE — GOAL BELL RUNG`へ到達しました。実測の連鎖時間は約10秒で、依頼目安の18〜25秒より短い状態です。
-- **既知の制約:** CPU／GPU percentage、端末温度、実機タッチ、OS設定の動的切替、WebGL非対応環境、実数CLS、Vercel Preview保護下の実ページ表示は未確認です。visibility／offscreen停止、reduced-motion、keyboard操作はコード経路とDOM／CSS実装を確認しましたが、実機相当の手動切替は未実施です。
+- **検証結果:** `npm run lint`、`npm run typecheck`、`npm run test`、`npm run build`、`git diff --check`を最終差分で実行します。production buildを`npx next start`で起動し、1440×900ではbody／canvasとも1440×900、横overflowなし、console error／warningなしを確認しました。FOLLOW→FREE、ドラッグ回転、wheelズーム、HOME復帰も確認しました。OGP画像は最終画面から1200×630へ更新します。
+- **連続完走:** production browserで同じ1コースを5回連続実行し、5回とも`COMPLETE — GOAL BELL RUNG`、29/29へ到達し、途中停止はありませんでした。
+- **既知の制約:** CPU／GPU percentage、端末温度、実機タッチ／pinch、OS設定の動的切替、WebGL非対応環境、実数CLS、Vercel Preview保護下の実ページ表示は未確認です。モバイルviewport指定は接続中ブラウザで390×844にならず1280×720へ正規化されたため、真の390×844表示成功とは扱いません。visibility／offscreen停止、reduced-motion、keyboard操作はコード経路とDOM／CSS実装を確認しましたが、実機相当の手動切替は未実施です。
 - **学び:** 物理挙動を見せ球や曲線誘導で代替せず、機能物のtransform定義と衝突イベントを一つの設計境界へ揃えると、因果とレビュー可能性を両立しやすくなります。
 
 ### 作品09 本番後ホットフィックス（2026-08-08）

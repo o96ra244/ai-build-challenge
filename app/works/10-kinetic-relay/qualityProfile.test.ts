@@ -8,6 +8,7 @@ describe("qualityProfile", () => {
     const buffer = getDrawingBufferSize(1440, 900, 3, profile);
     expect(profile.shadowMapSize).toBe(1024);
     expect(profile.targetFps).toBe(30);
+    expect(profile.pixelRatio).toBeLessThanOrEqual(1.25);
     expect(buffer.width * buffer.height).toBeLessThanOrEqual(profile.maxPixels * 1.02);
   });
 
@@ -15,6 +16,7 @@ describe("qualityProfile", () => {
     const profile = getQualityProfile(390, 844, 3);
     expect(profile.level).toBe("mobile");
     expect(profile.shadowMapSize).toBe(512);
+    expect(profile.pixelRatio).toBeLessThanOrEqual(1);
     expect(profile.maxPixels).toBeLessThan(700_000);
     expect(profile.maxSubsteps).toBe(2);
   });

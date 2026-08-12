@@ -125,13 +125,15 @@ SVG本体を変更せず、同じ内蔵アイコンまたは任意のSVGで12種
 
 ### 10 KINETIC RELAY — Desk Chain Reaction
 
-夕方の子ども部屋の勉強机で、赤いビー玉が文房具、積み木、ミニカーへ役割を受け渡し、青いビー玉を紙コップへ運んで卓上ベルを鳴らします。身近な物が実際に触れ合う、一つの3D chain reactionです。
+夕方の子ども部屋の机と棚を横断し、赤いビー玉から文房具、積み木、ミニカー、輪ゴム、紙コップへ役割を渡しながら、最後に卓上ベルを鳴らすルームスケールの3D chain reactionです。29段階・5 ACTで、目標時間は80〜120秒です。
 
 - GitHub上のパス: [`app/works/10-kinetic-relay/`](app/works/10-kinetic-relay/)
 - 公開先ルート: `/works/10-kinetic-relay`
 - 公開URL: https://ai-build-challenge.vercel.app/works/10-kinetic-relay
-- 主な機能: 赤いビー玉の斜面、消しゴム、木製洗濯ばさみ、輪ゴム、鉛筆、7個の木製積み木、汎用ミニカー、定規シーソー、青いビー玉、紙コップ、卓上ベル、RESTART、keyboard操作、reduced-motion、接触イベントによるstage進行
-- 使用技術: Three.js 0.185.1 `WebGLRenderer`、`@dimforge/rapier3d-compat` 0.19.3、物理固定刻み1/60、CSS Modules、Vitest
+- 主な機能: 29個のvisible motion、机・左壁・上下棚を巡る5 ACT、原因と動作を表示するstage UI、GOALタグ／ベル／旗、OrbitControlsのFOLLOW／FREE／HOME、START／RESTART、keyboard操作、reduced-motion、hidden／offscreen時の停止
+- 物理設計: Rapierのroom collider・endpoint sensor・kinematic motion bodyを使うhybrid deterministic chainです。各stageのpathと速度を定義し、目に見える物体の到達と次のstageイベントを一致させています。直接的な`applyImpulse`連鎖には依存しません。
+- 負荷設計: low-power WebGL、active時30fps、固定1/60 physics・最大2 substeps、1 directional shadow caster、desktop 1024／mobile 512 shadow map、DPR／約1.7M pixel上限、postprocessingなし、idle停止
+- 使用技術: Three.js 0.185.1 `WebGLRenderer`、`OrbitControls`、`@dimforge/rapier3d-compat` 0.19.3、CSS Modules、Vitest
 
 ## 公開URL
 
