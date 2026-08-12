@@ -3,10 +3,10 @@ import { describe, expect, it } from "vitest";
 import { CHAIN_STAGES, advanceChain, createInitialChain, getRunProgress, startChain, triggerChainEvent } from "./chainSequence";
 
 describe("chainSequence", () => {
-  it("defines a room-scale relay with at least twenty ordered stages", () => {
-    expect(CHAIN_STAGES.length).toBeGreaterThanOrEqual(20);
+  it("exposes the current ACT 1 physics prototype stages", () => {
+    expect(CHAIN_STAGES).toHaveLength(3);
     expect(CHAIN_STAGES[0]?.id).toBe("stopper");
-    expect(CHAIN_STAGES.at(-1)?.id).toBe("bell");
+    expect(CHAIN_STAGES.at(-1)?.id).toBe("red-impact");
   });
 
   it("waits for the current visible contact event instead of elapsed time", () => {

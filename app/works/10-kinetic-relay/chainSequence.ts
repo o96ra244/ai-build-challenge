@@ -1,6 +1,8 @@
 import { CHAIN_MOTIONS, getMotionDuration } from "./deskLayout";
 
-export const CHAIN_STAGES = CHAIN_MOTIONS.map((motion) => ({
+const ACT1_PHYSICS_STAGE_IDS = new Set(["stopper", "red-ramp", "red-impact"]);
+
+export const CHAIN_STAGES = CHAIN_MOTIONS.filter((motion) => ACT1_PHYSICS_STAGE_IDS.has(motion.id)).map((motion) => ({
   ...motion,
   timeout: getMotionDuration(motion) + 2.5,
 })) as readonly (typeof CHAIN_MOTIONS[number] & { readonly timeout: number })[];

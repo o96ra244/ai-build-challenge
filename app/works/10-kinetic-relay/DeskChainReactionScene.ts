@@ -1,13 +1,20 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
+import { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeometry.js";
 
 import {
   CHAIN_MOTIONS,
   BLOCK_COLORS,
   BLOCK_STARTS,
+  ERASER_PAD,
+  ERASER_SIZE,
   GOAL_LAYOUT,
+  MARBLE_RADIUS,
+  RAMP_SUPPORT_BOOKS,
   MOTION_OBJECT_STARTS,
   ROOM_LAYOUT,
+  RULER_RAMP,
+  STOPPER_LAYOUT,
   TRACK_LAYOUT,
   type ChainMotion,
   type MotionObjectId,
@@ -25,9 +32,9 @@ import {
   type ChainPhase,
   type ChainState,
 } from "./chainSequence";
-import { ChainPhysicsWorld, loadRapier, type BodySnapshot } from "./chainPhysics";
+import { ChainPhysicsWorld, loadRapier, type BodySnapshot, type DebugRenderSnapshot } from "./chainPhysics";
 import { clampTarget, getFollowTarget, getHomeCamera, type CameraMode, type CameraPreset } from "./cameraDirector";
-import { addBeam, addBox, addCylinder, createMaterial, disposeSceneResources, type GeometryCache, type MaterialSet } from "./sceneObjects";
+import { addBeam, addBox, addCylinder, createMaterial, createPhysicalMaterial, disposeSceneResources, type GeometryCache, type MaterialSet } from "./sceneObjects";
 import { getDrawingBufferSize, getQualityProfile, type QualityProfile } from "./qualityProfile";
 
 export type ChainRuntimeStatus = "loading" | "ready" | "error";
@@ -87,6 +94,7 @@ export class DeskChainReactionScene {
   private readonly propRoot = new THREE.Group();
   private readonly motionRoot = new THREE.Group();
   private readonly geometryCache: GeometryCache = new Map();
+  private readonly environmentMap: THREE.Texture;
   private readonly materials: MaterialSet;
   private readonly motionMeshes = new Map<MotionObjectId, THREE.Object3D>();
   private readonly blockMeshes: THREE.Mesh[] = [];
@@ -94,6 +102,12 @@ export class DeskChainReactionScene {
   private readonly goalFlag: THREE.Group;
   private readonly bell: THREE.Group;
   private readonly goalTag: THREE.Sprite;
+  private stopperMesh!: THREE.Mesh;
+  private readonly debugPhysics = typeof window !== "undefined" && new URLSearchParams(window.location.search).has("physicsDebug");
+  private readonly debugTimeScale = typeof window !== "undefined"
+    ? Math.min(1, Math.max(0.1, Number(new URLSearchParams(window.location.search).get("physicsSlow") ?? 1) || 1))
+    : 1;
+  private physicsDebugLines: THREE.LineSegments | null = null;
   private readonly handleResize = (): void => this.resize();
   private readonly handleVisibility = (): void => {
     this.pageVisible = document.visibilityState === "visible";
@@ -141,9 +155,11 @@ export class DeskChainReactionScene {
     this.container = container;
     this.options = options;
     this.reducedMotion = options.reducedMotion;
+    this.environmentMap = this.createEnvironmentMap();
     this.materials = this.createMaterials();
     this.cameraHome = getHomeCamera(1440, 900);
     this.scene.background = new THREE.Color(COLORS.wall);
+    this.scene.environment = this.environmentMap;
     this.scene.fog = new THREE.Fog(COLORS.wall, 18, 42);
     this.root.add(this.roomRoot, this.deskRoot, this.trackRoot, this.propRoot, this.motionRoot);
     this.scene.add(this.root);
@@ -212,6 +228,13 @@ export class DeskChainReactionScene {
     const rapier = await loadRapier();
     if (this.disposed) return;
     this.physics = new ChainPhysicsWorld(rapier, this.quality);
+    if (this.debugPhysics) {
+      const geometry = new THREE.BufferGeometry();
+      const material = new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.76 });
+      this.physicsDebugLines = new THREE.LineSegments(geometry, material);
+      this.scene.add(this.physicsDebugLines);
+      this.container.dataset.physicsDebug = "active";
+    }
     this.publishState(true);
     this.renderOnce();
     this.options.onLoadingState?.("READY");
@@ -281,6 +304,12 @@ export class DeskChainReactionScene {
     document.removeEventListener("visibilitychange", this.handleVisibility);
     this.physics?.dispose();
     this.physics = null;
+    if (this.physicsDebugLines) {
+      this.physicsDebugLines.geometry.dispose();
+      (this.physicsDebugLines.material as THREE.Material).dispose();
+      this.physicsDebugLines = null;
+    }
+    this.environmentMap.dispose();
     this.renderer?.domElement.remove();
     disposeSceneResources(this.scene);
     this.renderer?.dispose();
@@ -293,7 +322,18 @@ export class DeskChainReactionScene {
       desk: createMaterial(COLORS.desk, { roughness: 0.84 }),
       deskEdge: createMaterial(COLORS.deskEdge, { roughness: 0.86 }),
       book: createMaterial(COLORS.book, { roughness: 0.92 }),
-      ruler: createMaterial(COLORS.ruler, { roughness: 0.78 }),
+      ruler: createPhysicalMaterial({
+        color: COLORS.ruler,
+        roughness: 0.24,
+        metalness: 0.04,
+        transmission: 0.16,
+        ior: 1.46,
+        thickness: 0.06,
+        transparent: true,
+        opacity: 0.82,
+        envMap: this.environmentMap,
+        envMapIntensity: 0.28,
+      }),
       paper: createMaterial(COLORS.paper, { roughness: 0.98 }),
       wood: createMaterial(COLORS.wood, { roughness: 0.87 }),
       woodDark: createMaterial(COLORS.woodDark, { roughness: 0.9 }),
@@ -306,7 +346,16 @@ export class DeskChainReactionScene {
       ink: createMaterial(COLORS.ink, { roughness: 0.72 }),
       pencil: createMaterial(COLORS.pencil, { roughness: 0.66 }),
       yellow: createMaterial(COLORS.yellow, { roughness: 0.68 }),
-      red: createMaterial(COLORS.red, { roughness: 0.16, metalness: 0.1 }),
+      red: createPhysicalMaterial({
+        color: COLORS.red,
+        roughness: 0.12,
+        metalness: 0.04,
+        transmission: 0.34,
+        ior: 1.46,
+        thickness: 0.18,
+        envMap: this.environmentMap,
+        envMapIntensity: 0.72,
+      }),
       brass: createMaterial(COLORS.brass, { roughness: 0.36, metalness: 0.72 }),
       bell: createMaterial(COLORS.bell, { roughness: 0.26, metalness: 0.82 }),
     };
@@ -337,8 +386,10 @@ export class DeskChainReactionScene {
 
   private buildTracks(): void {
     TRACK_LAYOUT.forEach((definition) => addBox(this.trackRoot, this.geometryCache, this.materials[definition.material], definition.id, definition.size, definition.position, definition.rotation));
-    addBox(this.trackRoot, this.geometryCache, this.materials.book, "ramp-pages", [4.5, 0.18, 1.7], [-6.35, 0.7, -1.7], [0, 0, 0.02]);
-    addBox(this.trackRoot, this.geometryCache, this.materials.paper, "ramp-pages-top", [4.2, 0.14, 1.5], [-6.35, 0.98, -1.7], [0, 0, 0.02]);
+    addBox(this.trackRoot, this.geometryCache, this.materials.paper, ERASER_PAD.id, ERASER_PAD.size, ERASER_PAD.position, ERASER_PAD.rotation);
+    this.buildRulerRampVisual();
+    RAMP_SUPPORT_BOOKS.forEach((book) => this.buildSupportBookVisual(book));
+    this.stopperMesh = addBox(this.trackRoot, this.geometryCache, this.materials.woodDark, "red-stopper", STOPPER_LAYOUT.size, STOPPER_LAYOUT.position, STOPPER_LAYOUT.rotation);
     const tube = addCylinder(this.trackRoot, this.materials.paper, 0.56, 0.56, 2.4, [7.2, 3.25, -3.45], [0, Math.PI / 2, 0], 16);
     tube.castShadow = true;
     const tape = new THREE.Mesh(new THREE.TorusGeometry(0.8, 0.2, 8, 20), this.materials.goal);
@@ -348,6 +399,57 @@ export class DeskChainReactionScene {
     this.trackRoot.add(tape);
     addCylinder(this.trackRoot, this.materials.woodDark, 0.16, 0.16, 0.75, [10.25, 0.35, -0.95], [Math.PI / 2, 0, 0], 10);
     addCylinder(this.trackRoot, this.materials.woodDark, 0.13, 0.13, 0.62, [5.75, 0.44, 1.15], [Math.PI / 2, 0, 0], 10);
+  }
+
+  private buildRulerRampVisual(): void {
+    const ruler = new THREE.Group();
+    ruler.position.set(...RULER_RAMP.position);
+    ruler.rotation.set(...RULER_RAMP.rotation);
+    const body = new THREE.Mesh(new RoundedBoxGeometry(RULER_RAMP.length, RULER_RAMP.thickness, RULER_RAMP.width, 3, 0.045), this.materials.ruler);
+    body.castShadow = true;
+    body.receiveShadow = true;
+    ruler.add(body);
+    const edgeMaterial = this.materials.ink;
+    addBox(ruler, this.geometryCache, edgeMaterial, "ruler-edge-near", [RULER_RAMP.length * 0.98, 0.018, 0.028], [0, RULER_RAMP.thickness / 2 + 0.012, RULER_RAMP.width / 2 - 0.035], [0, 0, 0], false);
+    addBox(ruler, this.geometryCache, edgeMaterial, "ruler-edge-far", [RULER_RAMP.length * 0.98, 0.018, 0.028], [0, RULER_RAMP.thickness / 2 + 0.012, -RULER_RAMP.width / 2 + 0.035], [0, 0, 0], false);
+    for (let index = 0; index <= 28; index += 1) {
+      const x = -RULER_RAMP.length / 2 + (RULER_RAMP.length * index) / 28;
+      const major = index % 5 === 0;
+      addBox(ruler, this.geometryCache, edgeMaterial, `ruler-tick-${index}`, [0.022, 0.018, major ? 0.28 : 0.16], [x, RULER_RAMP.thickness / 2 + 0.02, -RULER_RAMP.width / 2 + (major ? 0.2 : 0.15)], [0, 0, 0], false);
+    }
+    this.trackRoot.add(ruler);
+  }
+
+  private buildSupportBookVisual(book: (typeof RAMP_SUPPORT_BOOKS)[number]): void {
+    const group = new THREE.Group();
+    group.position.set(...book.position);
+    group.rotation.set(...book.rotation);
+    const [length, height, width] = book.size;
+    const cover = 0.045;
+    addBox(group, this.geometryCache, this.materials.book, `${book.id}-pages`, [length - 0.08, height - cover * 2, width - 0.08], [0, 0, 0], [0, 0, 0], true);
+    addBox(group, this.geometryCache, this.materials.woodDark, `${book.id}-cover-top`, [length, cover, width], [0, height / 2 - cover / 2, 0], [0, 0, 0], true);
+    addBox(group, this.geometryCache, this.materials.woodDark, `${book.id}-cover-bottom`, [length, cover, width], [0, -height / 2 + cover / 2, 0], [0, 0, 0], true);
+    addBox(group, this.geometryCache, this.materials.book, `${book.id}-spine`, [0.09, height * 0.96, width * 0.94], [-length / 2 + 0.07, 0, 0], [0, 0, 0], true);
+    this.trackRoot.add(group);
+  }
+
+  private createEnvironmentMap(): THREE.Texture {
+    const canvas = document.createElement("canvas");
+    canvas.width = 128;
+    canvas.height = 64;
+    const context = canvas.getContext("2d");
+    if (context) {
+      const gradient = context.createLinearGradient(0, 0, 0, canvas.height);
+      gradient.addColorStop(0, "#d7c7aa");
+      gradient.addColorStop(0.5, "#f2eadb");
+      gradient.addColorStop(1, "#9c603f");
+      context.fillStyle = gradient;
+      context.fillRect(0, 0, canvas.width, canvas.height);
+    }
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.mapping = THREE.EquirectangularReflectionMapping;
+    texture.colorSpace = THREE.SRGBColorSpace;
+    return texture;
   }
 
   private buildProps(): void {
@@ -388,20 +490,27 @@ export class DeskChainReactionScene {
   }
 
   private buildMotionObjects(): void {
-    const redMarble = new THREE.Mesh(new THREE.SphereGeometry(0.24, 16, 12), this.materials.red);
+    const redMarble = new THREE.Mesh(new THREE.SphereGeometry(MARBLE_RADIUS, 20, 14), this.materials.red);
     redMarble.castShadow = true;
     this.motionRoot.add(redMarble);
     this.motionMeshes.set("redMarble", redMarble);
-    const blueMarble = new THREE.Mesh(new THREE.SphereGeometry(0.24, 16, 12), this.materials.blue);
+    const blueMarble = new THREE.Mesh(new THREE.SphereGeometry(MARBLE_RADIUS, 16, 12), this.materials.blue);
     blueMarble.castShadow = true;
     this.motionRoot.add(blueMarble);
     this.motionMeshes.set("blueMarble", blueMarble);
-    const thirdMarble = new THREE.Mesh(new THREE.SphereGeometry(0.24, 16, 12), this.materials.yellow);
+    const thirdMarble = new THREE.Mesh(new THREE.SphereGeometry(MARBLE_RADIUS, 16, 12), this.materials.yellow);
     thirdMarble.castShadow = true;
     this.motionRoot.add(thirdMarble);
     this.motionMeshes.set("thirdMarble", thirdMarble);
 
-    const eraser = addBox(this.motionRoot, this.geometryCache, this.materials.rubber, "eraser", [0.7, 0.3, 0.48], MOTION_OBJECT_STARTS.eraser);
+    const eraser = new THREE.Group();
+    const eraserBody = new THREE.Mesh(new RoundedBoxGeometry(...ERASER_SIZE, 3, 0.055), this.materials.rubber);
+    eraserBody.castShadow = true;
+    eraserBody.receiveShadow = true;
+    eraser.add(eraserBody);
+    addBox(eraser, this.geometryCache, this.materials.paper, "eraser-sleeve", [ERASER_SIZE[0] * 0.72, 0.08, ERASER_SIZE[2] + 0.012], [ERASER_SIZE[0] * 0.12, ERASER_SIZE[1] * 0.23, 0], [0, 0, 0], false);
+    eraser.position.set(...MOTION_OBJECT_STARTS.eraser);
+    this.motionRoot.add(eraser);
     this.motionMeshes.set("eraser", eraser);
     const pencil = new THREE.Group();
     addCylinder(pencil, this.materials.pencil, 0.075, 0.075, 1.65, [0, 0, 0], [0, 0, Math.PI / 2], 8);
@@ -555,9 +664,10 @@ export class DeskChainReactionScene {
     this.lastTime = time;
     this.lastRenderedTime = time;
     if (this.chainState.phase === "running") {
-      this.physics?.advance(delta, true);
+      const simulationDelta = delta * this.debugTimeScale;
+      this.physics?.advance(simulationDelta, true);
       this.processPhysicsEvents();
-      const result = advanceChain(this.chainState, delta);
+      const result = advanceChain(this.chainState, simulationDelta);
       this.chainState = result.state;
       if (result.timedOut) this.publishState(true);
     }
@@ -572,17 +682,38 @@ export class DeskChainReactionScene {
   }
 
   private updateDynamicVisuals(): void {
-    const mechanisms = this.physics?.getMechanismSnapshot();
-    if (!mechanisms) return;
+    const physics = this.physics;
+    const mechanisms = physics?.getMechanismSnapshot();
+    if (!physics || !mechanisms) return;
+    this.applySnapshot(this.stopperMesh, physics.getStopperSnapshot());
     const activeStage = mechanisms.activeStageId ? CHAIN_MOTIONS.find((motion) => motion.id === mechanisms.activeStageId) : undefined;
     if (activeStage) {
-      const snapshot = this.physics?.getSnapshot(activeStage.objectId);
+      const snapshot = physics.getSnapshot(activeStage.objectId);
       if (snapshot) this.applySnapshot(this.motionMeshes.get(activeStage.objectId), snapshot);
       this.applyMechanismMotion(activeStage, mechanisms.activeProgress);
     }
     this.goalFlag.scale.y = Math.max(0.08, this.celebrationProgress);
     this.bell.rotation.z = this.celebrationProgress * 0.1;
     this.goalTag.material.opacity = 0.86 + this.celebrationProgress * 0.14;
+    if (this.debugPhysics) {
+      const debug = physics.getAct1DebugSnapshot();
+      this.container.dataset.marbleClearance = debug.marbleClearance?.toFixed(4) ?? "off-ramp";
+      this.container.dataset.marbleMinRampLocal = debug.marbleMinRampLocal?.map((value) => value.toFixed(4)).join(",") ?? "none";
+      this.container.dataset.marbleMaxSpeed = debug.marbleMaxSpeed.toFixed(3);
+      this.container.dataset.marbleRotation = debug.marbleRotation.toFixed(3);
+      this.container.dataset.eraserContact = String(debug.eraserContacted);
+      this.container.dataset.eraserDisplacement = debug.eraserDisplacement.toFixed(4);
+    }
+    if (this.physicsDebugLines) this.updatePhysicsDebugLines(physics.getDebugRenderSnapshot());
+  }
+
+  private updatePhysicsDebugLines(snapshot: DebugRenderSnapshot): void {
+    if (!this.physicsDebugLines) return;
+    const geometry = this.physicsDebugLines.geometry;
+    geometry.setAttribute("position", new THREE.BufferAttribute(snapshot.vertices, 3));
+    geometry.setAttribute("color", new THREE.BufferAttribute(snapshot.colors, 4));
+    geometry.setDrawRange(0, snapshot.vertices.length / 3);
+    geometry.computeBoundingSphere();
   }
 
   private applyMechanismMotion(motion: ChainMotion, progress: number): void {
@@ -640,7 +771,7 @@ export class DeskChainReactionScene {
       : this.chainState.phase === "running"
         ? `${stage.shortLabel}`
         : this.chainState.phase === "complete"
-          ? "COMPLETE — GOAL BELL RUNG"
+          ? "PHYSICS PROTOTYPE COMPLETE"
           : this.chainState.errorMessage || "ERROR — RESTART REQUIRED";
     this.options.onStateChange?.({
       runtimeStatus: this.physics ? "ready" : "loading",

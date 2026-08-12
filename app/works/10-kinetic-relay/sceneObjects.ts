@@ -2,7 +2,7 @@ import * as THREE from "three";
 
 import type { MaterialKey, Vector3Tuple } from "./deskLayout";
 
-export type MaterialSet = Record<MaterialKey | "ink" | "pencil" | "yellow" | "red" | "blue" | "brass" | "bell", THREE.MeshStandardMaterial>;
+export type MaterialSet = Record<MaterialKey | "ink" | "pencil" | "yellow" | "red" | "blue" | "brass" | "bell", THREE.Material>;
 export type GeometryCache = Map<string, THREE.BoxGeometry>;
 
 export function createMaterial(
@@ -16,6 +16,10 @@ export function createMaterial(
     transparent: options.transparent ?? false,
     opacity: options.opacity ?? 1,
   });
+}
+
+export function createPhysicalMaterial(options: THREE.MeshPhysicalMaterialParameters): THREE.MeshPhysicalMaterial {
+  return new THREE.MeshPhysicalMaterial(options);
 }
 
 export function getBoxGeometry(cache: GeometryCache, id: string, size: Vector3Tuple): THREE.BoxGeometry {
@@ -86,7 +90,7 @@ export function disposeSceneResources(scene: THREE.Scene): void {
     const objectMaterials = Array.isArray(object.material) ? object.material : [object.material];
     objectMaterials.forEach((material) => {
       materials.add(material);
-      if (material instanceof THREE.MeshStandardMaterial && material.map) textures.add(material.map);
+      if ((material instanceof THREE.MeshStandardMaterial || material instanceof THREE.MeshPhysicalMaterial) && material.map) textures.add(material.map);
       if (material instanceof THREE.SpriteMaterial && material.map) textures.add(material.map);
     });
   });

@@ -25,6 +25,23 @@ export type BoxDefinition = {
   readonly material: MaterialKey;
 };
 
+export type RulerRampDefinition = {
+  readonly id: "red-ramp";
+  readonly length: number;
+  readonly width: number;
+  readonly thickness: number;
+  readonly position: Vector3Tuple;
+  readonly rotation: RotationTuple;
+  readonly material: "ruler";
+};
+
+export type BookSupportDefinition = {
+  readonly id: string;
+  readonly size: Vector3Tuple;
+  readonly position: Vector3Tuple;
+  readonly rotation: RotationTuple;
+};
+
 export type MotionObjectId =
   | "redMarble"
   | "eraser"
@@ -60,7 +77,78 @@ export type ChainMotion = {
   readonly settle: number;
   readonly focus: Vector3Tuple;
   readonly kind: "travel" | "clothespin" | "rubberBand" | "blocks" | "gate" | "seesaw" | "cup" | "balance" | "bell";
+  readonly control?: "physics" | "path";
+  readonly physicsDuration?: number;
 };
+
+export const MARBLE_RADIUS = 0.225;
+export const RAMP_CLEARANCE = 0.018;
+export const ERASER_SIZE: Vector3Tuple = [0.72, 0.3, 0.48];
+
+export const RULER_RAMP: RulerRampDefinition = {
+  id: "red-ramp",
+  length: 5.6,
+  width: 1.25,
+  thickness: 0.16,
+  position: [-6.25, 1.0, -1.7],
+  rotation: [0, 0, -0.22],
+  material: "ruler",
+};
+
+// Three books give the ruler two believable support heights without a magic floating collider.
+export const RAMP_SUPPORT_BOOKS: readonly BookSupportDefinition[] = [
+  { id: "ramp-book-high-lower", size: [1.8, 0.5, 1.45], position: [-7.55, 0.38, -1.7], rotation: [0, 0, -0.015] },
+  { id: "ramp-book-high-upper", size: [1.8, 0.5, 1.45], position: [-7.55, 0.88, -1.7], rotation: [0, 0, 0.012] },
+  { id: "ramp-book-low", size: [1.9, 0.52, 1.45], position: [-4.7, 0.34, -1.7], rotation: [0, 0, 0.018] },
+] as const;
+
+export const STOPPER_LAYOUT = {
+  size: [0.18, 0.52, 0.9] as const,
+  position: [-8.08, 1.63, -1.7] as const,
+  rotation: RULER_RAMP.rotation,
+  retreatPosition: [-8.72, 1.63, -1.7] as const,
+} as const;
+
+export const ERASER_PAD: BoxDefinition = {
+  id: "eraser-pad",
+  size: [1.35, 0.22, 1.05],
+  position: [-3.65, 0.26, -1.7],
+  rotation: [0, 0, 0],
+  material: "paper",
+};
+
+export const ERASER_START: Vector3Tuple = [
+  ERASER_PAD.position[0],
+  ERASER_PAD.position[1] + ERASER_PAD.size[1] / 2 + ERASER_SIZE[1] / 2 + 0.006,
+  ERASER_PAD.position[2],
+];
+
+function rotateAroundZ(local: Vector3Tuple, rotationZ: number): Vector3Tuple {
+  const cos = Math.cos(rotationZ);
+  const sin = Math.sin(rotationZ);
+  return [local[0] * cos - local[1] * sin, local[0] * sin + local[1] * cos, local[2]];
+}
+
+function addVectors(left: Vector3Tuple, right: Vector3Tuple): Vector3Tuple {
+  return [left[0] + right[0], left[1] + right[1], left[2] + right[2]];
+}
+
+export function getRampLocalPoint(local: Vector3Tuple): Vector3Tuple {
+  return addVectors(RULER_RAMP.position, rotateAroundZ(local, RULER_RAMP.rotation[2]));
+}
+
+export function worldToRampLocal(world: Vector3Tuple): Vector3Tuple {
+  const translated: Vector3Tuple = [world[0] - RULER_RAMP.position[0], world[1] - RULER_RAMP.position[1], world[2] - RULER_RAMP.position[2]];
+  return rotateAroundZ(translated, -RULER_RAMP.rotation[2]);
+}
+
+export function getMarbleInitialCenter(): Vector3Tuple {
+  return getRampLocalPoint([-RULER_RAMP.length / 2 + 0.45, RULER_RAMP.thickness / 2 + MARBLE_RADIUS + RAMP_CLEARANCE, 0]);
+}
+
+export function getRampExitPosition(): Vector3Tuple {
+  return getRampLocalPoint([RULER_RAMP.length / 2 - 0.18, 0, 0]);
+}
 
 export const ROOM_LAYOUT = {
   floor: { id: "room-floor", size: [25, 0.3, 16] as const, position: [0, -0.28, 0] as const, rotation: [0, 0, 0] as const, material: "desk" as const },
@@ -75,8 +163,6 @@ export const ROOM_LAYOUT = {
 } satisfies Record<string, BoxDefinition>;
 
 export const TRACK_LAYOUT: readonly BoxDefinition[] = [
-  { id: "red-book-base", size: [4.5, 0.45, 1.8], position: [-6.35, 0.44, -1.7], rotation: [0, 0, 0.02], material: "book" },
-  { id: "red-ramp", size: [5.0, 0.18, 1.25], position: [-6.15, 1.55, -1.7], rotation: [0, 0, -0.25], material: "ruler" },
   { id: "center-track", size: [4.2, 0.12, 0.9], position: [-0.4, 0.26, -1.45], rotation: [0, 0, 0], material: "paper" },
   { id: "block-bridge", size: [4.1, 0.12, 0.8], position: [2.35, 0.28, -1.45], rotation: [0, 0, 0], material: "wood" },
   { id: "car-book-base", size: [4.7, 0.42, 1.7], position: [5.1, 0.42, -0.95], rotation: [0, 0, 0.02], material: "book" },
@@ -95,8 +181,8 @@ export const TRACK_LAYOUT: readonly BoxDefinition[] = [
 ] as const;
 
 export const MOTION_OBJECT_STARTS: Readonly<Record<MotionObjectId, Vector3Tuple>> = {
-  redMarble: [-8.3, 2.85, -1.7],
-  eraser: [-4.15, 0.92, -1.7],
+  redMarble: getMarbleInitialCenter(),
+  eraser: ERASER_START,
   clothespin: [-2.65, 0.42, -1.45],
   rubberBand: [-1.95, 0.38, -1.45],
   pencil: [-1.15, 0.36, -1.45],
@@ -119,9 +205,9 @@ export const MOTION_OBJECT_STARTS: Readonly<Record<MotionObjectId, Vector3Tuple>
 };
 
 export const CHAIN_MOTIONS: readonly ChainMotion[] = [
-  { id: "stopper", act: "ACT 1 / LEFT DESK", label: "STOPPER → RED MARBLE", shortLabel: "RED MARBLE", cause: "red marble presses the wooden stopper", objectId: "redMarble", path: [[-8.3, 2.85, -1.7], [-8.3, 2.2, -1.7]], speed: 0.5, settle: 0.3, focus: [-8, 1.3, -1.7], kind: "gate" },
-  { id: "red-ramp", act: "ACT 1 / LEFT DESK", label: "RED MARBLE / LONG RULER RAMP", shortLabel: "RULER RAMP", cause: "red marble travels down the long ruler ramp", objectId: "redMarble", path: [[-8.3, 2.2, -1.7], [-7.2, 1.95, -1.7], [-5.8, 1.55, -1.7], [-4.35, 1.0, -1.7]], speed: 0.7, settle: 0.6, focus: [-6.2, 1.4, -1.7], kind: "travel" },
-  { id: "red-impact", act: "ACT 1 / LEFT DESK", label: "RED MARBLE → ERASER", shortLabel: "ERASER IMPACT", cause: "red marble rolls into the eraser", objectId: "eraser", path: [[-4.15, 0.92, -1.7], [-3.55, 0.92, -1.7]], speed: 0.6, settle: 0.5, focus: [-3.8, 0.8, -1.7], kind: "travel" },
+  { id: "stopper", act: "ACT 1 / LEFT DESK", label: "STOPPER → RED MARBLE", shortLabel: "RED MARBLE", cause: "START retracts the wooden stopper from the marble", objectId: "redMarble", path: [], speed: 1, settle: 0.4, physicsDuration: 0.4, focus: STOPPER_LAYOUT.position, kind: "gate", control: "physics" },
+  { id: "red-ramp", act: "ACT 1 / LEFT DESK", label: "RED MARBLE / RULER RAMP", shortLabel: "RULER RAMP", cause: "gravity rolls the red marble down the shared ruler surface", objectId: "redMarble", path: [], speed: 1, settle: 6, physicsDuration: 6, focus: RULER_RAMP.position, kind: "travel", control: "physics" },
+  { id: "red-impact", act: "ACT 1 / LEFT DESK", label: "RED MARBLE → ERASER", shortLabel: "ERASER IMPACT", cause: "the rolling marble collides with the dynamic eraser", objectId: "eraser", path: [], speed: 1, settle: 2.5, physicsDuration: 2.5, focus: ERASER_START, kind: "travel", control: "physics" },
   { id: "eraser-drop", act: "ACT 1 / LEFT DESK", label: "ERASER / SHORT DROP", shortLabel: "ERASER DROP", cause: "the eraser slips from the desk ledge", objectId: "eraser", path: [[-3.55, 0.92, -1.7], [-3.25, 0.52, -1.55], [-2.9, 0.3, -1.45]], speed: 0.5, settle: 0.6, focus: [-3.1, 0.55, -1.5], kind: "travel" },
   { id: "clothespin", act: "ACT 1 / LEFT DESK", label: "ERASER → CLOTHESPIN", shortLabel: "CLOTHESPIN", cause: "the falling eraser pushes the wooden clothespin", objectId: "clothespin", path: [[-2.65, 0.42, -1.45], [-2.05, 0.42, -1.45]], speed: 0.45, settle: 0.6, focus: [-2.35, 0.5, -1.45], kind: "clothespin" },
   { id: "rubber-band", act: "ACT 1 / LEFT DESK", label: "CLOTHESPIN → RUBBER BAND", shortLabel: "RUBBER BAND", cause: "the clothespin releases a stretched rubber band", objectId: "rubberBand", path: [[-1.95, 0.38, -1.45], [-0.65, 0.38, -1.45]], speed: 0.65, settle: 0.5, focus: [-1.3, 0.45, -1.45], kind: "rubberBand" },
@@ -177,5 +263,6 @@ export function getPathLength(path: readonly Vector3Tuple[]): number {
 }
 
 export function getMotionDuration(motion: ChainMotion): number {
+  if (motion.physicsDuration !== undefined) return motion.physicsDuration;
   return getPathLength(motion.path) / Math.max(0.01, motion.speed) + motion.settle;
 }

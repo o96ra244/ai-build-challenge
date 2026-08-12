@@ -13,7 +13,8 @@ describe("deskLayout", () => {
   it("keeps every motion physically readable with a path, cause, and duration", () => {
     CHAIN_MOTIONS.forEach((motion) => {
       expect(motion.cause.length).toBeGreaterThan(10);
-      expect(getPathLength(motion.path)).toBeGreaterThan(0);
+      if (motion.control === "physics") expect(motion.physicsDuration ?? 0).toBeGreaterThan(0);
+      else expect(getPathLength(motion.path)).toBeGreaterThan(0);
       expect(getMotionDuration(motion)).toBeGreaterThan(0);
       expect(motion.focus.every(Number.isFinite)).toBe(true);
     });

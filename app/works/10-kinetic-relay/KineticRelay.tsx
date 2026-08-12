@@ -12,7 +12,7 @@ const DEFAULT_STATE: DeskChainUiState = {
   phase: "ready",
   stageLabel: "STOPPER → RED MARBLE",
   stageIndex: 0,
-  stageCount: 29,
+  stageCount: 3,
   progress: 0,
   statusText: "READY — EXPLORE THE DESK",
   canStart: false,
@@ -102,7 +102,7 @@ export function KineticRelay() {
             <em className={styles.titleSub}>DESK CHAIN REACTION</em>
           </h1>
           <p id="kinetic-relay-description" className={styles.description}>
-            夕方の机を巡る、身近な道具の長い連鎖。
+            ACT 1 physics quality prototype。ビー玉が本と定規の坂を転がり、消しゴムへ衝突します。
           </p>
         </header>
 

@@ -188,15 +188,15 @@
 - **対象ユーザー:** 身近な物の動きと、原因から結果へつながるWeb 3D作品を楽しみたい人
 - **再設計の理由:** 旧企画をPreview確認で不採用とし、短時間のデモから、机・棚・壁を横断して原因と結果を追える長尺作品へ再構築しました。
 - **舞台:** 夕方の子ども部屋の木製勉強机。左壁、上下棚、ノート、鉛筆立て、紙、文房具、積み木を使い、同じ部屋の中で経路が折り返す構成です。
-- **連鎖:** ACT 1のred marbleから、eraser／clothespin／rubber band／pencil、ACT 2の10 blocks／chock／car、ACT 3のseesaw／blue gate／ramp、ACT 4のtube／switchback／tape／shelf、ACT 5のreturn chute／balance／striker／goal bellへ、29段階で役割を受け渡します。
-- **時間設計:** `getMotionDuration`の合計は約97.7秒。ブラウザでは最終stageの完了表示まで約100〜120秒の範囲に収まり、目標の80〜120秒を満たすことを5回連続で確認しました。
-- **物理と因果:** Rapierのroom colliderとendpoint sensorを使い、各motion bodyをpathに沿って決定的に進めるhybrid構成です。stage eventは可視物体が支持されたendpointへ到達した時だけ発生し、原因・動作・次stageの順序を静的テストでも確認しています。
-- **主な機能:** START／RESTART、29段階の接触表示、GOALタグ／bell／flag／COMPLETE、OrbitControlsのFOLLOW／FREE／HOME、native button、`aria-live`、reduced-motion、visibility／offscreen時の停止
+- **現状:** 作品全体は未完成です。現在はACT 1 physics quality prototypeとして、stopper → red marble／ruler ramp → dynamic eraserの3段階だけを実行対象にしています。後半のmotion定義は保持していますが、追加・調整せず無効化しています。
+- **時間設計:** ACT 1の物理stageにはstopper／ramp／impactの個別timeoutを設定し、固定1/60 timestepで実時間を進めます。作品全体の80〜120秒目標は未検証です。
+- **物理と因果:** 赤いビー玉はgravityScale 1.0・CCD付きのdynamic rigid body、定規と本はfixed collider、消しゴムもdynamic rigid bodyです。共有ジオメトリから初期位置を算出し、Rapier collision eventで坂出口と消しゴム接触を判定します。path追従や`applyImpulse`連鎖はACT 1では使用しません。
+- **主な機能:** START／RESTART、ACT 1の3段階接触表示、物理debug collider表示、OrbitControlsのFOLLOW／FREE／HOME、native button、`aria-live`、reduced-motion、visibility／offscreen時の停止
 - **負荷設計:** WebGLRenderer、low-power、active時30fps、fixed 1/60 physics・最大2 substeps、shadow caster 1個、desktop 1024／mobile 512 shadow map、DPR／約1.7M pixel上限、postprocessingなし、idle停止
 - **GitHub上のパス:** `app/works/10-kinetic-relay/`
 - **公開URL:** https://ai-build-challenge.vercel.app/works/10-kinetic-relay
-- **検証結果:** `npm run lint`、`npm run typecheck`、`npm run test`、`npm run build`、`git diff --check`を最終差分で実行します。production buildを`npx next start`で起動し、1440×900ではbody／canvasとも1440×900、横overflowなし、console error／warningなしを確認しました。FOLLOW→FREE、ドラッグ回転、wheelズーム、HOME復帰も確認しました。OGP画像は最終画面から1200×630へ更新します。
-- **連続完走:** production browserで同じ1コースを5回連続実行し、5回とも`COMPLETE — GOAL BELL RUNG`、29/29へ到達し、途中停止はありませんでした。
+- **検証結果:** 最終差分で`npm run lint`、`npm run typecheck`、`npm run test`、`npm run build`、`git diff --check`を実行します。ACT 1の動的body、共有寸法、collision event、初期ジオメトリは自動テストで確認します。
+- **連続実行:** production browserで同じSTARTを10回実行し、ramp penetration／floating、自然加速・回転、dropout、marble／eraser接触、eraserの接触移動、teleport/path追従なし、console errorなしを各回記録します。
 - **既知の制約:** CPU／GPU percentage、端末温度、実機タッチ／pinch、OS設定の動的切替、WebGL非対応環境、実数CLS、Vercel Preview保護下の実ページ表示は未確認です。モバイルviewport指定は接続中ブラウザで390×844にならず1280×720へ正規化されたため、真の390×844表示成功とは扱いません。visibility／offscreen停止、reduced-motion、keyboard操作はコード経路とDOM／CSS実装を確認しましたが、実機相当の手動切替は未実施です。
 - **学び:** 物理挙動を見せ球や曲線誘導で代替せず、機能物のtransform定義と衝突イベントを一つの設計境界へ揃えると、因果とレビュー可能性を両立しやすくなります。
 
