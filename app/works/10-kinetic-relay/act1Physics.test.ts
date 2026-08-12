@@ -9,6 +9,7 @@ import {
   RAMP_CLEARANCE,
   RAMP_SUPPORT_BOOKS,
   RULER_RAMP,
+  STOPPER_LAYOUT,
   getMarbleInitialCenter,
   worldToRampLocal,
 } from "./deskLayout";
@@ -18,6 +19,11 @@ import { getQualityProfile } from "./qualityProfile";
 import { ACT1_DYNAMIC_VISUAL_IDS, getVisualPhysicsDelta } from "./visualSync";
 
 describe("ACT 1 physics prototype contract", () => {
+  function quaternionAngle(first: readonly [number, number, number, number], second: readonly [number, number, number, number]): number {
+    const dot = Math.abs(first[0] * second[0] + first[1] * second[1] + first[2] * second[2] + first[3] * second[3]);
+    return 2 * Math.acos(Math.min(1, Math.max(-1, dot)));
+  }
+
   it("runs only stopper, ruler ramp, and eraser impact", () => {
     expect(CHAIN_STAGES.map((stage) => stage.id)).toEqual(["stopper", "red-ramp", "red-impact"]);
     expect(CHAIN_MOTIONS.slice(0, 3).every((motion) => motion.control === "physics")).toBe(true);
@@ -59,6 +65,57 @@ describe("ACT 1 physics prototype contract", () => {
     expect(sceneSource).toContain("getVisualPhysicsDelta");
     expect(sceneSource).toContain("physics.advance(simulationDelta, true)");
     expect(sceneSource).toContain('this.chainState.phase === "settling"');
+  });
+
+  it("opens the stopper through visible pivot steps before emitting its event", async () => {
+    const rapier = await loadRapier();
+    const physics = new ChainPhysicsWorld(rapier, getQualityProfile(1440, 900, 1));
+    try {
+      physics.start();
+      physics.setStage("stopper");
+      const initial = physics.getStopperSnapshot();
+      for (let index = 0; index < 12; index += 1) physics.advance(1 / 60, true);
+      const middle = physics.getStopperSnapshot();
+      const middleDebug = physics.getAct1DebugSnapshot();
+      expect(physics.consumeEvents()).not.toContain("stopper");
+      expect(middle.position).toEqual(initial.position);
+      expect(middleDebug.stopperOpeningProgress).toBeGreaterThan(0);
+      expect(middleDebug.stopperOpeningProgress).toBeLessThan(1);
+      expect(quaternionAngle(initial.rotation, middle.rotation)).toBeGreaterThan(0.2);
+      for (let index = 0; index < 15; index += 1) physics.advance(1 / 60, true);
+      const final = physics.getStopperSnapshot();
+      const finalDebug = physics.getAct1DebugSnapshot();
+      expect(physics.consumeEvents()).toContain("stopper");
+      expect(final.position).toEqual(initial.position);
+      expect(finalDebug.stopperOpeningProgress).toBe(1);
+      expect(finalDebug.stopperOpeningComplete).toBe(true);
+      expect(quaternionAngle(initial.rotation, final.rotation)).toBeGreaterThan(1.1);
+      expect(quaternionAngle(initial.rotation, final.rotation)).toBeLessThan(Math.PI / 2);
+    } finally {
+      physics.dispose();
+    }
+  });
+
+  it("shares the pivot gate definition and keeps marble control out of the opening", async () => {
+    const [layoutSource, physicsSource, sceneSource] = await Promise.all([
+      readFile(new URL("./deskLayout.ts", import.meta.url), "utf8"),
+      readFile(new URL("./chainPhysics.ts", import.meta.url), "utf8"),
+      readFile(new URL("./DeskChainReactionScene.ts", import.meta.url), "utf8"),
+    ]);
+    expect(STOPPER_LAYOUT.openingAngle).toBeGreaterThanOrEqual(Math.PI / 3);
+    expect(STOPPER_LAYOUT.openingAngle).toBeLessThanOrEqual((Math.PI * 80) / 180);
+    expect(STOPPER_LAYOUT.openingDuration).toBeCloseTo(0.4, 3);
+    expect(layoutSource).toContain("pivotPosition");
+    expect(layoutSource).toContain("gateOffset");
+    expect(physicsSource).toContain("setNextKinematicRotation");
+    expect(physicsSource).toContain("STOPPER_LAYOUT.gateOffset");
+    expect(sceneSource).toContain("STOPPER_LAYOUT.gateOffset");
+    expect(sceneSource).toContain("getStopperSnapshot");
+    const startSource = physicsSource.slice(physicsSource.indexOf("public start"), physicsSource.indexOf("public setStage"));
+    expect(startSource).not.toContain("redMarble");
+    expect(startSource).not.toContain("setNextKinematicTranslation");
+    expect(startSource).not.toContain("setLinvel");
+    expect(startSource).not.toContain("applyImpulse");
   });
 
   it("rolls the marble from gravity into a real eraser collision", async () => {

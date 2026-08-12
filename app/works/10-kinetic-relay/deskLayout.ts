@@ -103,11 +103,20 @@ export const RAMP_SUPPORT_BOOKS: readonly BookSupportDefinition[] = [
 ] as const;
 
 export const STOPPER_LAYOUT = {
-  size: [0.18, 0.52, 0.9] as const,
-  position: [-8.08, 1.63, -1.7] as const,
+  size: [0.18, 0.52, 0.7] as const,
+  // The body origin is the side hinge at the ruler surface. The plate is offset from this pivot.
+  pivotPosition: [-8.1368, 1.3754, -1.35] as const,
+  gateOffset: [0, 0.26, -0.35] as const,
   rotation: RULER_RAMP.rotation,
-  retreatPosition: [-8.72, 1.63, -1.7] as const,
+  openingAngle: (Math.PI * 80) / 180,
+  openingDirection: 1 as const,
+  openingDuration: 0.4,
 } as const;
+
+export function getStopperOpeningProgress(elapsedSeconds: number): number {
+  if (!Number.isFinite(elapsedSeconds)) return 0;
+  return Math.min(1, Math.max(0, elapsedSeconds / STOPPER_LAYOUT.openingDuration));
+}
 
 export const ERASER_PAD: BoxDefinition = {
   id: "eraser-pad",
@@ -205,7 +214,7 @@ export const MOTION_OBJECT_STARTS: Readonly<Record<MotionObjectId, Vector3Tuple>
 };
 
 export const CHAIN_MOTIONS: readonly ChainMotion[] = [
-  { id: "stopper", act: "ACT 1 / LEFT DESK", label: "STOPPER → RED MARBLE", shortLabel: "RED MARBLE", cause: "START retracts the wooden stopper from the marble", objectId: "redMarble", path: [], speed: 1, settle: 0.4, physicsDuration: 0.4, focus: STOPPER_LAYOUT.position, kind: "gate", control: "physics" },
+  { id: "stopper", act: "ACT 1 / LEFT DESK", label: "STOPPER → RED MARBLE", shortLabel: "RED MARBLE", cause: "START opens the wooden gate away from the marble", objectId: "redMarble", path: [], speed: 1, settle: 0.4, physicsDuration: 0.4, focus: STOPPER_LAYOUT.pivotPosition, kind: "gate", control: "physics" },
   { id: "red-ramp", act: "ACT 1 / LEFT DESK", label: "RED MARBLE / RULER RAMP", shortLabel: "RULER RAMP", cause: "gravity rolls the red marble down the shared ruler surface", objectId: "redMarble", path: [], speed: 1, settle: 6, physicsDuration: 6, focus: RULER_RAMP.position, kind: "travel", control: "physics" },
   { id: "red-impact", act: "ACT 1 / LEFT DESK", label: "RED MARBLE → ERASER", shortLabel: "ERASER IMPACT", cause: "the rolling marble collides with the dynamic eraser", objectId: "eraser", path: [], speed: 1, settle: 2.5, physicsDuration: 2.5, focus: ERASER_START, kind: "travel", control: "physics" },
   { id: "eraser-drop", act: "ACT 1 / LEFT DESK", label: "ERASER / SHORT DROP", shortLabel: "ERASER DROP", cause: "the eraser slips from the desk ledge", objectId: "eraser", path: [[-3.55, 0.92, -1.7], [-3.25, 0.52, -1.55], [-2.9, 0.3, -1.45]], speed: 0.5, settle: 0.6, focus: [-3.1, 0.55, -1.5], kind: "travel" },

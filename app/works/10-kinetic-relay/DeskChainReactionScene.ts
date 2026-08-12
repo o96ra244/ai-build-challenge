@@ -39,7 +39,7 @@ import { ChainPhysicsWorld, loadRapier, type BodySnapshot, type DebugRenderSnaps
 import { clampTarget, getFollowTarget, getHomeCamera, type CameraMode, type CameraPreset } from "./cameraDirector";
 import { addBeam, addBox, addCylinder, createMaterial, createPhysicalMaterial, disposeSceneResources, type GeometryCache, type MaterialSet } from "./sceneObjects";
 import { getDrawingBufferSize, getQualityProfile, type QualityProfile } from "./qualityProfile";
-import { ACT1_DYNAMIC_VISUAL_IDS, getVisualPhysicsDelta } from "./visualSync";
+import { ACT1_DYNAMIC_VISUAL_IDS, getVisualPhysicsDelta, getVisualPhysicsRotationDelta } from "./visualSync";
 
 export type ChainRuntimeStatus = "loading" | "ready" | "error";
 export type ChainBackend = "WebGL 2" | "pending";
@@ -109,7 +109,7 @@ export class DeskChainReactionScene {
   private readonly goalFlag: THREE.Group;
   private readonly bell: THREE.Group;
   private readonly goalTag: THREE.Sprite;
-  private stopperMesh!: THREE.Mesh;
+  private stopperMesh!: THREE.Group;
   private readonly debugPhysics = typeof window !== "undefined" && new URLSearchParams(window.location.search).has("physicsDebug");
   private readonly debugTimeScale = typeof window !== "undefined"
     ? Math.min(1, Math.max(0.1, Number(new URLSearchParams(window.location.search).get("physicsSlow") ?? 1) || 1))
@@ -399,7 +399,7 @@ export class DeskChainReactionScene {
     addBox(this.trackRoot, this.geometryCache, this.materials.paper, ERASER_PAD.id, ERASER_PAD.size, ERASER_PAD.position, ERASER_PAD.rotation);
     this.buildRulerRampVisual();
     RAMP_SUPPORT_BOOKS.forEach((book) => this.buildSupportBookVisual(book));
-    this.stopperMesh = addBox(this.trackRoot, this.geometryCache, this.materials.woodDark, "red-stopper", STOPPER_LAYOUT.size, STOPPER_LAYOUT.position, STOPPER_LAYOUT.rotation);
+    this.buildStopperGateVisual();
     const tube = addCylinder(this.trackRoot, this.materials.paper, 0.56, 0.56, 2.4, [7.2, 3.25, -3.45], [0, Math.PI / 2, 0], 16);
     tube.castShadow = true;
     const tape = new THREE.Mesh(new THREE.TorusGeometry(0.8, 0.2, 8, 20), this.materials.goal);
@@ -409,6 +409,15 @@ export class DeskChainReactionScene {
     this.trackRoot.add(tape);
     addCylinder(this.trackRoot, this.materials.woodDark, 0.16, 0.16, 0.75, [10.25, 0.35, -0.95], [Math.PI / 2, 0, 0], 10);
     addCylinder(this.trackRoot, this.materials.woodDark, 0.13, 0.13, 0.62, [5.75, 0.44, 1.15], [Math.PI / 2, 0, 0], 10);
+  }
+
+  private buildStopperGateVisual(): void {
+    const gate = new THREE.Group();
+    addBox(gate, this.geometryCache, this.materials.wood, "red-stopper-gate", STOPPER_LAYOUT.size, STOPPER_LAYOUT.gateOffset);
+    addCylinder(gate, this.materials.woodDark, 0.06, 0.06, 0.2, [0, 0, 0], [0, 0, Math.PI / 2], 12);
+    gate.position.set(...STOPPER_LAYOUT.pivotPosition);
+    this.trackRoot.add(gate);
+    this.stopperMesh = gate;
   }
 
   private buildRulerRampVisual(): void {
@@ -706,7 +715,22 @@ export class DeskChainReactionScene {
     const physics = this.physics;
     const mechanisms = physics?.getMechanismSnapshot();
     if (!physics || !mechanisms) return;
-    this.applySnapshot(this.stopperMesh, physics.getStopperSnapshot());
+    const stopperSnapshot = physics.getStopperSnapshot();
+    this.applySnapshot(this.stopperMesh, stopperSnapshot);
+    if (this.debugPhysics) {
+      const stopperVisualPosition = this.stopperMesh.getWorldPosition(new THREE.Vector3());
+      const stopperVisualRotation = this.stopperMesh.getWorldQuaternion(new THREE.Quaternion());
+      this.container.dataset.stopperVisualPhysicsDelta = getVisualPhysicsDelta(
+        [stopperVisualPosition.x, stopperVisualPosition.y, stopperVisualPosition.z],
+        stopperSnapshot.position,
+      ).toFixed(6);
+      this.container.dataset.stopperRotationDelta = getVisualPhysicsRotationDelta(
+        [stopperVisualRotation.x, stopperVisualRotation.y, stopperVisualRotation.z, stopperVisualRotation.w],
+        stopperSnapshot.rotation,
+      ).toFixed(6);
+      this.container.dataset.stopperVisualPosition = [stopperVisualPosition.x, stopperVisualPosition.y, stopperVisualPosition.z].map((value) => value.toFixed(4)).join(",");
+      this.container.dataset.stopperPhysicsPosition = stopperSnapshot.position.map((value) => value.toFixed(4)).join(",");
+    }
     for (const objectId of ACT1_DYNAMIC_VISUAL_IDS) {
       const mesh = this.motionMeshes.get(objectId);
       const snapshot = physics.getSnapshot(objectId);
@@ -747,6 +771,8 @@ export class DeskChainReactionScene {
       this.container.dataset.settleLinearSpeed = Math.max(settle.marbleLinearSpeed, settle.eraserLinearSpeed).toFixed(4);
       this.container.dataset.settleAngularSpeed = Math.max(settle.marbleAngularSpeed, settle.eraserAngularSpeed).toFixed(4);
       this.container.dataset.settleComplete = String(this.chainState.phase === "complete");
+      this.container.dataset.stopperOpeningProgress = debug.stopperOpeningProgress.toFixed(4);
+      this.container.dataset.stopperOpeningComplete = String(debug.stopperOpeningComplete);
     }
     if (this.physicsDebugLines) this.updatePhysicsDebugLines(physics.getDebugRenderSnapshot());
   }
@@ -768,7 +794,7 @@ export class DeskChainReactionScene {
     if (motion.kind === "blocks") mesh.rotation.z = progress * 0.18;
     if (motion.kind === "seesaw") mesh.rotation.z = progress * -0.38;
     if (motion.kind === "balance") mesh.rotation.z = progress * -0.34;
-    if (motion.kind === "gate") mesh.rotation.z = progress * -0.38;
+    if (motion.kind === "gate" && motion.control !== "physics") mesh.rotation.z = progress * -0.38;
     if (motion.kind === "cup") mesh.rotation.z = progress * -0.42;
     if (motion.kind === "bell") mesh.rotation.z = progress * 0.08;
     if (motion.objectId === "stringGate") this.stringLine.scale.y = 1 - progress * 0.16;

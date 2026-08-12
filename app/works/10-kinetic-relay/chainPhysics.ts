@@ -15,6 +15,7 @@ import {
   getMotionDuration,
   getPathLength,
   getRampExitPosition,
+  getStopperOpeningProgress,
   worldToRampLocal,
   type ChainMotion,
   type MotionObjectId,
@@ -46,6 +47,8 @@ export type Act1DebugSnapshot = {
   readonly eraserPosition: Vector3Tuple;
   readonly eraserDisplacement: number;
   readonly eraserContacted: boolean;
+  readonly stopperOpeningProgress: number;
+  readonly stopperOpeningComplete: boolean;
 };
 
 export type DynamicSettleSnapshot = {
@@ -145,6 +148,8 @@ export class ChainPhysicsWorld {
   private pendingEvents: ChainPhysicsEvent[] = [];
   private eraserContactObserved = false;
   private impactEventEmitted = false;
+  private stopperOpeningElapsed = 0;
+  private stopperEventEmitted = false;
   private minimumRampClearance = Number.POSITIVE_INFINITY;
   private minimumRampLocal: Vector3Tuple | null = null;
   private maximumMarbleSpeed = 0;
@@ -178,9 +183,10 @@ export class ChainPhysicsWorld {
   public start(): void {
     if (this.disposed || this.started) return;
     this.started = true;
-    // The only START action is a physical kinematic retreat of the stopper. No marble impulse is applied.
-    this.stopperBody.setNextKinematicTranslation(new this.rapier.Vector3(...STOPPER_LAYOUT.retreatPosition));
-    this.pendingEvents.push("stopper");
+    this.stopperOpeningElapsed = 0;
+    this.stopperEventEmitted = false;
+    // START only begins the kinematic gate opening. No marble impulse or velocity is applied.
+    this.stopperBody.setNextKinematicRotation(this.toRapierQuaternion(STOPPER_LAYOUT.rotation));
   }
 
   public setStage(stageId: ChainStageId | null): void {
@@ -204,12 +210,15 @@ export class ChainPhysicsWorld {
     this.pendingEvents = [];
     this.eraserContactObserved = false;
     this.impactEventEmitted = false;
+    this.stopperOpeningElapsed = 0;
+    this.stopperEventEmitted = false;
     this.minimumRampClearance = Number.POSITIVE_INFINITY;
     this.minimumRampLocal = null;
     this.maximumMarbleSpeed = 0;
     this.maximumMarbleRotation = 0;
     this.eventQueue.clear();
-    this.stopperBody.setNextKinematicTranslation(new this.rapier.Vector3(...STOPPER_LAYOUT.position));
+    this.stopperBody.setTranslation(new this.rapier.Vector3(...STOPPER_LAYOUT.pivotPosition), true);
+    this.stopperBody.setRotation(this.toRapierQuaternion(STOPPER_LAYOUT.rotation), true);
     Object.entries(MOTION_OBJECT_STARTS).forEach(([objectId, position]) => {
       const typedId = objectId as MotionObjectId;
       const body = this.bodies.get(typedId);
@@ -340,6 +349,8 @@ export class ChainPhysicsWorld {
         eraser.position[2] - MOTION_OBJECT_STARTS.eraser[2],
       ),
       eraserContacted: this.eraserContactObserved,
+      stopperOpeningProgress: getStopperOpeningProgress(this.stopperOpeningElapsed),
+      stopperOpeningComplete: this.stopperEventEmitted,
     };
   }
 
@@ -355,6 +366,7 @@ export class ChainPhysicsWorld {
   }
 
   private stepFixed(): void {
+    const stopperOpeningComplete = this.advanceStopperOpening();
     const motion = this.getActiveMotion();
     if (motion && motion.control !== "physics") {
       const travelDuration = getPathLength(motion.path) / Math.max(0.01, motion.speed);
@@ -368,6 +380,10 @@ export class ChainPhysicsWorld {
       }
     }
     this.world.step(this.eventQueue);
+    if (stopperOpeningComplete && !this.stopperEventEmitted) {
+      this.pendingEvents.push("stopper");
+      this.stopperEventEmitted = true;
+    }
     this.eventQueue.drainCollisionEvents((first, second, started) => {
       if (!started) return;
       if (this.activeStageId === "red-ramp" && pairMatches(first, second, this.redMarbleCollider.handle, this.rampExitSensor.handle)) {
@@ -397,6 +413,21 @@ export class ChainPhysicsWorld {
       this.pendingEvents.push("red-impact");
       this.impactEventEmitted = true;
     }
+  }
+
+  private advanceStopperOpening(): boolean {
+    if (this.stopperEventEmitted) return true;
+    this.stopperOpeningElapsed = Math.min(STOPPER_LAYOUT.openingDuration, this.stopperOpeningElapsed + this.quality.physicsTimestep);
+    const progress = getStopperOpeningProgress(this.stopperOpeningElapsed);
+    this.stopperBody.setNextKinematicRotation(this.getStopperRotation(progress));
+    return progress >= 1;
+  }
+
+  private getStopperRotation(progress: number): import("@dimforge/rapier3d-compat").Quaternion {
+    const base = quaternionFromEuler(STOPPER_LAYOUT.rotation);
+    const opening = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), STOPPER_LAYOUT.openingAngle * STOPPER_LAYOUT.openingDirection * progress);
+    base.multiply(opening);
+    return new this.rapier.Quaternion(base.x, base.y, base.z, base.w);
   }
 
   private sampleKinematicPath(path: readonly Vector3Tuple[], progress: number): Vector3Tuple {
@@ -485,11 +516,12 @@ export class ChainPhysicsWorld {
   private addStopper(): RapierBody {
     const body = this.world.createRigidBody(
       this.rapier.RigidBodyDesc.kinematicPositionBased()
-        .setTranslation(...STOPPER_LAYOUT.position)
+        .setTranslation(...STOPPER_LAYOUT.pivotPosition)
         .setRotation(this.toRapierQuaternion(STOPPER_LAYOUT.rotation)),
     );
     this.world.createCollider(
       this.rapier.ColliderDesc.cuboid(...halfExtents(STOPPER_LAYOUT.size))
+        .setTranslation(...STOPPER_LAYOUT.gateOffset)
         .setFriction(PHYSICS_MATERIALS.ruler.friction)
         .setRestitution(PHYSICS_MATERIALS.ruler.restitution),
       body,
