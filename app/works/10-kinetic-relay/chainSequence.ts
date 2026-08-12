@@ -7,15 +7,19 @@ export const CHAIN_STAGES = CHAIN_MOTIONS.filter((motion) => ACT1_PHYSICS_STAGE_
   timeout: getMotionDuration(motion) + 2.5,
 })) as readonly (typeof CHAIN_MOTIONS[number] & { readonly timeout: number })[];
 
+export const MIN_SETTLE_SECONDS = 1;
+export const MAX_SETTLE_SECONDS = 2.5;
+
 export type ChainStage = (typeof CHAIN_STAGES)[number];
 export type ChainStageId = ChainStage["id"];
-export type ChainPhase = "ready" | "running" | "complete" | "error";
+export type ChainPhase = "ready" | "running" | "settling" | "complete" | "error";
 export type ChainEvent = ChainStageId;
 
 export type ChainState = {
   readonly phase: ChainPhase;
   readonly stageIndex: number;
   readonly stageElapsed: number;
+  readonly settlingElapsed: number;
   readonly totalElapsed: number;
   readonly errorMessage: string;
 };
@@ -30,7 +34,7 @@ function finiteDelta(value: number): number {
 }
 
 export function createInitialChain(): ChainState {
-  return { phase: "ready", stageIndex: 0, stageElapsed: 0, totalElapsed: 0, errorMessage: "" };
+  return { phase: "ready", stageIndex: 0, stageElapsed: 0, settlingElapsed: 0, totalElapsed: 0, errorMessage: "" };
 }
 
 export function startChain(state: ChainState): ChainState {
@@ -49,7 +53,7 @@ export function getCurrentStage(state: ChainState): ChainStage {
 export function getStageProgress(state: ChainState): number {
   const stage = getCurrentStage(state);
   const duration = getMotionDuration(stage);
-  return state.phase === "complete" ? 1 : Math.min(1, Math.max(0, state.stageElapsed / duration));
+  return state.phase === "settling" || state.phase === "complete" ? 1 : Math.min(1, Math.max(0, state.stageElapsed / duration));
 }
 
 export function getRunProgress(state: ChainState): number {
@@ -58,8 +62,14 @@ export function getRunProgress(state: ChainState): number {
 }
 
 export function advanceChain(state: ChainState, deltaSeconds: number): ChainAdvanceResult {
-  if (state.phase !== "running") return { state, timedOut: false };
   const delta = finiteDelta(deltaSeconds);
+  if (state.phase === "settling") {
+    return {
+      state: { ...state, settlingElapsed: state.settlingElapsed + delta, totalElapsed: state.totalElapsed + delta },
+      timedOut: false,
+    };
+  }
+  if (state.phase !== "running") return { state, timedOut: false };
   const nextElapsed = state.stageElapsed + delta;
   const timedOut = nextElapsed > getCurrentStage(state).timeout;
   if (!timedOut) {
@@ -82,9 +92,15 @@ export function advanceChain(state: ChainState, deltaSeconds: number): ChainAdva
 function nextStage(state: ChainState): ChainState {
   const nextIndex = state.stageIndex + 1;
   if (nextIndex >= CHAIN_STAGES.length) {
-    return { ...state, phase: "complete", stageIndex: CHAIN_STAGES.length - 1, stageElapsed: 0 };
+    return {
+      ...state,
+      phase: "settling",
+      stageIndex: CHAIN_STAGES.length - 1,
+      stageElapsed: getMotionDuration(getCurrentStage(state)),
+      settlingElapsed: 0,
+    };
   }
-  return { ...state, stageIndex: nextIndex, stageElapsed: 0 };
+  return { ...state, stageIndex: nextIndex, stageElapsed: 0, settlingElapsed: 0 };
 }
 
 export function triggerChainEvent(state: ChainState, event: ChainEvent): ChainState {
@@ -92,4 +108,9 @@ export function triggerChainEvent(state: ChainState, event: ChainEvent): ChainSt
   const stage = getCurrentStage(state);
   if (stage.id !== event) return state;
   return nextStage(state);
+}
+
+export function completeSettling(state: ChainState): ChainState {
+  if (state.phase !== "settling" || state.settlingElapsed < MIN_SETTLE_SECONDS) return state;
+  return { ...state, phase: "complete", stageIndex: CHAIN_STAGES.length - 1, stageElapsed: 0 };
 }

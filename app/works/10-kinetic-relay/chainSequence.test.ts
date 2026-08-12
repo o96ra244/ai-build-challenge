@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { CHAIN_STAGES, advanceChain, createInitialChain, getRunProgress, startChain, triggerChainEvent } from "./chainSequence";
+import { CHAIN_STAGES, advanceChain, completeSettling, createInitialChain, getRunProgress, startChain, triggerChainEvent } from "./chainSequence";
 
 describe("chainSequence", () => {
   it("exposes the current ACT 1 physics prototype stages", () => {
@@ -17,9 +17,15 @@ describe("chainSequence", () => {
     expect(triggerChainEvent(state, "bell")).toEqual(state);
   });
 
-  it("reaches complete only after every ordered motion event", () => {
+  it("enters settling after the collision and completes only after settling", () => {
     let state = startChain(createInitialChain());
     for (const stage of CHAIN_STAGES) state = triggerChainEvent(state, stage.id);
+    expect(state.phase).toBe("settling");
+    expect(advanceChain(state, 0.5).state.phase).toBe("settling");
+    state = completeSettling(advanceChain(state, 0.2).state);
+    expect(state.phase).toBe("settling");
+    for (let index = 0; index < 4; index += 1) state = advanceChain(state, 0.2).state;
+    state = completeSettling(state);
     expect(state.phase).toBe("complete");
     expect(getRunProgress(state)).toBe(1);
   });

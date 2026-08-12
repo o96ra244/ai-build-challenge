@@ -71,7 +71,7 @@ export function KineticRelay() {
     };
   }, []);
 
-  const isRunning = state.phase === "running";
+  const isRunning = state.phase === "running" || state.phase === "settling";
   const isComplete = state.phase === "complete";
   const isError = state.runtimeStatus === "error" || state.phase === "error";
   const stageNumber = isComplete ? state.stageCount : state.stageIndex + 1;

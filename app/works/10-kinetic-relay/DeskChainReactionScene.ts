@@ -22,10 +22,13 @@ import {
 import {
   advanceChain,
   CHAIN_STAGES,
+  completeSettling,
   createInitialChain,
   getCurrentStage,
   getRunProgress,
   getStageProgress,
+  MAX_SETTLE_SECONDS,
+  MIN_SETTLE_SECONDS,
   resetChain,
   startChain,
   triggerChainEvent,
@@ -36,6 +39,7 @@ import { ChainPhysicsWorld, loadRapier, type BodySnapshot, type DebugRenderSnaps
 import { clampTarget, getFollowTarget, getHomeCamera, type CameraMode, type CameraPreset } from "./cameraDirector";
 import { addBeam, addBox, addCylinder, createMaterial, createPhysicalMaterial, disposeSceneResources, type GeometryCache, type MaterialSet } from "./sceneObjects";
 import { getDrawingBufferSize, getQualityProfile, type QualityProfile } from "./qualityProfile";
+import { ACT1_DYNAMIC_VISUAL_IDS, getVisualPhysicsDelta } from "./visualSync";
 
 export type ChainRuntimeStatus = "loading" | "ready" | "error";
 export type ChainBackend = "WebGL 2" | "pending";
@@ -81,6 +85,9 @@ const COLORS = {
   goal: 0xf2c84e,
   dark: 0x26373c,
 } as const;
+
+const SETTLE_LINEAR_SPEED = 0.08;
+const SETTLE_ANGULAR_SPEED = 0.12;
 
 export class DeskChainReactionScene {
   private readonly container: HTMLElement;
@@ -146,6 +153,7 @@ export class DeskChainReactionScene {
   private lastUiKey = "";
   private controlsActiveUntil = 0;
   private celebrationProgress = 0;
+  private maxVisualPhysicsDelta = 0;
   private cameraMode: CameraMode = "follow";
   private suppressControlInput = false;
   private cameraHome: CameraPreset;
@@ -246,6 +254,7 @@ export class DeskChainReactionScene {
     this.chainState = startChain(this.chainState);
     this.physics.setStage(getCurrentStage(this.chainState).id);
     this.celebrationProgress = 0;
+    this.maxVisualPhysicsDelta = 0;
     this.publishState(true);
     this.updateLoopState();
   }
@@ -255,6 +264,7 @@ export class DeskChainReactionScene {
     this.physics.reset();
     this.chainState = resetChain();
     this.celebrationProgress = 0;
+    this.maxVisualPhysicsDelta = 0;
     this.cameraMode = "follow";
     this.setHomeCamera();
     this.publishState(true);
@@ -663,12 +673,23 @@ export class DeskChainReactionScene {
     const delta = this.lastTime > 0 ? Math.min(0.06, Math.max(0, (time - this.lastTime) / 1000)) : 0;
     this.lastTime = time;
     this.lastRenderedTime = time;
-    if (this.chainState.phase === "running") {
+    const physicsActive = this.chainState.phase === "running" || this.chainState.phase === "settling";
+    if (physicsActive && this.physics) {
       const simulationDelta = delta * this.debugTimeScale;
-      this.physics?.advance(simulationDelta, true);
+      const physics = this.physics;
+      physics.advance(simulationDelta, true);
       this.processPhysicsEvents();
       const result = advanceChain(this.chainState, simulationDelta);
       this.chainState = result.state;
+      if (this.chainState.phase === "settling") {
+        const settle = physics.getDynamicSettleSnapshot();
+        const minimumTimeReached = this.chainState.settlingElapsed >= MIN_SETTLE_SECONDS;
+        const maximumTimeReached = this.chainState.settlingElapsed >= MAX_SETTLE_SECONDS;
+        const lowSpeed = settle.allSleeping
+          || (Math.max(settle.marbleLinearSpeed, settle.eraserLinearSpeed) <= SETTLE_LINEAR_SPEED
+            && Math.max(settle.marbleAngularSpeed, settle.eraserAngularSpeed) <= SETTLE_ANGULAR_SPEED);
+        if ((minimumTimeReached && lowSpeed) || maximumTimeReached) this.chainState = completeSettling(this.chainState);
+      }
       if (result.timedOut) this.publishState(true);
     }
     if (this.chainState.phase === "complete") this.celebrationProgress = Math.min(1, this.celebrationProgress + delta / 1.2);
@@ -686,10 +707,27 @@ export class DeskChainReactionScene {
     const mechanisms = physics?.getMechanismSnapshot();
     if (!physics || !mechanisms) return;
     this.applySnapshot(this.stopperMesh, physics.getStopperSnapshot());
+    for (const objectId of ACT1_DYNAMIC_VISUAL_IDS) {
+      const mesh = this.motionMeshes.get(objectId);
+      const snapshot = physics.getSnapshot(objectId);
+      this.applySnapshot(mesh, snapshot);
+      if (mesh) {
+        const visualPosition = mesh.getWorldPosition(new THREE.Vector3());
+        const visualPhysicsDelta = getVisualPhysicsDelta(
+          [visualPosition.x, visualPosition.y, visualPosition.z],
+          snapshot.position,
+        );
+        this.maxVisualPhysicsDelta = Math.max(this.maxVisualPhysicsDelta, visualPhysicsDelta);
+        if (this.debugPhysics) {
+          const visualKey = objectId === "redMarble" ? "marble" : "eraser";
+          this.container.dataset[`${visualKey}VisualPhysicsDelta`] = visualPhysicsDelta.toFixed(6);
+          this.container.dataset[`${visualKey}VisualPosition`] = [visualPosition.x, visualPosition.y, visualPosition.z].map((value) => value.toFixed(4)).join(",");
+          this.container.dataset[`${visualKey}PhysicsPosition`] = snapshot.position.map((value) => value.toFixed(4)).join(",");
+        }
+      }
+    }
     const activeStage = mechanisms.activeStageId ? CHAIN_MOTIONS.find((motion) => motion.id === mechanisms.activeStageId) : undefined;
     if (activeStage) {
-      const snapshot = physics.getSnapshot(activeStage.objectId);
-      if (snapshot) this.applySnapshot(this.motionMeshes.get(activeStage.objectId), snapshot);
       this.applyMechanismMotion(activeStage, mechanisms.activeProgress);
     }
     this.goalFlag.scale.y = Math.max(0.08, this.celebrationProgress);
@@ -703,6 +741,12 @@ export class DeskChainReactionScene {
       this.container.dataset.marbleRotation = debug.marbleRotation.toFixed(3);
       this.container.dataset.eraserContact = String(debug.eraserContacted);
       this.container.dataset.eraserDisplacement = debug.eraserDisplacement.toFixed(4);
+      this.container.dataset.maxVisualPhysicsDelta = this.maxVisualPhysicsDelta.toFixed(6);
+      this.container.dataset.settleElapsed = this.chainState.settlingElapsed.toFixed(3);
+      const settle = physics.getDynamicSettleSnapshot();
+      this.container.dataset.settleLinearSpeed = Math.max(settle.marbleLinearSpeed, settle.eraserLinearSpeed).toFixed(4);
+      this.container.dataset.settleAngularSpeed = Math.max(settle.marbleAngularSpeed, settle.eraserAngularSpeed).toFixed(4);
+      this.container.dataset.settleComplete = String(this.chainState.phase === "complete");
     }
     if (this.physicsDebugLines) this.updatePhysicsDebugLines(physics.getDebugRenderSnapshot());
   }
@@ -739,7 +783,7 @@ export class DeskChainReactionScene {
   }
 
   private updateFollowTarget(delta: number): void {
-    if (this.cameraMode !== "follow" || !this.controls || this.chainState.phase !== "running") return;
+    if (this.cameraMode !== "follow" || !this.controls || (this.chainState.phase !== "running" && this.chainState.phase !== "settling")) return;
     const target = clampTarget(getFollowTarget(getCurrentStage(this.chainState).id));
     this.controls.target.lerp(new THREE.Vector3(...target), Math.min(1, delta * (this.reducedMotion ? 1.2 : 0.65)));
   }
@@ -770,6 +814,8 @@ export class DeskChainReactionScene {
       ? "READY — EXPLORE THE DESK"
       : this.chainState.phase === "running"
         ? `${stage.shortLabel}`
+        : this.chainState.phase === "settling"
+          ? "SETTLING — OBSERVING IMPACT"
         : this.chainState.phase === "complete"
           ? "PHYSICS PROTOTYPE COMPLETE"
           : this.chainState.errorMessage || "ERROR — RESTART REQUIRED";
@@ -790,7 +836,7 @@ export class DeskChainReactionScene {
   private updateLoopState(): void {
     if (this.disposed) return;
     const controlsSettling = performance.now() < this.controlsActiveUntil;
-    const active = this.pageVisible && this.inViewport && (this.chainState.phase === "running" || (this.chainState.phase === "complete" && this.celebrationProgress < 1) || controlsSettling);
+    const active = this.pageVisible && this.inViewport && (this.chainState.phase === "running" || this.chainState.phase === "settling" || (this.chainState.phase === "complete" && this.celebrationProgress < 1) || controlsSettling);
     if (active && !this.loopActive) {
       this.loopActive = true;
       this.lastTime = 0;

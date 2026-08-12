@@ -48,6 +48,14 @@ export type Act1DebugSnapshot = {
   readonly eraserContacted: boolean;
 };
 
+export type DynamicSettleSnapshot = {
+  readonly marbleLinearSpeed: number;
+  readonly eraserLinearSpeed: number;
+  readonly marbleAngularSpeed: number;
+  readonly eraserAngularSpeed: number;
+  readonly allSleeping: boolean;
+};
+
 export type ChainPhysicsEvent = ChainStageId;
 
 export type MechanismSnapshot = {
@@ -136,6 +144,7 @@ export class ChainPhysicsWorld {
   private activeStageIndex = -1;
   private pendingEvents: ChainPhysicsEvent[] = [];
   private eraserContactObserved = false;
+  private impactEventEmitted = false;
   private minimumRampClearance = Number.POSITIVE_INFINITY;
   private minimumRampLocal: Vector3Tuple | null = null;
   private maximumMarbleSpeed = 0;
@@ -194,6 +203,7 @@ export class ChainPhysicsWorld {
     this.accumulator = 0;
     this.pendingEvents = [];
     this.eraserContactObserved = false;
+    this.impactEventEmitted = false;
     this.minimumRampClearance = Number.POSITIVE_INFINITY;
     this.minimumRampLocal = null;
     this.maximumMarbleSpeed = 0;
@@ -253,6 +263,22 @@ export class ChainPhysicsWorld {
     return {
       position: [finite(position.x), finite(position.y), finite(position.z)],
       rotation: [finite(rotation.x), finite(rotation.y), finite(rotation.z), finite(rotation.w, 1)],
+    };
+  }
+
+  public getDynamicSettleSnapshot(): DynamicSettleSnapshot {
+    const marble = this.bodies.get("redMarble");
+    const eraser = this.bodies.get("eraser");
+    const marbleLinear = marble?.linvel();
+    const eraserLinear = eraser?.linvel();
+    const marbleAngular = marble?.angvel();
+    const eraserAngular = eraser?.angvel();
+    return {
+      marbleLinearSpeed: marbleLinear ? Math.hypot(marbleLinear.x, marbleLinear.y, marbleLinear.z) : 0,
+      eraserLinearSpeed: eraserLinear ? Math.hypot(eraserLinear.x, eraserLinear.y, eraserLinear.z) : 0,
+      marbleAngularSpeed: marbleAngular ? Math.hypot(marbleAngular.x, marbleAngular.y, marbleAngular.z) : 0,
+      eraserAngularSpeed: eraserAngular ? Math.hypot(eraserAngular.x, eraserAngular.y, eraserAngular.z) : 0,
+      allSleeping: Boolean(marble?.isSleeping() && eraser?.isSleeping()),
     };
   }
 
@@ -367,7 +393,10 @@ export class ChainPhysicsWorld {
       const rotation = marbleBody.rotation();
       this.maximumMarbleRotation = Math.max(this.maximumMarbleRotation, 2 * Math.acos(Math.min(1, Math.abs(rotation.w))));
     }
-    if (this.activeStageId === "red-impact" && this.eraserContactObserved && !this.pendingEvents.includes("red-impact")) this.pendingEvents.push("red-impact");
+    if (this.activeStageId === "red-impact" && this.eraserContactObserved && !this.impactEventEmitted) {
+      this.pendingEvents.push("red-impact");
+      this.impactEventEmitted = true;
+    }
   }
 
   private sampleKinematicPath(path: readonly Vector3Tuple[], progress: number): Vector3Tuple {

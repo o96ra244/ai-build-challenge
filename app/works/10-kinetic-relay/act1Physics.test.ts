@@ -15,6 +15,7 @@ import {
 import { ChainPhysicsWorld, loadRapier } from "./chainPhysics";
 import { CHAIN_STAGES } from "./chainSequence";
 import { getQualityProfile } from "./qualityProfile";
+import { ACT1_DYNAMIC_VISUAL_IDS, getVisualPhysicsDelta } from "./visualSync";
 
 describe("ACT 1 physics prototype contract", () => {
   it("runs only stopper, ruler ramp, and eraser impact", () => {
@@ -50,6 +51,16 @@ describe("ACT 1 physics prototype contract", () => {
     expect(physicsSource.slice(dynamicBranchStart, kinematicBranchStart)).not.toContain("setNextKinematicTranslation");
   });
 
+  it("defines dynamic visuals independently of the active stage", async () => {
+    const sceneSource = await readFile(new URL("./DeskChainReactionScene.ts", import.meta.url), "utf8");
+    expect(ACT1_DYNAMIC_VISUAL_IDS).toEqual(["redMarble", "eraser"]);
+    expect(getVisualPhysicsDelta([1, 2, 3], [1.0005, 2, 3])).toBeCloseTo(0.0005, 7);
+    expect(sceneSource).toContain("ACT1_DYNAMIC_VISUAL_IDS");
+    expect(sceneSource).toContain("getVisualPhysicsDelta");
+    expect(sceneSource).toContain("physics.advance(simulationDelta, true)");
+    expect(sceneSource).toContain('this.chainState.phase === "settling"');
+  });
+
   it("rolls the marble from gravity into a real eraser collision", async () => {
     const rapier = await loadRapier();
     const physics = new ChainPhysicsWorld(rapier, getQualityProfile(1440, 900, 1));
@@ -61,6 +72,11 @@ describe("ACT 1 physics prototype contract", () => {
     let eraserContactEvent = false;
     let eraserBeforeImpact: number[] | null = null;
     let eraserAtImpact: number[] | null = null;
+    let postImpactSteps = 0;
+    let postImpactEraserMoved = false;
+    let postImpactMarbleMoved = false;
+    let lastPostImpactEraser: number[] | null = null;
+    let lastPostImpactMarble: number[] | null = null;
 
     physics.start();
     physics.setStage(currentStage);
@@ -85,7 +101,18 @@ describe("ACT 1 physics prototype contract", () => {
           eraserAtImpact = [...physics.getSnapshot("eraser").position];
         }
       }
-      if (eraserContactEvent) break;
+      if (eraserContactEvent) {
+        postImpactSteps += 1;
+        if (lastPostImpactEraser) {
+          postImpactEraserMoved ||= Math.hypot(eraser.position[0] - lastPostImpactEraser[0], eraser.position[1] - lastPostImpactEraser[1], eraser.position[2] - lastPostImpactEraser[2]) > 0.0001;
+        }
+        if (lastPostImpactMarble) {
+          postImpactMarbleMoved ||= Math.hypot(marble.position[0] - lastPostImpactMarble[0], marble.position[1] - lastPostImpactMarble[1], marble.position[2] - lastPostImpactMarble[2]) > 0.0001;
+        }
+        lastPostImpactEraser = [...eraser.position];
+        lastPostImpactMarble = [...marble.position];
+      }
+      if (postImpactSteps >= 30) break;
     }
 
     const initialMarble = marblePositions[0]!;
@@ -101,6 +128,9 @@ describe("ACT 1 physics prototype contract", () => {
     expect(marbleMovedDownstream).toBeGreaterThan(1);
     expect(marbleRotated).toBe(true);
     expect(eraserMoved).toBeGreaterThan(0.02);
+    expect(postImpactSteps).toBeGreaterThanOrEqual(30);
+    expect(postImpactEraserMoved).toBe(true);
+    expect(postImpactMarbleMoved).toBe(true);
     expect(finiteSnapshots).toBe(true);
     expect(worldToRampLocal(getMarbleInitialCenter())[1]).toBeGreaterThan(RULER_RAMP.thickness / 2 + MARBLE_RADIUS);
     physics.dispose();
