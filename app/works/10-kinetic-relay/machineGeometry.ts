@@ -80,16 +80,28 @@ export function createGearGeometry(
 
 export function createFunnelGeometry(segments = 128): THREE.LatheGeometry {
   const profile = [
-    new THREE.Vector2(0.08, 0),
-    new THREE.Vector2(0.3, 0.04),
-    new THREE.Vector2(0.86, 0.13),
-    new THREE.Vector2(1.35, 0.34),
-    new THREE.Vector2(1.62, 0.7),
-    new THREE.Vector2(1.56, 1.08),
-    new THREE.Vector2(1.3, 1.42),
-    new THREE.Vector2(0.94, 1.68),
-    new THREE.Vector2(0.48, 1.86),
-    new THREE.Vector2(0.12, 1.94),
+    new THREE.Vector2(0.12, 0),
+    new THREE.Vector2(0.32, 0.03),
+    new THREE.Vector2(0.86, 0.12),
+    new THREE.Vector2(1.34, 0.31),
+    new THREE.Vector2(1.66, 0.67),
+    new THREE.Vector2(1.7, 1.02),
+    new THREE.Vector2(1.57, 1.38),
+    new THREE.Vector2(1.3, 1.72),
+    new THREE.Vector2(0.9, 1.99),
+    new THREE.Vector2(0.46, 2.15),
+    new THREE.Vector2(0.18, 2.18),
+    new THREE.Vector2(0.17, 2.07),
+    new THREE.Vector2(0.43, 2.04),
+    new THREE.Vector2(0.82, 1.89),
+    new THREE.Vector2(1.17, 1.65),
+    new THREE.Vector2(1.4, 1.34),
+    new THREE.Vector2(1.51, 1.0),
+    new THREE.Vector2(1.48, 0.73),
+    new THREE.Vector2(1.2, 0.42),
+    new THREE.Vector2(0.75, 0.24),
+    new THREE.Vector2(0.28, 0.12),
+    new THREE.Vector2(0.08, 0.07),
   ];
   const geometry = new THREE.LatheGeometry(profile, Math.max(32, segments));
   geometry.computeVertexNormals();

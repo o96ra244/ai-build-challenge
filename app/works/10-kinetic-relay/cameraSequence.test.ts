@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { getCameraPreset, getFocusCamera, getHeroCamera, interpolateCamera } from "./cameraSequence";
+import { getCameraPreset, getCameraShot, getCameraShots, getFocusCamera, getHeroCamera, getSelectorCamera, interpolateCamera } from "./cameraSequence";
 
 describe("cameraSequence", () => {
   it("uses a wider mobile hero framing", () => {
@@ -29,5 +29,11 @@ describe("cameraSequence", () => {
     expect(middle.position[0]).toBeGreaterThan(focus.position[0]);
     expect(middle.position[0]).toBeLessThan(hero.position[0]);
     expect(middle.position.every(Number.isFinite)).toBe(true);
+  });
+
+  it("defines a multi-shot director and a dedicated selector close-up", () => {
+    expect(getCameraShots("A").length).toBeGreaterThanOrEqual(8);
+    expect(getCameraShot("B", 7).id).not.toBe(getCameraShot("B", 0).id);
+    expect(getSelectorCamera(1440, 900).target[1]).toBeGreaterThan(7);
   });
 });

@@ -6,13 +6,15 @@ export const PHYSICS_CONFIG = {
   maxAccumulator: 0.12,
   maxFrameDelta: 0.05,
   gravity: -9.81,
-  guideStiffness: 4.8,
-  maxGuideSpeed: 13,
+  gravityScale: 0.28,
+  guideStiffness: 5.8,
+  guideGain: 0.74,
+  maxGuideSpeed: 8.8,
 } as const;
 
+export type PhysicsBodyId = CourseId | "secondary";
 export type PhysicsVector = readonly [number, number, number];
-
-export type PhysicsGuideMap = Readonly<Partial<Record<CourseId, PhysicsVector>>>;
+export type PhysicsGuideMap = Readonly<Partial<Record<PhysicsBodyId, PhysicsVector>>>;
 
 export type PhysicsStepResult = {
   readonly accumulator: number;
@@ -78,19 +80,24 @@ export type MarblePhysicsSnapshot = {
 };
 
 const INITIAL_MARBLE_POSITIONS: Record<CourseId, PhysicsVector> = {
-  A: [-5.35, 8.15, 0],
-  B: [0, 8.15, 0],
-  C: [5.35, 8.15, 0],
+  A: [-4.8, 7.74, 0],
+  B: [0, 7.74, 0],
+  C: [4.8, 7.74, 0],
 };
+const INITIAL_SECONDARY_POSITION: PhysicsVector = [4.02, 4.55, 0.28];
 
 export class MachinePhysicsWorld {
   private readonly rapier: RapierModule;
   private readonly world: import("@dimforge/rapier3d-compat").World;
   private readonly marbles: Record<CourseId, import("@dimforge/rapier3d-compat").RigidBody>;
+  private readonly secondaryMarble: import("@dimforge/rapier3d-compat").RigidBody;
   private readonly initialPositions: Record<CourseId, PhysicsVector>;
-  private readonly guideTargets: Record<CourseId, PhysicsVector> = { ...INITIAL_MARBLE_POSITIONS };
   private accumulator = 0;
   private disposed = false;
+  private readonly guideTargets: Record<PhysicsBodyId, PhysicsVector> = {
+    ...INITIAL_MARBLE_POSITIONS,
+    secondary: INITIAL_SECONDARY_POSITION,
+  };
 
   public constructor(rapier: RapierModule) {
     this.rapier = rapier;
@@ -98,42 +105,32 @@ export class MachinePhysicsWorld {
     this.world = new rapier.World(new rapier.Vector3(0, PHYSICS_CONFIG.gravity, 0));
     this.world.timestep = PHYSICS_CONFIG.fixedTimestep;
     this.world.integrationParameters.dt = PHYSICS_CONFIG.fixedTimestep;
-    this.world.numSolverIterations = 8;
+    this.world.numSolverIterations = 10;
     this.world.maxCcdSubsteps = 4;
 
-    const floorBody = this.world.createRigidBody(rapier.RigidBodyDesc.fixed().setTranslation(0, -0.45, 0));
+    const floorBody = this.world.createRigidBody(rapier.RigidBodyDesc.fixed().setTranslation(0, -0.32, 0));
     this.world.createCollider(
-      rapier.ColliderDesc.cuboid(9.4, 0.22, 5.8).setFriction(0.84).setRestitution(0.06),
+      rapier.ColliderDesc.cuboid(8.8, 0.22, 3.1).setFriction(0.86).setRestitution(0.08),
       floorBody,
+    );
+    const collectorBody = this.world.createRigidBody(rapier.RigidBodyDesc.fixed().setTranslation(0, 1.12, 0));
+    this.world.createCollider(
+      rapier.ColliderDesc.cuboid(2.1, 0.05, 0.58).setFriction(0.7).setRestitution(0.12),
+      collectorBody,
     );
 
     this.marbles = {} as Record<CourseId, import("@dimforge/rapier3d-compat").RigidBody>;
     for (const course of ["A", "B", "C"] as const) {
-      const [x, y, z] = this.initialPositions[course];
-      const body = this.world.createRigidBody(
-        rapier.RigidBodyDesc.dynamic()
-          .setTranslation(x, y, z)
-          .setGravityScale(0)
-          .setAdditionalMass(0.6)
-          .setLinearDamping(3.1)
-          .setAngularDamping(2.2)
-          .setCanSleep(false)
-          .setCcdEnabled(true)
-          .setSoftCcdPrediction(0.25),
-      );
-      this.world.createCollider(
-        rapier.ColliderDesc.ball(0.22).setFriction(0.55).setRestitution(0.18),
-        body,
-      );
-      this.marbles[course] = body;
+      this.marbles[course] = this.createMarble(this.initialPositions[course]);
     }
+    this.secondaryMarble = this.createMarble(INITIAL_SECONDARY_POSITION);
   }
 
   public setGuideTargets(targets: PhysicsGuideMap): void {
-    for (const course of ["A", "B", "C"] as const) {
-      const target = targets[course];
+    for (const bodyId of ["A", "B", "C", "secondary"] as const) {
+      const target = targets[bodyId];
       if (target && target.every(Number.isFinite)) {
-        this.guideTargets[course] = target;
+        this.guideTargets[bodyId] = target;
       }
     }
   }
@@ -153,8 +150,8 @@ export class MachinePhysicsWorld {
     return result;
   }
 
-  public getSnapshot(course: CourseId): MarblePhysicsSnapshot {
-    const body = this.marbles[course];
+  public getSnapshot(bodyId: PhysicsBodyId): MarblePhysicsSnapshot {
+    const body = bodyId === "secondary" ? this.secondaryMarble : this.marbles[bodyId];
     const position = body.translation();
     const velocity = body.linvel();
     return {
@@ -172,14 +169,12 @@ export class MachinePhysicsWorld {
       return;
     }
     for (const course of ["A", "B", "C"] as const) {
-      const body = this.marbles[course];
       const [x, y, z] = this.initialPositions[course];
-      body.setTranslation(new this.rapier.Vector3(x, y, z), true);
-      body.setRotation(new this.rapier.Quaternion(0, 0, 0, 1), true);
-      body.setLinvel(new this.rapier.Vector3(0, 0, 0), true);
-      body.setAngvel(new this.rapier.Vector3(0, 0, 0), true);
+      this.resetBody(this.marbles[course], [x, y, z]);
       this.guideTargets[course] = [x, y, z];
     }
+    this.resetBody(this.secondaryMarble, INITIAL_SECONDARY_POSITION);
+    this.guideTargets.secondary = INITIAL_SECONDARY_POSITION;
     this.accumulator = 0;
   }
 
@@ -191,10 +186,38 @@ export class MachinePhysicsWorld {
     this.world.free();
   }
 
+  private createMarble(position: PhysicsVector): import("@dimforge/rapier3d-compat").RigidBody {
+    const [x, y, z] = position;
+    const body = this.world.createRigidBody(
+      this.rapier.RigidBodyDesc.dynamic()
+        .setTranslation(x, y, z)
+        .setGravityScale(PHYSICS_CONFIG.gravityScale)
+        .setAdditionalMass(0.58)
+        .setLinearDamping(1.05)
+        .setAngularDamping(0.36)
+        .setCanSleep(false)
+        .setCcdEnabled(true)
+        .setSoftCcdPrediction(0.22),
+    );
+    this.world.createCollider(
+      this.rapier.ColliderDesc.ball(0.22).setFriction(0.68).setRestitution(0.24),
+      body,
+    );
+    return body;
+  }
+
+  private resetBody(body: import("@dimforge/rapier3d-compat").RigidBody, position: PhysicsVector): void {
+    const [x, y, z] = position;
+    body.setTranslation(new this.rapier.Vector3(x, y, z), true);
+    body.setRotation(new this.rapier.Quaternion(0, 0, 0, 1), true);
+    body.setLinvel(new this.rapier.Vector3(0, 0, 0), true);
+    body.setAngvel(new this.rapier.Vector3(0, 0, 0), true);
+  }
+
   private stepFixed(): void {
-    for (const course of ["A", "B", "C"] as const) {
-      const body = this.marbles[course];
-      const target = this.guideTargets[course];
+    for (const bodyId of ["A", "B", "C", "secondary"] as const) {
+      const body = bodyId === "secondary" ? this.secondaryMarble : this.marbles[bodyId];
+      const target = this.guideTargets[bodyId];
       const position = body.translation();
       const velocity = body.linvel();
       const desired = new this.rapier.Vector3(
@@ -202,21 +225,20 @@ export class MachinePhysicsWorld {
         (target[1] - position.y) * PHYSICS_CONFIG.guideStiffness,
         (target[2] - position.z) * PHYSICS_CONFIG.guideStiffness,
       );
+      const desiredSpeed = Math.hypot(desired.x, desired.y, desired.z);
+      if (desiredSpeed > PHYSICS_CONFIG.maxGuideSpeed) {
+        const scale = PHYSICS_CONFIG.maxGuideSpeed / desiredSpeed;
+        desired.x *= scale;
+        desired.y *= scale;
+        desired.z *= scale;
+      }
       const impulse = new this.rapier.Vector3(
-        (desired.x - velocity.x) * 0.6,
-        (desired.y - velocity.y) * 0.6,
-        (desired.z - velocity.z) * 0.6,
+        (desired.x - velocity.x) * PHYSICS_CONFIG.guideGain * PHYSICS_CONFIG.fixedTimestep,
+        (desired.y - velocity.y) * PHYSICS_CONFIG.guideGain * PHYSICS_CONFIG.fixedTimestep,
+        (desired.z - velocity.z) * PHYSICS_CONFIG.guideGain * PHYSICS_CONFIG.fixedTimestep,
       );
       body.applyImpulse(impulse, true);
-      const nextVelocity = body.linvel();
-      const speed = Math.hypot(nextVelocity.x, nextVelocity.y, nextVelocity.z);
-      if (speed > PHYSICS_CONFIG.maxGuideSpeed) {
-        const scale = PHYSICS_CONFIG.maxGuideSpeed / speed;
-        body.setLinvel(
-          new this.rapier.Vector3(nextVelocity.x * scale, nextVelocity.y * scale, nextVelocity.z * scale),
-          true,
-        );
-      }
+      body.applyTorqueImpulse(new this.rapier.Vector3(-velocity.z * 0.018, 0, velocity.x * 0.018), true);
     }
     this.world.step();
   }

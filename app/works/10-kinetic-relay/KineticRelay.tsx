@@ -5,7 +5,6 @@ import Link from "next/link";
 
 import { COURSE_IDS, COURSE_DEFINITIONS, type CourseId } from "./machineSequence";
 import type {
-  KineticRelayInitResult,
   KineticRelayScene,
   MachineUiState,
 } from "./KineticRelayScene";
@@ -18,7 +17,7 @@ const DEFAULT_STATE: MachineUiState = {
   selectorPhase: "settled",
   selectorMoving: false,
   sequencePhase: "ready",
-  stageLabel: "RELEASE",
+  stageLabel: "RELEASE GATE",
   stageIndex: 0,
   stageCount: COURSE_DEFINITIONS.A.stages.length,
   canStart: false,
@@ -37,7 +36,6 @@ export function KineticRelay() {
   const [machineState, setMachineState] = useState<MachineUiState>(DEFAULT_STATE);
   const [loadingMessage, setLoadingMessage] = useState("Initializing renderer");
   const [runtimeError, setRuntimeError] = useState("");
-  const [runtimeInfo, setRuntimeInfo] = useState<KineticRelayInitResult | null>(null);
 
   useEffect(() => {
     const container = canvasHostRef.current;
@@ -72,13 +70,12 @@ export function KineticRelay() {
         });
         sceneRef.current = scene;
         try {
-          const result = await scene.init();
+          await scene.init();
           if (disposed) {
             scene.dispose();
             return null;
           }
-          setRuntimeInfo(result);
-          return result;
+          return null;
         } catch (error: unknown) {
           if (disposed) {
             return null;
@@ -148,18 +145,18 @@ export function KineticRelay() {
             <em>TRIPLE ROUTE MARBLE MACHINE</em>
           </h1>
           <p id="kinetic-relay-description" className={styles.description}>
-            3つの機械式ルートを切り替え、ボールの連鎖が共通ゴールへ届くまでを観察する精密3D作品。
+            ひとつの精密機械に接続された3つの経路。junctionを選び、重量のある連鎖を見届けます。
           </p>
         </header>
 
         <div className={styles.topRight}>
-          <span className={styles.backendLabel}>{machineState.backend === "pending" ? "INITIALIZING" : machineState.backend}</span>
+          <span className={styles.backendLabel}>PRECISION STUDY / 10</span>
           <Link href="/" className={styles.indexLink} aria-label="作品一覧へ戻る">INDEX ↗</Link>
         </div>
 
         <section className={styles.controlPanel} aria-label="Course controls">
           <div className={styles.panelHeading}>
-            <span>COURSE SELECT</span>
+            <span>JUNCTION / COURSE</span>
             <span className={styles.selectorDot} aria-hidden="true" />
           </div>
           <div className={styles.courseButtons} role="group" aria-label="Course selection">
@@ -184,10 +181,10 @@ export function KineticRelay() {
             })}
           </div>
           <div className={styles.selectedCourse}>
-            <span className={styles.selectedLabel}>SELECTED ROUTE</span>
+            <span className={styles.selectedLabel}>LOCKED ROUTE</span>
             <strong>{machineState.selectedCourse} — {selectedDefinition.name}</strong>
             <span className={styles.selectorStatus}>
-              {machineState.selectorMoving ? `SELECTOR ${machineState.selectorPhase.toUpperCase()}` : machineState.sequencePhase.toUpperCase()}
+              {machineState.selectorMoving ? `JUNCTION ${machineState.selectorPhase.toUpperCase()}` : machineState.sequencePhase.toUpperCase()}
             </span>
           </div>
           <div className={styles.actionRow}>
@@ -208,7 +205,7 @@ export function KineticRelay() {
         </section>
 
         <section className={styles.statusPanel} aria-label="Machine status">
-          <p className={styles.statusKicker}>MACHINE STATUS</p>
+          <p className={styles.statusKicker}>RELAY / LIVE SEQUENCE</p>
           <p className={styles.statusText} aria-live="polite">{machineState.statusText}</p>
           <div className={styles.progressTrack} aria-hidden="true">
             <span style={{ width: `${isComplete ? 100 : isRunning ? ((machineState.stageIndex + 0.2) / machineState.stageCount) * 100 : 0}%` }} />
@@ -217,11 +214,11 @@ export function KineticRelay() {
           {isComplete && <p className={styles.completeText}>GOAL BELL · COMPLETE</p>}
         </section>
 
-        <p className={styles.hint}>SELECT A ROUTE · WATCH THE JUNCTION MOVE · START THE RELAY</p>
+        <p className={styles.hint}>SELECT A ROUTE · WATCH THE LOCK · START THE RELAY</p>
 
         <footer className={styles.footer}>
           <span>CHROME / BRASS / GLASS</span>
-          <span>{runtimeInfo ? `${runtimeInfo.triangles.toLocaleString()} TRIANGLES · ${runtimeInfo.drawCalls} CALLS · ${runtimeInfo.geometries} GEO · ${runtimeInfo.textures} TEX` : "PRECISION MACHINE STUDY"}</span>
+          <span>ONE MACHINE · THREE ROUTES</span>
         </footer>
       </div>
     </main>

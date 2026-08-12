@@ -1,10 +1,13 @@
 .experience {
   position: relative;
+  width: 100%;
+  max-width: none;
+  margin: 0;
   min-height: 100dvh;
   overflow: hidden;
   isolation: isolate;
-  background: #080d14;
-  color: #eef3f4;
+  background: #070d14;
+  color: #eef3f1;
 }
 
 .canvasHost {
@@ -13,8 +16,8 @@
   min-height: 100dvh;
   overflow: hidden;
   background:
-    radial-gradient(circle at 50% 44%, rgba(122, 156, 170, 0.22), transparent 30%),
-    linear-gradient(180deg, #1a2731 0%, #101922 46%, #080d14 100%);
+    radial-gradient(circle at 50% 42%, rgba(134, 167, 177, 0.16), transparent 31%),
+    linear-gradient(180deg, #17242e 0%, #0d171f 55%, #070d14 100%);
 }
 
 .canvasHost canvas {
@@ -36,8 +39,8 @@
   padding: 1rem 1.15rem;
   transform: translate(-50%, -50%);
   border: 1px solid rgba(235, 224, 200, 0.25);
-  background: rgba(7, 12, 18, 0.85);
-  box-shadow: 0 1.5rem 4rem rgba(0, 0, 0, 0.32);
+  background: rgba(7, 12, 18, 0.86);
+  box-shadow: 0 1.5rem 4rem rgba(0, 0, 0, 0.34);
   color: #f1e7d3;
   font-family: "SFMono-Regular", "Roboto Mono", Menlo, monospace;
   font-size: 0.68rem;
@@ -77,7 +80,7 @@
   position: relative;
   z-index: 2;
   min-height: 100dvh;
-  padding: max(1.5rem, env(safe-area-inset-top)) max(2.25rem, env(safe-area-inset-right)) max(1.35rem, env(safe-area-inset-bottom)) max(2.25rem, env(safe-area-inset-left));
+  padding: max(2.1rem, env(safe-area-inset-top)) max(2.5rem, env(safe-area-inset-right)) max(1.25rem, env(safe-area-inset-bottom)) max(2.5rem, env(safe-area-inset-left));
   pointer-events: none;
 }
 
@@ -91,7 +94,7 @@
 }
 
 .header {
-  max-width: 31rem;
+  max-width: 25rem;
 }
 
 .workNumber,
@@ -113,21 +116,21 @@
 
 .workNumber {
   margin: 0;
-  color: #adbfbe;
-  font-size: 0.61rem;
-  letter-spacing: 0.2em;
+  color: #afc1c2;
+  font-size: 0.58rem;
+  letter-spacing: 0.22em;
 }
 
 .workNumber span {
-  color: #667b82;
+  color: #64777d;
 }
 
 .header h1 {
-  margin: 0.88rem 0 0;
-  color: #f3f5f2;
-  font-size: clamp(1.75rem, 4.4vw, 3.3rem);
+  margin: 0.72rem 0 0;
+  color: #f4f3ed;
+  font-size: clamp(1.9rem, 4vw, 3.1rem);
   font-weight: 500;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.045em;
   line-height: 0.96;
 }
 
@@ -137,41 +140,41 @@
 }
 
 .header h1 em {
-  margin-top: 0.45rem;
-  color: #eab967;
-  font-size: 0.38em;
+  margin-top: 0.42rem;
+  color: #e9b866;
+  font-size: 0.34em;
   font-style: normal;
   font-weight: 500;
-  letter-spacing: 0.2em;
+  letter-spacing: 0.18em;
   line-height: 1.2;
 }
 
 .description {
-  max-width: 27rem;
-  margin: 1rem 0 0;
-  color: rgba(214, 228, 229, 0.7);
-  font-size: 0.75rem;
+  max-width: 20rem;
+  margin: 0.85rem 0 0;
+  color: rgba(216, 229, 228, 0.7);
+  font-size: 0.68rem;
   line-height: 1.65;
 }
 
 .topRight {
   position: absolute;
-  top: max(1.5rem, env(safe-area-inset-top));
-  right: max(2.25rem, env(safe-area-inset-right));
+  top: max(2.1rem, env(safe-area-inset-top));
+  right: max(2.5rem, env(safe-area-inset-right));
   display: grid;
   justify-items: end;
-  gap: 1rem;
+  gap: 0.88rem;
 }
 
 .backendLabel {
-  color: #8fa5aa;
-  font-size: 0.57rem;
-  letter-spacing: 0.12em;
+  color: rgba(164, 186, 188, 0.68);
+  font-size: 0.49rem;
+  letter-spacing: 0.16em;
 }
 
 .indexLink {
-  color: #cedbd7;
-  font-size: 0.59rem;
+  color: #d4dfdb;
+  font-size: 0.58rem;
   letter-spacing: 0.16em;
   text-decoration: none;
 }
@@ -182,13 +185,13 @@
 
 .controlPanel {
   position: absolute;
-  bottom: max(1.35rem, env(safe-area-inset-bottom));
-  left: max(2.25rem, env(safe-area-inset-left));
-  width: min(32rem, calc(100% - 4.5rem));
-  padding: 0.85rem;
-  border: 1px solid rgba(226, 222, 202, 0.24);
-  background: linear-gradient(145deg, rgba(10, 18, 25, 0.92), rgba(13, 23, 29, 0.76));
-  box-shadow: 0 1.6rem 4rem rgba(0, 0, 0, 0.3), inset 0 1px rgba(255, 255, 255, 0.06);
+  bottom: max(1.45rem, env(safe-area-inset-bottom));
+  left: max(2.5rem, env(safe-area-inset-left));
+  width: min(26rem, calc(100% - 5rem));
+  padding: 0.82rem;
+  border: 1px solid rgba(225, 220, 198, 0.26);
+  background: linear-gradient(145deg, rgba(9, 17, 23, 0.9), rgba(15, 26, 32, 0.76));
+  box-shadow: 0 1.7rem 4.2rem rgba(0, 0, 0, 0.34), inset 0 1px rgba(255, 255, 255, 0.07);
   backdrop-filter: blur(18px);
 }
 
@@ -196,15 +199,15 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 0.65rem;
-  color: #d9bc7d;
-  font-size: 0.58rem;
-  letter-spacing: 0.18em;
+  margin-bottom: 0.62rem;
+  color: #daba78;
+  font-size: 0.55rem;
+  letter-spacing: 0.2em;
 }
 
 .selectorDot {
-  width: 0.4rem;
-  height: 0.4rem;
+  width: 0.42rem;
+  height: 0.42rem;
   border: 1px solid #e8ba6c;
   border-radius: 50%;
   box-shadow: 0 0 0.7rem rgba(234, 185, 99, 0.72);
@@ -213,20 +216,20 @@
 .courseButtons {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.42rem;
+  gap: 0.38rem;
 }
 
 .courseButton {
   display: grid;
   grid-template-columns: auto 1fr;
   grid-template-rows: auto auto;
-  column-gap: 0.6rem;
+  column-gap: 0.52rem;
   min-width: 0;
-  min-height: 4.35rem;
-  padding: 0.62rem 0.68rem;
+  min-height: 3.82rem;
+  padding: 0.52rem 0.56rem;
   border: 1px solid rgba(213, 224, 224, 0.2);
-  border-radius: 0.1rem;
-  background: rgba(18, 29, 36, 0.88);
+  border-radius: 0.08rem;
+  background: rgba(16, 27, 34, 0.88);
   color: #c8d5d4;
   cursor: pointer;
   text-align: left;
@@ -241,9 +244,14 @@
 
 .courseButtonSelected {
   border-color: var(--course-accent);
-  background: linear-gradient(145deg, rgba(75, 99, 105, 0.58), rgba(21, 35, 41, 0.92));
+  background: linear-gradient(145deg, rgba(72, 98, 104, 0.58), rgba(20, 34, 41, 0.94));
   color: #f5f4e9;
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06), 0 0 1rem color-mix(in srgb, var(--course-accent) 16%, transparent);
+}
+
+.courseButton:disabled {
+  cursor: wait;
+  opacity: 0.5;
 }
 
 .courseLetter {
@@ -251,83 +259,78 @@
   align-self: center;
   color: var(--course-accent);
   font-family: Georgia, serif;
-  font-size: 1.7rem;
+  font-size: 1.48rem;
   font-weight: 600;
   line-height: 1;
 }
 
 .courseName {
   overflow: hidden;
-  font-size: 0.69rem;
+  color: inherit;
+  font-size: 0.62rem;
+  font-weight: 600;
   letter-spacing: 0.08em;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .courseMaterial {
+  align-self: end;
   overflow: hidden;
-  margin-top: 0.18rem;
-  color: #8fa5a8;
-  font-size: 0.47rem;
+  color: rgba(191, 208, 207, 0.68);
+  font-size: 0.4rem;
   letter-spacing: 0.08em;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.courseButton:disabled,
-.startButton:disabled,
-.restartButton:disabled {
-  cursor: wait;
-  opacity: 0.48;
 }
 
 .selectedCourse {
   display: grid;
   grid-template-columns: auto 1fr auto;
   align-items: baseline;
-  gap: 0.65rem;
-  margin-top: 0.7rem;
-  padding-top: 0.65rem;
+  gap: 0.55rem;
+  margin-top: 0.62rem;
+  padding-top: 0.58rem;
   border-top: 1px solid rgba(213, 224, 224, 0.14);
 }
 
 .selectedLabel {
   color: #869a9e;
-  font-size: 0.48rem;
-  letter-spacing: 0.12em;
+  font-size: 0.45rem;
+  letter-spacing: 0.1em;
 }
 
 .selectedCourse strong {
   min-width: 0;
   overflow: hidden;
   color: #f2eee2;
-  font-size: 0.72rem;
+  font-size: 0.66rem;
   font-weight: 500;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.06em;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .selectorStatus {
   color: #d9bc7d;
-  font-size: 0.49rem;
-  letter-spacing: 0.1em;
+  font-size: 0.46rem;
+  letter-spacing: 0.08em;
   white-space: nowrap;
 }
 
 .actionRow {
   display: flex;
-  gap: 0.5rem;
-  margin-top: 0.68rem;
+  gap: 0.46rem;
+  margin-top: 0.62rem;
 }
 
 .startButton,
 .restartButton {
-  min-height: 2.75rem;
-  padding: 0.55rem 0.82rem;
-  border-radius: 0.08rem;
+  min-height: 2.5rem;
+  padding: 0.5rem 0.76rem;
+  border-radius: 0.06rem;
   cursor: pointer;
-  font-size: 0.63rem;
+  font-size: 0.58rem;
   letter-spacing: 0.15em;
 }
 
@@ -343,6 +346,12 @@
   background: #f6d38d;
 }
 
+.startButton:disabled,
+.restartButton:disabled {
+  cursor: wait;
+  opacity: 0.48;
+}
+
 .restartButton {
   border: 1px solid rgba(213, 224, 224, 0.35);
   background: rgba(20, 33, 40, 0.78);
@@ -356,36 +365,35 @@
 
 .statusPanel {
   position: absolute;
-  top: 50%;
-  right: max(2.25rem, env(safe-area-inset-right));
-  width: 12.5rem;
-  transform: translateY(-50%);
-  padding: 0.9rem;
-  border-left: 1px solid rgba(234, 185, 99, 0.5);
-  background: linear-gradient(90deg, rgba(9, 15, 21, 0.1), rgba(9, 15, 21, 0.7));
+  right: max(2.5rem, env(safe-area-inset-right));
+  bottom: max(2rem, env(safe-area-inset-bottom));
+  width: 15.2rem;
+  padding: 0.82rem 0.86rem 0.82rem 1rem;
+  border-left: 1px solid rgba(234, 185, 99, 0.55);
+  background: linear-gradient(90deg, rgba(9, 15, 21, 0.06), rgba(9, 15, 21, 0.72));
   pointer-events: none;
 }
 
 .statusKicker {
   margin: 0;
   color: #899fa4;
-  font-size: 0.5rem;
-  letter-spacing: 0.18em;
+  font-size: 0.48rem;
+  letter-spacing: 0.16em;
 }
 
 .statusText {
-  min-height: 2.6rem;
-  margin: 0.48rem 0 0;
+  min-height: 2.4rem;
+  margin: 0.45rem 0 0;
   color: #f1e5c9;
   font-family: "SFMono-Regular", "Roboto Mono", Menlo, monospace;
-  font-size: 0.82rem;
-  letter-spacing: 0.08em;
+  font-size: 0.76rem;
+  letter-spacing: 0.07em;
   line-height: 1.3;
 }
 
 .progressTrack {
   height: 2px;
-  margin-top: 0.8rem;
+  margin-top: 0.68rem;
   background: rgba(222, 229, 218, 0.18);
 }
 
@@ -398,10 +406,10 @@
 
 .stageText,
 .completeText {
-  margin: 0.55rem 0 0;
+  margin: 0.5rem 0 0;
   color: #a9bcb9;
-  font-size: 0.52rem;
-  letter-spacing: 0.12em;
+  font-size: 0.48rem;
+  letter-spacing: 0.1em;
 }
 
 .completeText {
@@ -410,23 +418,23 @@
 
 .hint {
   position: absolute;
-  right: max(2.25rem, env(safe-area-inset-right));
-  bottom: max(1.35rem, env(safe-area-inset-bottom));
-  margin: 0 0 0.3rem;
+  right: max(2.5rem, env(safe-area-inset-right));
+  bottom: max(0.82rem, env(safe-area-inset-bottom));
+  margin: 0;
   color: rgba(196, 212, 211, 0.62);
-  font-size: 0.51rem;
-  letter-spacing: 0.14em;
+  font-size: 0.48rem;
+  letter-spacing: 0.13em;
 }
 
 .footer {
   position: absolute;
-  right: max(2.25rem, env(safe-area-inset-right));
-  bottom: max(0.8rem, env(safe-area-inset-bottom));
+  right: max(2.5rem, env(safe-area-inset-right));
+  top: max(5.8rem, env(safe-area-inset-top));
   display: flex;
-  gap: 1rem;
-  color: rgba(143, 165, 168, 0.68);
-  font-size: 0.46rem;
-  letter-spacing: 0.12em;
+  gap: 0.9rem;
+  color: rgba(143, 165, 168, 0.58);
+  font-size: 0.43rem;
+  letter-spacing: 0.11em;
 }
 
 .courseButton:focus-visible,
@@ -443,10 +451,8 @@
 
 @media (max-width: 900px) {
   .statusPanel {
-    top: auto;
-    right: max(2.25rem, env(safe-area-inset-right));
-    bottom: 11.7rem;
-    transform: none;
+    right: max(2rem, env(safe-area-inset-right));
+    bottom: 10.9rem;
   }
 
   .hint,
@@ -462,60 +468,64 @@
   }
 
   .header {
-    max-width: 17rem;
+    max-width: 15.5rem;
   }
 
   .header h1 {
-    margin-top: 0.65rem;
-    font-size: clamp(1.35rem, 7.2vw, 2.1rem);
+    margin-top: 0.6rem;
+    font-size: clamp(1.34rem, 7.4vw, 2.05rem);
   }
 
   .header h1 em {
-    margin-top: 0.3rem;
-    font-size: 0.38em;
-    letter-spacing: 0.13em;
+    margin-top: 0.28rem;
+    font-size: 0.36em;
+    letter-spacing: 0.12em;
   }
 
   .description {
-    max-width: 17rem;
-    margin-top: 0.7rem;
-    font-size: 0.65rem;
+    max-width: 15rem;
+    margin-top: 0.65rem;
+    font-size: 0.6rem;
   }
 
   .topRight {
     top: max(1rem, env(safe-area-inset-top));
     right: max(1rem, env(safe-area-inset-right));
-    gap: 0.65rem;
+    gap: 0.58rem;
+  }
+
+  .backendLabel {
+    font-size: 0.4rem;
   }
 
   .controlPanel {
     right: max(1rem, env(safe-area-inset-right));
-    bottom: max(1rem, env(safe-area-inset-bottom));
+    bottom: max(0.85rem, env(safe-area-inset-bottom));
     left: max(1rem, env(safe-area-inset-left));
     width: auto;
-    padding: 0.65rem;
+    padding: 0.62rem;
   }
 
   .courseButton {
-    min-height: 3.85rem;
-    padding: 0.45rem;
+    min-height: 3.5rem;
+    padding: 0.42rem;
   }
 
   .courseLetter {
-    font-size: 1.35rem;
+    font-size: 1.25rem;
   }
 
   .courseName {
-    font-size: 0.58rem;
+    font-size: 0.54rem;
   }
 
   .courseMaterial {
-    font-size: 0.39rem;
+    font-size: 0.36rem;
   }
 
   .selectedCourse {
     grid-template-columns: 1fr auto;
-    gap: 0.3rem;
+    gap: 0.25rem;
   }
 
   .selectedLabel {
@@ -523,19 +533,31 @@
   }
 
   .selectedCourse strong {
-    font-size: 0.63rem;
+    font-size: 0.6rem;
   }
 
   .statusPanel {
     right: max(1rem, env(safe-area-inset-right));
-    bottom: 12.8rem;
-    width: 10.5rem;
-    padding: 0.65rem;
+    bottom: 12.25rem;
+    left: max(1rem, env(safe-area-inset-left));
+    width: auto;
+    padding: 0.55rem 0.68rem 0.55rem 0.78rem;
   }
 
   .statusText {
-    min-height: 2.2rem;
-    font-size: 0.68rem;
+    min-height: 1.85rem;
+    margin-top: 0.3rem;
+    font-size: 0.64rem;
+  }
+
+  .progressTrack {
+    margin-top: 0.42rem;
+  }
+
+  .stageText,
+  .completeText {
+    margin-top: 0.34rem;
+    font-size: 0.42rem;
   }
 }
 

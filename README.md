@@ -130,7 +130,7 @@ SVG本体を変更せず、同じ内蔵アイコンまたは任意のSVGで12種
 - GitHub上のパス: [`app/works/10-kinetic-relay/`](app/works/10-kinetic-relay/)
 - 公開先ルート: `/works/10-kinetic-relay`
 - 公開予定URL: https://ai-build-challenge.vercel.app/works/10-kinetic-relay
-- 主な機能: 3コース常設の高密度3D機械、unlock・slide・lockを伴うルートセレクター、HELIXのrocker／domino／hammer、CLOCKWORKのpendulum／実歯ギア／lift gate、ORBITのglass funnel／balance／suspended rail／turbine、共通GOALベル、RESTART、keyboard操作、reduced-motion、WebGPUとWebGL 2 fallback
+- 主な機能: 1台の精密機械フレームに常設した3コース、unlock・slide・align・lockを伴うルートセレクター、HELIXの二本rail／rocker／12枚のprecision paddle bank／hammer、CLOCKWORKのpendulum／22・17・13・11歯gear train／rack-and-pinion／lift gate、ORBITの厚み付きglass funnel／balance／suspended rail／turbine、共通GOALベル、18〜28秒のcourse、RESTART、keyboard操作、reduced-motion、WebGPUとWebGL 2 fallback
 - 使用技術: Three.js 0.185.1 `WebGPURenderer`、`@dimforge/rapier3d-compat` 0.19.3、物理固定刻み1/60、CSS Modules、Vitest
 
 ## 公開URL

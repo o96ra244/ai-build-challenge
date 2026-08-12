@@ -8,6 +8,9 @@ const workDirectory = path.join(process.cwd(), "app/works/10-kinetic-relay");
 describe("Work 10 interaction structure", () => {
   const component = fs.readFileSync(path.join(workDirectory, "KineticRelay.tsx"), "utf8");
   const scene = fs.readFileSync(path.join(workDirectory, "KineticRelayScene.ts"), "utf8");
+  const selector = fs.readFileSync(path.join(workDirectory, "selectorAssembly.ts"), "utf8");
+  const physics = fs.readFileSync(path.join(workDirectory, "machinePhysics.ts"), "utf8");
+  const sequenceController = fs.readFileSync(path.join(workDirectory, "sequenceController.ts"), "utf8");
   const styles = fs.readFileSync(path.join(workDirectory, "page.module.css"), "utf8");
 
   it("uses native course and action buttons with accessible route state", () => {
@@ -21,10 +24,14 @@ describe("Work 10 interaction structure", () => {
 
   it("keeps the selector as a scene mechanism rather than a DOM-only tab switch", () => {
     expect(scene).toContain("startSelectorChange");
-    expect(scene).toContain("selectorPlatform.position.x");
-    expect(scene).toContain("selectorLockPin.position.y");
+    expect(selector).toContain("platform.position.x");
+    expect(selector).toContain("lockPin.position.y");
     expect(scene).toContain("updateSelectorVisuals");
-    expect(scene).toContain("MachinePhysicsWorld");
+    expect(physics).toContain("getSnapshot");
+    expect(sequenceController).toContain("getPhysicsGuideTarget");
+    expect(scene).toContain("applySnapshot");
+    expect(scene).not.toContain("getCourseBallPosition");
+    expect(scene).not.toContain("getRunProgress");
   });
 
   it("provides visible keyboard focus styling and reduced-motion handling", () => {

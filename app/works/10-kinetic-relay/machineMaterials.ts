@@ -25,61 +25,93 @@ function physical(
     color,
     roughness,
     metalness,
-    envMapIntensity: 1.25,
+    envMapIntensity: 1.45,
     ...options,
   });
 }
 
-export function createMachineMaterials(environment: THREE.Texture | null): MachineMaterials {
-  const chrome = physical(0xd5e2ea, 0.12, 0.98, { clearcoat: 0.75, clearcoatRoughness: 0.08 });
-  const chromeDark = physical(0x71808c, 0.22, 0.94, { clearcoat: 0.55, clearcoatRoughness: 0.12 });
-  const brass = physical(0xa96927, 0.28, 0.93, { clearcoat: 0.28, clearcoatRoughness: 0.18 });
-  const brassBright = physical(0xe3b45c, 0.2, 0.95, { clearcoat: 0.48, clearcoatRoughness: 0.11 });
-  const paintedMetal = physical(0x151c25, 0.32, 0.58, { clearcoat: 0.62, clearcoatRoughness: 0.2 });
-  const graphite = physical(0x252d36, 0.42, 0.46, { clearcoat: 0.35, clearcoatRoughness: 0.28 });
-  const ivory = physical(0xd8cbb0, 0.34, 0.1, { clearcoat: 0.42, clearcoatRoughness: 0.2 });
-  const glass = physical(0xaddce4, 0.12, 0.06, {
-    transparent: true,
-    opacity: 0.72,
-    transmission: 0.78,
-    thickness: 0.34,
-    ior: 1.46,
-    clearcoat: 0.75,
-    clearcoatRoughness: 0.08,
-    side: THREE.DoubleSide,
-    depthWrite: false,
-  });
-  const rubber = new THREE.MeshStandardMaterial({ color: 0x090d12, roughness: 0.8, metalness: 0.08 });
-  const warmGlow = new THREE.MeshBasicMaterial({ color: 0xffb94f, transparent: true, opacity: 0.78, toneMapped: false });
-  const coolGlow = new THREE.MeshBasicMaterial({ color: 0x74d8e8, transparent: true, opacity: 0.72, toneMapped: false });
-  const indicatorOff = new THREE.MeshStandardMaterial({ color: 0x171e24, roughness: 0.5, metalness: 0.5, emissive: 0x000000 });
-
-  if (environment) {
-    for (const material of [chrome, chromeDark, brass, brassBright, paintedMetal, graphite, ivory, glass]) {
-      material.envMap = environment;
+function createSurfaceTexture(mode: "brush" | "grain" | "paint"): THREE.CanvasTexture {
+  const canvas = document.createElement("canvas");
+  canvas.width = 512;
+  canvas.height = 128;
+  const context = canvas.getContext("2d");
+  if (context) {
+    const image = context.createImageData(canvas.width, canvas.height);
+    for (let y = 0; y < canvas.height; y += 1) {
+      for (let x = 0; x < canvas.width; x += 1) {
+        const index = (y * canvas.width + x) * 4;
+        const wave = Math.sin((x * (mode === "brush" ? 0.55 : 0.13)) + y * 0.42) * 6;
+        const noise = ((x * 17 + y * 31 + x * y * 3) % 19) - 9;
+        const value = mode === "paint" ? 132 + noise * 0.35 : 142 + wave + noise;
+        image.data[index] = value;
+        image.data[index + 1] = value;
+        image.data[index + 2] = value;
+        image.data[index + 3] = 255;
+      }
+    }
+    context.putImageData(image, 0, 0);
+    if (mode === "brush") {
+      context.globalAlpha = 0.2;
+      context.strokeStyle = "#ffffff";
+      context.lineWidth = 1;
+      for (let y = -128; y < 256; y += 7) {
+        context.beginPath();
+        context.moveTo(0, y);
+        context.lineTo(canvas.width, y + 72);
+        context.stroke();
+      }
+      context.globalAlpha = 1;
     }
   }
-  return { chrome, chromeDark, brass, brassBright, paintedMetal, graphite, ivory, glass, rubber, warmGlow, coolGlow, indicatorOff };
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.NoColorSpace;
+  texture.wrapS = THREE.RepeatWrapping;
+  texture.wrapT = THREE.RepeatWrapping;
+  texture.repeat.set(3.2, 1.1);
+  texture.anisotropy = 4;
+  texture.needsUpdate = true;
+  return texture;
 }
 
-export function createStudioEnvironment(): THREE.CanvasTexture {
+function createStudioEnvironment(): THREE.CanvasTexture {
   const canvas = document.createElement("canvas");
-  canvas.width = 1024;
-  canvas.height = 512;
+  canvas.width = 1536;
+  canvas.height = 768;
   const context = canvas.getContext("2d");
   if (context) {
     const gradient = context.createLinearGradient(0, 0, 0, canvas.height);
-    gradient.addColorStop(0, "#1a2430");
-    gradient.addColorStop(0.3, "#596575");
-    gradient.addColorStop(0.5, "#d0c6ad");
-    gradient.addColorStop(0.68, "#29333c");
-    gradient.addColorStop(1, "#090d13");
+    gradient.addColorStop(0, "#0b121b");
+    gradient.addColorStop(0.24, "#2b3a47");
+    gradient.addColorStop(0.46, "#b3b7ad");
+    gradient.addColorStop(0.54, "#525e63");
+    gradient.addColorStop(0.77, "#1b262d");
+    gradient.addColorStop(1, "#05090e");
     context.fillStyle = gradient;
     context.fillRect(0, 0, canvas.width, canvas.height);
-    context.globalAlpha = 0.2;
-    for (let index = 0; index < 8; index += 1) {
-      context.fillStyle = index % 2 === 0 ? "#fff3cd" : "#79b9cc";
-      context.fillRect(index * 150 + 42, 52, 70, 250);
+
+    const panels = [
+      { x: 80, width: 260, color: "rgba(255, 244, 211, 0.62)" },
+      { x: 420, width: 110, color: "rgba(122, 205, 220, 0.34)" },
+      { x: 690, width: 330, color: "rgba(255, 239, 195, 0.42)" },
+      { x: 1130, width: 150, color: "rgba(146, 215, 224, 0.3)" },
+    ];
+    for (const panel of panels) {
+      const panelGradient = context.createLinearGradient(panel.x, 0, panel.x + panel.width, 0);
+      panelGradient.addColorStop(0, "rgba(0,0,0,0)");
+      panelGradient.addColorStop(0.35, panel.color);
+      panelGradient.addColorStop(0.65, panel.color);
+      panelGradient.addColorStop(1, "rgba(0,0,0,0)");
+      context.fillStyle = panelGradient;
+      context.fillRect(panel.x, 50, panel.width, 470);
+    }
+    context.globalAlpha = 0.18;
+    context.strokeStyle = "#f6e7c4";
+    context.lineWidth = 2;
+    for (let x = 0; x < canvas.width; x += 96) {
+      context.beginPath();
+      context.moveTo(x, 0);
+      context.lineTo(x + 230, canvas.height);
+      context.stroke();
     }
     context.globalAlpha = 1;
   }
@@ -89,3 +121,88 @@ export function createStudioEnvironment(): THREE.CanvasTexture {
   texture.needsUpdate = true;
   return texture;
 }
+
+export function createMachineMaterials(environment: THREE.Texture | null): MachineMaterials {
+  const chromeRoughness = createSurfaceTexture("grain");
+  const brassRoughness = createSurfaceTexture("brush");
+  const paintRoughness = createSurfaceTexture("paint");
+  const brushedNormal = createSurfaceTexture("brush");
+  const chrome = physical(0xd7e4e8, 0.16, 0.98, {
+    clearcoat: 0.82,
+    clearcoatRoughness: 0.08,
+    roughnessMap: chromeRoughness,
+    normalMap: brushedNormal,
+    normalScale: new THREE.Vector2(0.025, 0.025),
+  });
+  const chromeDark = physical(0x53626c, 0.24, 0.95, {
+    clearcoat: 0.6,
+    clearcoatRoughness: 0.14,
+    roughnessMap: chromeRoughness,
+  });
+  const brass = physical(0xb47832, 0.3, 0.93, {
+    clearcoat: 0.38,
+    clearcoatRoughness: 0.16,
+    roughnessMap: brassRoughness,
+    normalMap: brushedNormal,
+    normalScale: new THREE.Vector2(0.045, 0.02),
+    anisotropy: 0.32,
+  });
+  const brassBright = physical(0xe5b760, 0.22, 0.96, {
+    clearcoat: 0.62,
+    clearcoatRoughness: 0.1,
+    roughnessMap: brassRoughness,
+    normalMap: brushedNormal,
+    normalScale: new THREE.Vector2(0.028, 0.012),
+    anisotropy: 0.24,
+  });
+  const paintedMetal = physical(0x101820, 0.34, 0.62, {
+    clearcoat: 0.74,
+    clearcoatRoughness: 0.2,
+    roughnessMap: paintRoughness,
+  });
+  const graphite = physical(0x202a33, 0.45, 0.48, {
+    clearcoat: 0.4,
+    clearcoatRoughness: 0.28,
+    roughnessMap: paintRoughness,
+  });
+  const ivory = physical(0xd8c7a6, 0.36, 0.1, { clearcoat: 0.46, clearcoatRoughness: 0.2 });
+  const glass = physical(0xb9e7eb, 0.1, 0.03, {
+    transparent: true,
+    opacity: 0.78,
+    transmission: 0.9,
+    thickness: 0.2,
+    ior: 1.46,
+    clearcoat: 0.95,
+    clearcoatRoughness: 0.04,
+    attenuationColor: new THREE.Color(0x76bac5),
+    attenuationDistance: 3.8,
+    side: THREE.DoubleSide,
+    depthWrite: false,
+  });
+  const rubber = new THREE.MeshStandardMaterial({ color: 0x080d12, roughness: 0.86, metalness: 0.06 });
+  const warmGlow = new THREE.MeshBasicMaterial({ color: 0xffb449, transparent: true, opacity: 0.84, toneMapped: false });
+  const coolGlow = new THREE.MeshBasicMaterial({ color: 0x6de0eb, transparent: true, opacity: 0.76, toneMapped: false });
+  const indicatorOff = new THREE.MeshStandardMaterial({ color: 0x111a20, roughness: 0.52, metalness: 0.55, emissive: 0x000000 });
+
+  if (environment) {
+    for (const material of [chrome, chromeDark, brass, brassBright, paintedMetal, graphite, ivory, glass]) {
+      material.envMap = environment;
+    }
+  }
+  return {
+    chrome,
+    chromeDark,
+    brass,
+    brassBright,
+    paintedMetal,
+    graphite,
+    ivory,
+    glass,
+    rubber,
+    warmGlow,
+    coolGlow,
+    indicatorOff,
+  };
+}
+
+export { createStudioEnvironment };
