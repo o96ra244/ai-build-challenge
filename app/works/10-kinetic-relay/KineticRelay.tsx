@@ -3,95 +3,63 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 
-import { COURSE_IDS, COURSE_DEFINITIONS, type CourseId } from "./machineSequence";
-import type {
-  KineticRelayScene,
-  MachineUiState,
-} from "./KineticRelayScene";
+import type { DeskChainReactionScene, DeskChainUiState } from "./DeskChainReactionScene";
 import styles from "./page.module.css";
 
-const DEFAULT_STATE: MachineUiState = {
+const DEFAULT_STATE: DeskChainUiState = {
   runtimeStatus: "loading",
   backend: "pending",
-  selectedCourse: "A",
-  selectorPhase: "settled",
-  selectorMoving: false,
-  sequencePhase: "ready",
-  stageLabel: "RELEASE GATE",
+  phase: "ready",
+  stageLabel: "RED MARBLE / RAMP",
   stageIndex: 0,
-  stageCount: COURSE_DEFINITIONS.A.stages.length,
+  stageCount: 9,
+  progress: 0,
+  statusText: "READY — START THE DESK RELAY",
   canStart: false,
-  statusText: "HELIX READY",
-};
-
-const COURSE_ACCENTS: Record<CourseId, string> = {
-  A: "#dce8ee",
-  B: "#f0c77c",
-  C: "#b9eef2",
 };
 
 export function KineticRelay() {
   const canvasHostRef = useRef<HTMLDivElement>(null);
-  const sceneRef = useRef<KineticRelayScene | null>(null);
-  const [machineState, setMachineState] = useState<MachineUiState>(DEFAULT_STATE);
-  const [loadingMessage, setLoadingMessage] = useState("Initializing renderer");
+  const sceneRef = useRef<DeskChainReactionScene | null>(null);
+  const [state, setState] = useState<DeskChainUiState>(DEFAULT_STATE);
+  const [loadingMessage, setLoadingMessage] = useState("夕方の机を準備しています");
   const [runtimeError, setRuntimeError] = useState("");
 
   useEffect(() => {
     const container = canvasHostRef.current;
-    if (!container) {
-      return;
-    }
+    if (!container) return;
     let disposed = false;
-    let scene: KineticRelayScene | null = null;
+    let scene: DeskChainReactionScene | null = null;
     const mediaQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
-    const handleMotionPreference = (): void => {
-      sceneRef.current?.setReducedMotion(mediaQuery.matches);
-    };
+    const handleMotionPreference = (): void => sceneRef.current?.setReducedMotion(mediaQuery.matches);
     mediaQuery.addEventListener("change", handleMotionPreference);
 
-    void import("./KineticRelayScene")
-      .then(async ({ KineticRelayScene: Scene }) => {
-        if (disposed) {
-          return null;
-        }
+    void import("./DeskChainReactionScene")
+      .then(async ({ DeskChainReactionScene: Scene }) => {
+        if (disposed) return;
         scene = new Scene(container, {
           reducedMotion: mediaQuery.matches,
           onLoadingState: (message) => {
-            if (!disposed) {
-              setLoadingMessage(message);
-            }
+            if (!disposed) setLoadingMessage(message);
           },
           onStateChange: (nextState) => {
-            if (!disposed) {
-              setMachineState(nextState);
-            }
+            if (!disposed) setState(nextState);
           },
         });
         sceneRef.current = scene;
         try {
           await scene.init();
-          if (disposed) {
-            scene.dispose();
-            return null;
-          }
-          return null;
         } catch (error: unknown) {
-          if (disposed) {
-            return null;
-          }
+          if (disposed) return;
           scene.dispose();
-          setRuntimeError(error instanceof Error ? error.message : "3D machine could not be initialized.");
-          setMachineState((current) => ({ ...current, runtimeStatus: "error", canStart: false }));
-          return null;
+          setRuntimeError(error instanceof Error ? error.message : "3D chain reaction could not be initialized.");
+          setState((current) => ({ ...current, runtimeStatus: "error", canStart: false, statusText: "ERROR — RESTART REQUIRED" }));
         }
       })
       .catch((error: unknown) => {
-        if (disposed) {
-          return;
-        }
-        setRuntimeError(error instanceof Error ? error.message : "3D machine could not be loaded.");
-        setMachineState((current) => ({ ...current, runtimeStatus: "error", canStart: false }));
+        if (disposed) return;
+        setRuntimeError(error instanceof Error ? error.message : "3D chain reaction could not be loaded.");
+        setState((current) => ({ ...current, runtimeStatus: "error", canStart: false, statusText: "ERROR — RESTART REQUIRED" }));
       });
 
     return () => {
@@ -102,37 +70,24 @@ export function KineticRelay() {
     };
   }, []);
 
-  const selectCourse = (course: CourseId): void => {
-    sceneRef.current?.selectCourse(course);
-  };
-
-  const start = (): void => {
-    sceneRef.current?.start();
-  };
-
-  const restart = (): void => {
-    sceneRef.current?.restart();
-  };
-
-  const isRunning = machineState.sequencePhase === "running";
-  const isComplete = machineState.sequencePhase === "complete";
-  const controlsDisabled = machineState.runtimeStatus !== "ready" || machineState.selectorMoving || isRunning;
-  const selectedDefinition = COURSE_DEFINITIONS[machineState.selectedCourse];
+  const isRunning = state.phase === "running";
+  const isComplete = state.phase === "complete";
+  const isError = state.runtimeStatus === "error" || state.phase === "error";
 
   return (
     <main className={styles.experience} aria-labelledby="kinetic-relay-title">
       <div className={styles.canvasHost} ref={canvasHostRef} aria-describedby="kinetic-relay-description">
-        {machineState.runtimeStatus === "loading" && (
+        {state.runtimeStatus === "loading" && (
           <div className={styles.loadingPanel} role="status" aria-live="polite">
             <span className={styles.loadingMark} aria-hidden="true" />
             <span>{loadingMessage}</span>
           </div>
         )}
-        {machineState.runtimeStatus === "error" && (
+        {isError && (
           <div className={styles.errorPanel} role="alert">
-            <strong>THE MACHINE COULD NOT START</strong>
-            <span>WebGL / Rapier initialization failed.</span>
-            <small>{runtimeError}</small>
+            <strong>CHAIN REACTION STOPPED</strong>
+            <span>{state.phase === "error" ? state.statusText : "WebGL / Rapier initialization failed."}</span>
+            {runtimeError && <small>{runtimeError}</small>}
           </div>
         )}
       </div>
@@ -140,85 +95,51 @@ export function KineticRelay() {
       <div className={styles.uiLayer}>
         <header className={styles.header}>
           <p className={styles.workNumber}>WORK 10 <span>/ 15</span></p>
-          <h1 id="kinetic-relay-title">
-            <span>KINETIC RELAY</span>
-            <em>TRIPLE ROUTE MARBLE MACHINE</em>
+          <h1 id="kinetic-relay-title" className={styles.title}>
+            <span className={styles.titleMain}>KINETIC RELAY</span>
+            <em className={styles.titleSub}>DESK CHAIN REACTION</em>
           </h1>
           <p id="kinetic-relay-description" className={styles.description}>
-            ひとつの精密機械に接続された3つの経路。junctionを選び、重量のある連鎖を見届けます。
+            夕方の子ども部屋。ビー玉、文房具、積み木、ミニカーが、卓上ベルへ原因を手渡します。
           </p>
         </header>
 
         <div className={styles.topRight}>
-          <span className={styles.backendLabel}>PRECISION STUDY / 10</span>
+          <span className={styles.backendLabel}>DESK STUDY / 10</span>
           <Link href="/" className={styles.indexLink} aria-label="作品一覧へ戻る">INDEX ↗</Link>
         </div>
 
-        <section className={styles.controlPanel} aria-label="Course controls">
+        <section className={styles.controlPanel} aria-label="Chain reaction controls">
           <div className={styles.panelHeading}>
-            <span>JUNCTION / COURSE</span>
+            <span>ONE DESK / ONE RELAY</span>
             <span className={styles.selectorDot} aria-hidden="true" />
           </div>
-          <div className={styles.courseButtons} role="group" aria-label="Course selection">
-            {COURSE_IDS.map((course) => {
-              const definition = COURSE_DEFINITIONS[course];
-              const selected = machineState.selectedCourse === course;
-              return (
-                <button
-                  type="button"
-                  key={course}
-                  className={`${styles.courseButton} ${selected ? styles.courseButtonSelected : ""}`}
-                  style={{ "--course-accent": COURSE_ACCENTS[course] } as React.CSSProperties}
-                  aria-pressed={selected}
-                  disabled={controlsDisabled}
-                  onClick={() => selectCourse(course)}
-                >
-                  <span className={styles.courseLetter}>{course}</span>
-                  <span className={styles.courseName}>{definition.name}</span>
-                  <span className={styles.courseMaterial}>{definition.subtitle}</span>
-                </button>
-              );
-            })}
-          </div>
-          <div className={styles.selectedCourse}>
-            <span className={styles.selectedLabel}>LOCKED ROUTE</span>
-            <strong>{machineState.selectedCourse} — {selectedDefinition.name}</strong>
-            <span className={styles.selectorStatus}>
-              {machineState.selectorMoving ? `JUNCTION ${machineState.selectorPhase.toUpperCase()}` : machineState.sequencePhase.toUpperCase()}
-            </span>
-          </div>
+          <p className={styles.sequenceHint}>RED MARBLE → ERASER → CLOTHESPIN → BLOCKS → CAR → BELL</p>
           <div className={styles.actionRow}>
-            <button
-              type="button"
-              className={styles.startButton}
-              disabled={!machineState.canStart}
-              onClick={start}
-            >
+            <button type="button" className={styles.startButton} disabled={!state.canStart} onClick={() => sceneRef.current?.start()}>
               START <span aria-hidden="true">↗</span>
             </button>
-            {(isRunning || isComplete) && (
-              <button type="button" className={styles.restartButton} onClick={restart} disabled={machineState.selectorMoving}>
+            {(isRunning || isComplete || isError) && (
+              <button type="button" className={styles.restartButton} onClick={() => sceneRef.current?.restart()}>
                 RESTART
               </button>
             )}
           </div>
         </section>
 
-        <section className={styles.statusPanel} aria-label="Machine status">
+        <section className={styles.statusPanel} aria-label="Chain reaction status">
           <p className={styles.statusKicker}>RELAY / LIVE SEQUENCE</p>
-          <p className={styles.statusText} aria-live="polite">{machineState.statusText}</p>
-          <div className={styles.progressTrack} aria-hidden="true">
-            <span style={{ width: `${isComplete ? 100 : isRunning ? ((machineState.stageIndex + 0.2) / machineState.stageCount) * 100 : 0}%` }} />
-          </div>
-          {isRunning && <p className={styles.stageText}>{String(machineState.stageIndex + 1).padStart(2, "0")} / {String(machineState.stageCount).padStart(2, "0")} · {machineState.stageLabel}</p>}
+          <p className={styles.statusText} aria-live="polite">{state.statusText}</p>
+          <div className={styles.progressTrack} aria-hidden="true"><span style={{ width: `${state.progress * 100}%` }} /></div>
+          {isRunning && <p className={styles.stageText}>{String(state.stageIndex + 1).padStart(2, "0")} / {String(state.stageCount).padStart(2, "0")} · {state.stageLabel}</p>}
           {isComplete && <p className={styles.completeText}>GOAL BELL · COMPLETE</p>}
         </section>
 
-        <p className={styles.hint}>SELECT A ROUTE · WATCH THE LOCK · START THE RELAY</p>
+        <p className={styles.hint}>PRESS START · WATCH EACH CONTACT · RESTART IF THE CHAIN STOPS</p>
 
         <footer className={styles.footer}>
-          <span>CHROME / BRASS / GLASS</span>
-          <span>ONE MACHINE · THREE ROUTES</span>
+          <span>WOOD / PAPER / TOYS</span>
+          <span>ONE DESK · ONE GOAL BELL</span>
         </footer>
       </div>
     </main>

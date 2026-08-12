@@ -183,28 +183,21 @@
 ## 作品10
 
 - **作品番号:** 10
-- **作品名:** KINETIC RELAY — Triple Route Marble Machine
+- **作品名:** KINETIC RELAY — Desk Chain Reaction
 - **制作日:** 2026-08-12
-- **対象ユーザー:** Three.js作品、キネティックアート、marble machine、機械構造、高品質Web 3Dに関心がある人
-- **再実装前の根本原因:** 旧版は単純なprimitiveの積層、曲線座標へ直接置く見せ球、待機中も回る機構、6〜9秒の短いsequence、3ラックに見える分離配置、runtime統計を主UIへ出す構成でした。結果として、精密機械の密度・因果・重量感・一体感が不足していました。
-- **再構築の要約:** `frameAssembly`で共通の背板・上下マニホールド・支柱・junctionを組み、`selectorAssembly`、`helixAssembly`、`clockworkAssembly`、`orbitAssembly`、`goalAssembly`へ責務を分離しました。`courseTracks`は共有ルート、`sequenceController`はstage因果、`machinePhysics`はRapier、`cameraSequence`は8ショットのdirectorとして管理します。
-- **視覚変更:** 主役は黒鉛・クローム・方向性を持つ真鍮の一体型フレーム、二次要素は厚み付きガラスfunnel・ラック・歯形gear・rocker・pendulum・turbine、三次要素はbearing housing・shaft・bracket・anchor・seam・fastenerです。procedural roughness／grain／directional brush normal、studio reflection、key／fill／rim／practical light、desktop／mobile品質上限で製品撮影の読みやすさを作りました。
-- **3コース:** HELIXは二本rail、support bracket、release gate、rocker pivot、12枚のprecision paddle bank、hammer、return manifold。CLOCKWORKは厚いcasing、22／17／13／11歯のgear train、axle／bearing、pendulum、rack-and-pinion、lift gate、vertical drop。ORBITは厚み付きglass funnel、metal rim／mount、balance pivot／stop、suspended orbit rail、turbineです。
-- **ルートセレクター:** 中央上部のcarrierがunlock→slide→align→lockし、linkage、lock pin、collar、indicator lampを同時に更新します。selectorがsettledかつlock済みになるまでSTARTを許可しません。
-- **物理とモーション:** 表示するmarbleの位置・回転は毎fixed timestepのRapier dynamic body snapshotから同期します。gravity、collision、friction、restitution、rolling torqueを有効にし、guide impulseはレール内へ戻す補助だけに限定しました。`mesh.position = curve`の直接配置や、物理を置き換える見せ球更新は使っていません。機構は対応stageでのみ動き、idle時には停止します。
-- **コース時間:** HELIX 19.75秒、CLOCKWORK 21.95秒、ORBIT 23.35秒。各コースはrelease、主機構、return manifold、common GOALまで7未満のstageを持ち、18〜28秒のtempoに収めています。
-- **主な機能:** COURSE A／B／Cのnative buttonと`aria-pressed`、START／RESTART、決定的なstage sequence、common GOAL bell、`aria-live`のstage通知、reduced-motion、responsive camera、visibility時のphysics停止、WebGPUとWebGL 2 fallback
+- **対象ユーザー:** 身近な物の動きと、原因から結果へつながるWeb 3D作品を楽しみたい人
+- **再設計の理由:** 旧企画をPreview確認で不採用とし、初見で机上の連鎖だと理解できる、1コースの生活感ある作品へ再設計しました。
+- **舞台:** 夕方の子ども部屋の木製勉強机。壁、本棚、ノート、鉛筆立て、紙、文房具を背景に、装置を机上へ馴染ませています。
+- **連鎖:** 赤いビー玉が定規の坂を転がり、消しゴム、木製洗濯ばさみ、輪ゴム、鉛筆、7個の積み木、ミニカー、定規シーソー、青いビー玉、紙コップを順に動かし、最後に卓上ベルを鳴らします。
+- **物理と衝突:** 赤／青ビー玉、消しゴム、鉛筆、積み木、ミニカーをRapier dynamic bodyとして実装しました。斜面、机、定規、紙コップ壁は同じlayout定義からvisible geometryとcolliderを作り、stageは衝突sensorイベントでのみ進めます。
+- **主な機能:** START／RESTART、接触ごとのstage表示、GOALタグ、bell／flag／COMPLETE、native button、`aria-live`、reduced-motion、responsive camera、visibility／offscreen時の停止
+- **負荷設計:** WebGLRenderer、low-power、30fps active render、fixed 1/60 physics・最大2 substeps、desktop 1024／mobile 512 shadow map、DPR／約1.7M pixel上限、postprocessingなし、idle停止
 - **GitHub上のパス:** `app/works/10-kinetic-relay/`
 - **公開URL:** https://ai-build-challenge.vercel.app/works/10-kinetic-relay
-- **使用技術:** Next.js App Router、React、TypeScript、Three.js 0.185.1 `WebGPURenderer`、PBR `MeshPhysicalMaterial`、procedural studio environment、`@dimforge/rapier3d-compat` 0.19.3、CSS Modules、Vitest
-- **検証結果:** `npm run lint`（警告0・エラー0）、`npm run typecheck`、`npm run test`（33ファイル・386件）、`npm run build`、`git diff --check`に成功しました。`/works/10-kinetic-relay`の静的生成、OGPのPNG signature／1200×630、production serverからのHTTP 200も確認しています。
-- **ブラウザ確認:** production buildを再起動し、1440×900と390×844で初期READY、完成画面、selectorのA→B→C切替、START中のCOURSE／START無効化、HELIX／CLOCKWORK／ORBITのCOMPLETE、RESTART、reduced-motion環境でのCLOCKWORK 4/7進行を確認しました。390×844はdocument／body幅とも390pxで横スクロールなし、CLSはPerformanceObserverで0.0000012940457818930041、console error／warningは0件でした。
-- **実測パフォーマンス:** runtime triangles／draw calls等のdebug統計は主UIから削除し、作品の読みやすさを優先しました。品質プロファイルではshadow mapをdesktop 2048、mobile 768、drawing bufferをpixel ratio上限で制御しています。今回のproductionブラウザ確認では画面停止や操作不能は観測していませんが、GPUの長時間ベンチマーク値は未取得です。
-- **OGP:** 最終のproduction画面を1200×630 viewportで撮影し、`public/og/10-kinetic-relay.png`を更新しました。browser chromeや個人情報は含めず、一体型machine、selector、HELIX／CLOCKWORK／ORBIT、GOAL、compact UIを含めています。
-- **既知の制約:** ルート上のmarble挙動はRapierのdynamic bodyへguide impulseを与える決定的なstage制御を組み合わせています。実機タッチ／トラックパッド、OS設定の動的切替、WebGL 2 backend強制切替、長時間GPU負荷、Vercel Previewの実ページ表示はこの環境では未確認です。Rapierの接触や3D表示は通常ブラウザで確認済みですが、実機物理挙動までは保証しません。
-- **学んだこと:** 高密度な見た目と安定した完走性を両立するには、render geometryとphysics primitiveを分離し、selector・sequence・fixed timestep・camera shotを純粋ロジックとしてテストするのが有効です。
-- **Git:** 既存の`codex/work-10-kinetic-relay`／PR #13へ通常commitとpushを行い、auto-mergeは有効化しません。
-- **次回への改善点:** 実機入力、複数ブラウザのWebGL 2強制fallback、長時間GPU計測、各コースの連続完走を追加確認します。
+- **検証結果:** `npm run lint`、`npm run typecheck`、`npm run test`（29 files / 371 tests）、`npm run build`、`git diff --check` がすべて成功しました。production buildを`npx next start`で起動し、1440×900と390×844で初期表示・responsive camera・canvas寸法・横overflowなしを確認しました。metadataはproduction HTMLでtitle、description、canonical、本番OG image、`summary_large_image`を確認し、OGP画像は1200×630、local production serverでHTTP 200でした。
+- **連続完走:** production browserで同じ1コースを5回連続実行し、5回とも`COMPLETE — GOAL BELL RUNG`へ到達しました。実測の連鎖時間は約10秒で、依頼目安の18〜25秒より短い状態です。
+- **既知の制約:** CPU／GPU percentage、端末温度、実機タッチ、OS設定の動的切替、WebGL非対応環境、実数CLS、Vercel Preview保護下の実ページ表示は未確認です。visibility／offscreen停止、reduced-motion、keyboard操作はコード経路とDOM／CSS実装を確認しましたが、実機相当の手動切替は未実施です。
+- **学び:** 物理挙動を見せ球や曲線誘導で代替せず、機能物のtransform定義と衝突イベントを一つの設計境界へ揃えると、因果とレビュー可能性を両立しやすくなります。
 
 ### 作品09 本番後ホットフィックス（2026-08-08）
 

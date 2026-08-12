@@ -94,8 +94,8 @@ describe("works", () => {
   it("作品10を登録している", () => {
     expect(works[9]).toEqual({
       number: 10,
-      title: "KINETIC RELAY — Triple Route Marble Machine",
-      description: "3つのコースを機械式分岐器で切り替え、精密な3Dキネティックマシンの連鎖を楽しめるインタラクティブ作品です。",
+      title: "KINETIC RELAY — Desk Chain Reaction",
+      description: "夕方の子ども部屋の机で、ビー玉・文房具・積み木・ミニカーが卓上ベルまで役割を受け渡す3D連鎖装置です。",
       href: "/works/10-kinetic-relay",
     });
   });

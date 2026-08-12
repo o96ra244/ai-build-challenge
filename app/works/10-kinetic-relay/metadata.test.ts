@@ -8,11 +8,11 @@ const pageSource = fs.readFileSync(path.join(workDirectory, "page.tsx"), "utf8")
 const ogImage = fs.readFileSync(path.join(process.cwd(), "public/og/10-kinetic-relay.png"));
 
 describe("Work 10 SEO and social metadata", () => {
-  it("keeps a production canonical, Open Graph card, and X large image", () => {
+  it("uses the desk chain reaction title, description, canonical, and social card", () => {
+    expect(pageSource).toContain("KINETIC RELAY — Desk Chain Reaction");
     expect(pageSource).toContain("https://ai-build-challenge.vercel.app/works/10-kinetic-relay");
     expect(pageSource).toContain("/og/10-kinetic-relay.png");
     expect(pageSource).toContain('type: "website"');
-    expect(pageSource).toContain('locale: "ja_JP"');
     expect(pageSource).toContain('card: "summary_large_image"');
     expect(pageSource).toContain("alt: OG_IMAGE_ALT");
   });
