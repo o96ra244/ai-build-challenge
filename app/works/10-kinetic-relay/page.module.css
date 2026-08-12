@@ -1,0 +1,549 @@
+.experience {
+  position: relative;
+  min-height: 100dvh;
+  overflow: hidden;
+  isolation: isolate;
+  background: #080d14;
+  color: #eef3f4;
+}
+
+.canvasHost {
+  position: absolute;
+  inset: 0;
+  min-height: 100dvh;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 50% 44%, rgba(122, 156, 170, 0.22), transparent 30%),
+    linear-gradient(180deg, #1a2731 0%, #101922 46%, #080d14 100%);
+}
+
+.canvasHost canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  touch-action: pan-y pinch-zoom;
+}
+
+.loadingPanel,
+.errorPanel {
+  position: absolute;
+  z-index: 5;
+  top: 50%;
+  left: 50%;
+  display: flex;
+  gap: 0.7rem;
+  width: min(28rem, calc(100% - 2rem));
+  padding: 1rem 1.15rem;
+  transform: translate(-50%, -50%);
+  border: 1px solid rgba(235, 224, 200, 0.25);
+  background: rgba(7, 12, 18, 0.85);
+  box-shadow: 0 1.5rem 4rem rgba(0, 0, 0, 0.32);
+  color: #f1e7d3;
+  font-family: "SFMono-Regular", "Roboto Mono", Menlo, monospace;
+  font-size: 0.68rem;
+  letter-spacing: 0.13em;
+  backdrop-filter: blur(15px);
+}
+
+.loadingMark {
+  width: 0.66rem;
+  height: 0.66rem;
+  flex: 0 0 auto;
+  margin-top: 0.15rem;
+  border: 1px solid rgba(238, 225, 197, 0.35);
+  border-top-color: #e9b75e;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+.errorPanel {
+  flex-direction: column;
+  gap: 0.4rem;
+  line-height: 1.5;
+  letter-spacing: 0.04em;
+}
+
+.errorPanel strong {
+  color: #f3c985;
+  font-size: 0.78rem;
+}
+
+.errorPanel small {
+  color: #aab8be;
+  overflow-wrap: anywhere;
+}
+
+.uiLayer {
+  position: relative;
+  z-index: 2;
+  min-height: 100dvh;
+  padding: max(1.5rem, env(safe-area-inset-top)) max(2.25rem, env(safe-area-inset-right)) max(1.35rem, env(safe-area-inset-bottom)) max(2.25rem, env(safe-area-inset-left));
+  pointer-events: none;
+}
+
+.header,
+.topRight,
+.controlPanel,
+.statusPanel,
+.footer,
+.hint {
+  pointer-events: auto;
+}
+
+.header {
+  max-width: 31rem;
+}
+
+.workNumber,
+.panelHeading,
+.selectedLabel,
+.selectorStatus,
+.backendLabel,
+.indexLink,
+.statusKicker,
+.stageText,
+.completeText,
+.hint,
+.footer,
+.courseMaterial,
+.startButton,
+.restartButton {
+  font-family: "SFMono-Regular", "Roboto Mono", Menlo, monospace;
+}
+
+.workNumber {
+  margin: 0;
+  color: #adbfbe;
+  font-size: 0.61rem;
+  letter-spacing: 0.2em;
+}
+
+.workNumber span {
+  color: #667b82;
+}
+
+.header h1 {
+  margin: 0.88rem 0 0;
+  color: #f3f5f2;
+  font-size: clamp(1.75rem, 4.4vw, 3.3rem);
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  line-height: 0.96;
+}
+
+.header h1 span,
+.header h1 em {
+  display: block;
+}
+
+.header h1 em {
+  margin-top: 0.45rem;
+  color: #eab967;
+  font-size: 0.38em;
+  font-style: normal;
+  font-weight: 500;
+  letter-spacing: 0.2em;
+  line-height: 1.2;
+}
+
+.description {
+  max-width: 27rem;
+  margin: 1rem 0 0;
+  color: rgba(214, 228, 229, 0.7);
+  font-size: 0.75rem;
+  line-height: 1.65;
+}
+
+.topRight {
+  position: absolute;
+  top: max(1.5rem, env(safe-area-inset-top));
+  right: max(2.25rem, env(safe-area-inset-right));
+  display: grid;
+  justify-items: end;
+  gap: 1rem;
+}
+
+.backendLabel {
+  color: #8fa5aa;
+  font-size: 0.57rem;
+  letter-spacing: 0.12em;
+}
+
+.indexLink {
+  color: #cedbd7;
+  font-size: 0.59rem;
+  letter-spacing: 0.16em;
+  text-decoration: none;
+}
+
+.indexLink:hover {
+  color: #f2c479;
+}
+
+.controlPanel {
+  position: absolute;
+  bottom: max(1.35rem, env(safe-area-inset-bottom));
+  left: max(2.25rem, env(safe-area-inset-left));
+  width: min(32rem, calc(100% - 4.5rem));
+  padding: 0.85rem;
+  border: 1px solid rgba(226, 222, 202, 0.24);
+  background: linear-gradient(145deg, rgba(10, 18, 25, 0.92), rgba(13, 23, 29, 0.76));
+  box-shadow: 0 1.6rem 4rem rgba(0, 0, 0, 0.3), inset 0 1px rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(18px);
+}
+
+.panelHeading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.65rem;
+  color: #d9bc7d;
+  font-size: 0.58rem;
+  letter-spacing: 0.18em;
+}
+
+.selectorDot {
+  width: 0.4rem;
+  height: 0.4rem;
+  border: 1px solid #e8ba6c;
+  border-radius: 50%;
+  box-shadow: 0 0 0.7rem rgba(234, 185, 99, 0.72);
+}
+
+.courseButtons {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.42rem;
+}
+
+.courseButton {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-rows: auto auto;
+  column-gap: 0.6rem;
+  min-width: 0;
+  min-height: 4.35rem;
+  padding: 0.62rem 0.68rem;
+  border: 1px solid rgba(213, 224, 224, 0.2);
+  border-radius: 0.1rem;
+  background: rgba(18, 29, 36, 0.88);
+  color: #c8d5d4;
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 180ms ease, background 180ms ease, transform 180ms ease, color 180ms ease;
+}
+
+.courseButton:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--course-accent) 72%, white 28%);
+  color: #ffffff;
+  transform: translateY(-2px);
+}
+
+.courseButtonSelected {
+  border-color: var(--course-accent);
+  background: linear-gradient(145deg, rgba(75, 99, 105, 0.58), rgba(21, 35, 41, 0.92));
+  color: #f5f4e9;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06), 0 0 1rem color-mix(in srgb, var(--course-accent) 16%, transparent);
+}
+
+.courseLetter {
+  grid-row: 1 / span 2;
+  align-self: center;
+  color: var(--course-accent);
+  font-family: Georgia, serif;
+  font-size: 1.7rem;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.courseName {
+  overflow: hidden;
+  font-size: 0.69rem;
+  letter-spacing: 0.08em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.courseMaterial {
+  overflow: hidden;
+  margin-top: 0.18rem;
+  color: #8fa5a8;
+  font-size: 0.47rem;
+  letter-spacing: 0.08em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.courseButton:disabled,
+.startButton:disabled,
+.restartButton:disabled {
+  cursor: wait;
+  opacity: 0.48;
+}
+
+.selectedCourse {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: baseline;
+  gap: 0.65rem;
+  margin-top: 0.7rem;
+  padding-top: 0.65rem;
+  border-top: 1px solid rgba(213, 224, 224, 0.14);
+}
+
+.selectedLabel {
+  color: #869a9e;
+  font-size: 0.48rem;
+  letter-spacing: 0.12em;
+}
+
+.selectedCourse strong {
+  min-width: 0;
+  overflow: hidden;
+  color: #f2eee2;
+  font-size: 0.72rem;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.selectorStatus {
+  color: #d9bc7d;
+  font-size: 0.49rem;
+  letter-spacing: 0.1em;
+  white-space: nowrap;
+}
+
+.actionRow {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.68rem;
+}
+
+.startButton,
+.restartButton {
+  min-height: 2.75rem;
+  padding: 0.55rem 0.82rem;
+  border-radius: 0.08rem;
+  cursor: pointer;
+  font-size: 0.63rem;
+  letter-spacing: 0.15em;
+}
+
+.startButton {
+  flex: 1;
+  border: 1px solid #eaba68;
+  background: #eaba68;
+  color: #152028;
+  font-weight: 700;
+}
+
+.startButton:hover:not(:disabled) {
+  background: #f6d38d;
+}
+
+.restartButton {
+  border: 1px solid rgba(213, 224, 224, 0.35);
+  background: rgba(20, 33, 40, 0.78);
+  color: #d9e2dd;
+}
+
+.restartButton:hover:not(:disabled) {
+  border-color: #eaba68;
+  color: #f6d38d;
+}
+
+.statusPanel {
+  position: absolute;
+  top: 50%;
+  right: max(2.25rem, env(safe-area-inset-right));
+  width: 12.5rem;
+  transform: translateY(-50%);
+  padding: 0.9rem;
+  border-left: 1px solid rgba(234, 185, 99, 0.5);
+  background: linear-gradient(90deg, rgba(9, 15, 21, 0.1), rgba(9, 15, 21, 0.7));
+  pointer-events: none;
+}
+
+.statusKicker {
+  margin: 0;
+  color: #899fa4;
+  font-size: 0.5rem;
+  letter-spacing: 0.18em;
+}
+
+.statusText {
+  min-height: 2.6rem;
+  margin: 0.48rem 0 0;
+  color: #f1e5c9;
+  font-family: "SFMono-Regular", "Roboto Mono", Menlo, monospace;
+  font-size: 0.82rem;
+  letter-spacing: 0.08em;
+  line-height: 1.3;
+}
+
+.progressTrack {
+  height: 2px;
+  margin-top: 0.8rem;
+  background: rgba(222, 229, 218, 0.18);
+}
+
+.progressTrack span {
+  display: block;
+  height: 100%;
+  background: #eaba68;
+  transition: width 250ms ease;
+}
+
+.stageText,
+.completeText {
+  margin: 0.55rem 0 0;
+  color: #a9bcb9;
+  font-size: 0.52rem;
+  letter-spacing: 0.12em;
+}
+
+.completeText {
+  color: #eaba68;
+}
+
+.hint {
+  position: absolute;
+  right: max(2.25rem, env(safe-area-inset-right));
+  bottom: max(1.35rem, env(safe-area-inset-bottom));
+  margin: 0 0 0.3rem;
+  color: rgba(196, 212, 211, 0.62);
+  font-size: 0.51rem;
+  letter-spacing: 0.14em;
+}
+
+.footer {
+  position: absolute;
+  right: max(2.25rem, env(safe-area-inset-right));
+  bottom: max(0.8rem, env(safe-area-inset-bottom));
+  display: flex;
+  gap: 1rem;
+  color: rgba(143, 165, 168, 0.68);
+  font-size: 0.46rem;
+  letter-spacing: 0.12em;
+}
+
+.courseButton:focus-visible,
+.startButton:focus-visible,
+.restartButton:focus-visible,
+.indexLink:focus-visible {
+  outline: 2px solid #f5d391;
+  outline-offset: 4px;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (max-width: 900px) {
+  .statusPanel {
+    top: auto;
+    right: max(2.25rem, env(safe-area-inset-right));
+    bottom: 11.7rem;
+    transform: none;
+  }
+
+  .hint,
+  .footer {
+    display: none;
+  }
+}
+
+@media (max-width: 600px) {
+  .uiLayer {
+    padding-right: max(1rem, env(safe-area-inset-right));
+    padding-left: max(1rem, env(safe-area-inset-left));
+  }
+
+  .header {
+    max-width: 17rem;
+  }
+
+  .header h1 {
+    margin-top: 0.65rem;
+    font-size: clamp(1.35rem, 7.2vw, 2.1rem);
+  }
+
+  .header h1 em {
+    margin-top: 0.3rem;
+    font-size: 0.38em;
+    letter-spacing: 0.13em;
+  }
+
+  .description {
+    max-width: 17rem;
+    margin-top: 0.7rem;
+    font-size: 0.65rem;
+  }
+
+  .topRight {
+    top: max(1rem, env(safe-area-inset-top));
+    right: max(1rem, env(safe-area-inset-right));
+    gap: 0.65rem;
+  }
+
+  .controlPanel {
+    right: max(1rem, env(safe-area-inset-right));
+    bottom: max(1rem, env(safe-area-inset-bottom));
+    left: max(1rem, env(safe-area-inset-left));
+    width: auto;
+    padding: 0.65rem;
+  }
+
+  .courseButton {
+    min-height: 3.85rem;
+    padding: 0.45rem;
+  }
+
+  .courseLetter {
+    font-size: 1.35rem;
+  }
+
+  .courseName {
+    font-size: 0.58rem;
+  }
+
+  .courseMaterial {
+    font-size: 0.39rem;
+  }
+
+  .selectedCourse {
+    grid-template-columns: 1fr auto;
+    gap: 0.3rem;
+  }
+
+  .selectedLabel {
+    grid-column: 1 / -1;
+  }
+
+  .selectedCourse strong {
+    font-size: 0.63rem;
+  }
+
+  .statusPanel {
+    right: max(1rem, env(safe-area-inset-right));
+    bottom: 12.8rem;
+    width: 10.5rem;
+    padding: 0.65rem;
+  }
+
+  .statusText {
+    min-height: 2.2rem;
+    font-size: 0.68rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .courseButton,
+  .startButton,
+  .restartButton,
+  .progressTrack span {
+    transition-duration: 1ms;
+  }
+}

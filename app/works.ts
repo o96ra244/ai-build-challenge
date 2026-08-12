@@ -62,4 +62,10 @@ export const works: readonly Work[] = [
     description: "《考える人》へ光を当て、3つの照明モードで影と輪郭の変化を観察するインタラクティブ3D作品です。",
     href: "/works/09-thinker-light-study",
   },
+  {
+    number: 10,
+    title: "KINETIC RELAY — Triple Route Marble Machine",
+    description: "3つのコースを機械式分岐器で切り替え、精密な3Dキネティックマシンの連鎖を楽しめるインタラクティブ作品です。",
+    href: "/works/10-kinetic-relay",
+  },
 ];

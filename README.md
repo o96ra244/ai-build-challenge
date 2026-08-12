@@ -44,7 +44,7 @@ npm run dev
 
 ## 作品一覧
 
-現在の作品数: **9件**
+現在の作品数: **10件**
 
 ### 01 画像比率リサイズ計算機
 
@@ -122,6 +122,16 @@ SVG本体を変更せず、同じ内蔵アイコンまたは任意のSVGで12種
 - 主な機能: GALLERY／CHIAROSCURO／SPECTRUMの3照明モード、彫刻上のマウス移動・スマートフォンのタップによる主光源操作、native LIGHT POSITION開示によるキーボード操作、初回デバイス別ヒント、reduced-motion、WebGPUとWebGL 2のフォールバック
 - 使用技術: Three.js 0.185.1 `WebGPURenderer`、`MeshStandardNodeMaterial`、TSL、RenderPipelineの選択的Bloom、CSS Modules、Vitest
 - モデル素材: Wikimedia CommonsのScan the Worldによる《The Thinker》STLをローカルへ配置し、決定的な空間グリッド方式で約84万から約7万三角形へ削減したバイナリSTLを使用しています。画面内creditと [`/works/09-thinker-light-study/attribution`](app/works/09-thinker-light-study/attribution/page.tsx) から、出典・ライセンス・改変内容を確認できます。
+
+### 10 KINETIC RELAY — Triple Route Marble Machine
+
+1台の精密機械へ常設したHELIX、CLOCKWORK、ORBITの3コースを、中央の機械式ルートセレクターで切り替えます。選択後にSTARTすると、クローム・真鍮・ガラスの異なる連鎖機構をボールが進み、共通のゴールベルへ到達します。
+
+- GitHub上のパス: [`app/works/10-kinetic-relay/`](app/works/10-kinetic-relay/)
+- 公開先ルート: `/works/10-kinetic-relay`
+- 公開予定URL: https://ai-build-challenge.vercel.app/works/10-kinetic-relay
+- 主な機能: 3コース常設の高密度3D機械、unlock・slide・lockを伴うルートセレクター、HELIXのrocker／domino／hammer、CLOCKWORKのpendulum／実歯ギア／lift gate、ORBITのglass funnel／balance／suspended rail／turbine、共通GOALベル、RESTART、keyboard操作、reduced-motion、WebGPUとWebGL 2 fallback
+- 使用技術: Three.js 0.185.1 `WebGPURenderer`、`@dimforge/rapier3d-compat` 0.19.3、物理固定刻み1/60、CSS Modules、Vitest
 
 ## 公開URL
 
