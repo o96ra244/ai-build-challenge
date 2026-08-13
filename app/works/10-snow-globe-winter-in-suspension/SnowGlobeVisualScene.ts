@@ -6,7 +6,7 @@ import {
   addMesh,
   createBaseProfile,
   createBranchGeometry,
-  createFoliagePadGeometry,
+  createConiferBoughGeometry,
   createGableGeometry,
   createSlopedSlabGeometry,
   createSnowEaveGeometry,
@@ -29,6 +29,31 @@ type TreeSpec = {
   readonly tierCount: number;
   readonly seed: number;
   readonly hero?: boolean;
+};
+
+type SnowParticle = {
+  readonly position: THREE.Vector3;
+  readonly home: THREE.Vector3;
+  readonly velocity: THREE.Vector3;
+  readonly phase: number;
+  readonly size: number;
+  burstAge: number;
+  zoneIndex: number;
+  isBurst: boolean;
+};
+
+type GlitterParticle = {
+  readonly position: THREE.Vector3;
+  readonly phase: number;
+  readonly speed: number;
+  readonly size: number;
+};
+
+type AccumulationZone = {
+  readonly mesh: THREE.Mesh;
+  readonly anchor: THREE.Vector3;
+  readonly baseScale: THREE.Vector3;
+  amount: number;
 };
 
 function seededRandom(seed: number): () => number {
@@ -68,14 +93,54 @@ export class SnowGlobeVisualScene {
   private readonly scene = new THREE.Scene();
   private readonly camera = new THREE.PerspectiveCamera(33, 1, 0.1, 80);
   private readonly globeRoot = new THREE.Group();
+  private readonly motionRoot = new THREE.Group();
+  private readonly particleRoot = new THREE.Group();
   private readonly materials = createSnowGlobeMaterials();
   private readonly resizeObserver: ResizeObserver;
+  private readonly accumulationZones: AccumulationZone[] = [];
+  private readonly snowParticles: SnowParticle[] = [];
+  private readonly glitterParticles: GlitterParticle[] = [];
+  private readonly particleDummy = new THREE.Object3D();
+  private readonly glitterDummy = new THREE.Object3D();
+  private readonly pointerStart = new THREE.Vector2();
+  private readonly pointerLast = new THREE.Vector2();
+  private readonly pointerVelocity = new THREE.Vector2();
+  private snowMesh: THREE.InstancedMesh | null = null;
+  private glitterMesh: THREE.InstancedMesh | null = null;
   private renderer: WebGPURenderer | null = null;
   private disposed = false;
   private reducedMotion: boolean;
+  private animationRunning = false;
+  private lastFrameTime = 0;
+  private animationTime = 0;
+  private particleCount = 520;
+  private glitterCount = 88;
+  private pointerId: number | null = null;
+  private dragging = false;
+  private pointerMoved = false;
+  private dragStartedAt = 0;
+  private pointerLastTime = 0;
+  private worldYaw = 0;
+  private worldPitch = 0;
+  private worldYawVelocity = 0;
+  private worldPitchVelocity = 0;
+  private shakeElapsed = 0;
+  private shakeDuration = 0;
+  private shakeEnergy = 0;
+  private burstCursor = 0;
+  private readonly liquidOffset = new THREE.Vector3();
+  private readonly liquidVelocity = new THREE.Vector3();
+  private readonly inputImpulse = new THREE.Vector3();
+  private readonly effectRandom = seededRandom(0x51a9);
   private lastWidth = 1440;
   private lastHeight = 900;
   private readonly handleResize = (): void => this.resize();
+  private readonly handleAnimationFrame = (time: number): void => this.animate(time);
+  private readonly handlePointerDown = (event: PointerEvent): void => this.pointerDown(event);
+  private readonly handlePointerMove = (event: PointerEvent): void => this.pointerMove(event);
+  private readonly handlePointerUp = (event: PointerEvent): void => this.pointerUp(event);
+  private readonly handlePointerCancel = (event: PointerEvent): void => this.pointerCancel(event);
+  private readonly handleKeyDown = (event: KeyboardEvent): void => this.keyDown(event);
 
   public constructor(container: HTMLElement, reducedMotion: boolean) {
     this.container = container;
@@ -85,10 +150,14 @@ export class SnowGlobeVisualScene {
     this.scene.environmentIntensity = 0.48;
     this.scene.fog = new THREE.Fog(0x050608, 9, 22);
     this.scene.add(this.globeRoot);
+    this.globeRoot.add(this.motionRoot, this.particleRoot);
+    this.motionRoot.name = "interactive interior world";
+    this.particleRoot.name = "liquid lag particle field";
     this.buildBackdrop();
     this.buildLighting();
     this.buildBase();
     this.buildInterior();
+    this.buildParticles();
     this.buildGlass();
     this.resizeObserver = new ResizeObserver(this.handleResize);
   }
@@ -113,12 +182,22 @@ export class SnowGlobeVisualScene {
       renderer.domElement.style.display = "block";
       renderer.domElement.style.width = "100%";
       renderer.domElement.style.height = "100%";
+      renderer.domElement.style.touchAction = "none";
+      renderer.domElement.style.cursor = "grab";
+      renderer.domElement.addEventListener("pointerdown", this.handlePointerDown);
+      renderer.domElement.addEventListener("pointermove", this.handlePointerMove);
+      renderer.domElement.addEventListener("pointerup", this.handlePointerUp);
+      renderer.domElement.addEventListener("pointercancel", this.handlePointerCancel);
       this.container.appendChild(renderer.domElement);
       this.resizeObserver.observe(this.container);
       window.addEventListener("resize", this.handleResize, { passive: true });
+      window.addEventListener("keydown", this.handleKeyDown);
       document.addEventListener("visibilitychange", this.handleVisibility, { passive: true });
       this.resize();
       this.renderOnce();
+      if (!this.reducedMotion) {
+        this.startAnimationLoop();
+      }
       return { ready: true };
     } catch (error: unknown) {
       return {
@@ -130,9 +209,16 @@ export class SnowGlobeVisualScene {
 
   public setReducedMotion(enabled: boolean): void {
     this.reducedMotion = enabled;
-    if (this.renderer && this.reducedMotion) {
+    if (this.reducedMotion && this.shakeElapsed <= 0 && !this.dragging) {
+      this.stopAnimationLoop();
       this.renderOnce();
+      return;
     }
+    this.startAnimationLoop();
+  }
+
+  public shake(): void {
+    this.beginShake(new THREE.Vector3(0.84, 0.48, 0.22));
   }
 
   public dispose(): void {
@@ -140,11 +226,16 @@ export class SnowGlobeVisualScene {
       return;
     }
     this.disposed = true;
+    this.stopAnimationLoop();
     this.resizeObserver.disconnect();
     window.removeEventListener("resize", this.handleResize);
+    window.removeEventListener("keydown", this.handleKeyDown);
     document.removeEventListener("visibilitychange", this.handleVisibility);
     const renderer = this.renderer;
-    renderer?.setAnimationLoop(null);
+    renderer?.domElement.removeEventListener("pointerdown", this.handlePointerDown);
+    renderer?.domElement.removeEventListener("pointermove", this.handlePointerMove);
+    renderer?.domElement.removeEventListener("pointerup", this.handlePointerUp);
+    renderer?.domElement.removeEventListener("pointercancel", this.handlePointerCancel);
     if (renderer?.domElement.parentElement === this.container) {
       this.container.removeChild(renderer.domElement);
     }
@@ -154,8 +245,16 @@ export class SnowGlobeVisualScene {
   }
 
   private readonly handleVisibility = (): void => {
-    if (!this.disposed && document.visibilityState === "visible") {
-      this.renderOnce();
+    if (this.disposed || !this.renderer) {
+      return;
+    }
+    if (document.visibilityState === "hidden") {
+      this.stopAnimationLoop();
+      return;
+    }
+    this.renderOnce();
+    if (!this.reducedMotion || this.shakeElapsed > 0 || this.dragging) {
+      this.startAnimationLoop();
     }
   };
 
@@ -265,7 +364,7 @@ export class SnowGlobeVisualScene {
 
   private buildInterior(): void {
     const terrain = markShadow(
-      addMesh(this.globeRoot, createTerrainGeometry(2.8), this.materials.snow, [0, 0, 0]),
+      addMesh(this.motionRoot, createTerrainGeometry(2.8), this.materials.snow, [0, 0, 0]),
       false,
       true,
     );
@@ -273,7 +372,7 @@ export class SnowGlobeVisualScene {
 
     const rearMound = markShadow(
       addMesh(
-        this.globeRoot,
+        this.motionRoot,
         createSnowMoundGeometry(),
         this.materials.snowShadow,
         [0.05, 1.0, -1.33],
@@ -285,7 +384,7 @@ export class SnowGlobeVisualScene {
 
     const foregroundMound = markShadow(
       addMesh(
-        this.globeRoot,
+        this.motionRoot,
         createSnowMoundGeometry(),
         this.materials.snowShadow,
         [-0.08, 1.0, 0.56],
@@ -295,9 +394,26 @@ export class SnowGlobeVisualScene {
     );
     foregroundMound.scale.set(1.22, 0.2, 0.55);
 
+    const groundSnowZones = [
+      { position: [-0.96, 1.1, 0.58] as const, scale: [0.62, 0.05, 0.24] as const, rotation: 0.12 },
+      { position: [0.86, 1.1, 0.48] as const, scale: [0.52, 0.045, 0.2] as const, rotation: -0.32 },
+      { position: [0.34, 1.16, -1.08] as const, scale: [0.74, 0.05, 0.22] as const, rotation: 0.58 },
+    ];
+    groundSnowZones.forEach(({ position, scale, rotation }) => {
+      const patch = markShadow(
+        addMesh(this.motionRoot, createSnowPatchGeometry(), this.materials.snow, position),
+        false,
+        true,
+      );
+      patch.name = "localized ground snow accumulation";
+      patch.scale.set(scale[0], scale[1], scale[2]);
+      patch.rotation.y = rotation;
+      this.registerAccumulation(patch);
+    });
+
     const cabin = new THREE.Group();
     cabin.position.set(-0.58, 1.03, 0.16);
-    this.globeRoot.add(cabin);
+    this.motionRoot.add(cabin);
     this.buildCabin(cabin);
 
     this.buildTree({
@@ -335,7 +451,7 @@ export class SnowGlobeVisualScene {
     ] as const;
     suspendedSnow.forEach(([x, y, z, size]) => {
       const fleck = addMesh(
-        this.globeRoot,
+        this.motionRoot,
         new THREE.IcosahedronGeometry(size, 1),
         this.materials.snow,
         [x, y, z],
@@ -344,6 +460,444 @@ export class SnowGlobeVisualScene {
       fleck.castShadow = false;
       fleck.receiveShadow = false;
     });
+  }
+
+  private registerAccumulation(mesh: THREE.Mesh): void {
+    const anchor = mesh.getWorldPosition(new THREE.Vector3());
+    this.globeRoot.worldToLocal(anchor);
+    this.accumulationZones.push({
+      mesh,
+      anchor,
+      baseScale: mesh.scale.clone(),
+      amount: 1,
+    });
+  }
+
+  private buildParticles(): void {
+    const random = seededRandom(0x7a11);
+    const snowMesh = new THREE.InstancedMesh(
+      new THREE.IcosahedronGeometry(1, 1),
+      this.materials.particleSnow,
+      420,
+    );
+    snowMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    snowMesh.frustumCulled = false;
+    snowMesh.renderOrder = 4;
+    this.snowMesh = snowMesh;
+    this.particleRoot.add(snowMesh);
+
+    for (let index = 0; index < 420; index += 1) {
+      const position = new THREE.Vector3(
+        (random() - 0.5) * 3.55,
+        1.34 + random() * 3.58,
+        (random() - 0.5) * 3.0,
+      );
+      this.snowParticles.push({
+        position,
+        home: position.clone(),
+        velocity: new THREE.Vector3((random() - 0.5) * 0.035, -0.02 - random() * 0.045, (random() - 0.5) * 0.035),
+        phase: random() * Math.PI * 2,
+        size: 0.011 + random() * 0.018 + (random() > 0.86 ? 0.014 : 0),
+        burstAge: 0,
+        zoneIndex: -1,
+        isBurst: false,
+      });
+    }
+
+    const glitterMesh = new THREE.InstancedMesh(
+      new THREE.OctahedronGeometry(1, 0),
+      this.materials.glitter,
+      88,
+    );
+    glitterMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    glitterMesh.frustumCulled = false;
+    glitterMesh.renderOrder = 6;
+    this.glitterMesh = glitterMesh;
+    this.particleRoot.add(glitterMesh);
+
+    for (let index = 0; index < 88; index += 1) {
+      this.glitterParticles.push({
+        position: new THREE.Vector3(
+          (random() - 0.5) * 3.7,
+          1.52 + random() * 3.5,
+          (random() - 0.5) * 3.1,
+        ),
+        phase: random() * Math.PI * 2,
+        speed: 0.42 + random() * 1.2,
+        size: 0.012 + random() * 0.018,
+      });
+    }
+
+    this.setParticleQuality(this.lastWidth);
+    this.updateParticleMatrices(0);
+  }
+
+  private setParticleQuality(width: number): void {
+    const mobile = width < 640;
+    const compact = width < 1100;
+    this.particleCount = mobile ? 180 : compact ? 270 : 420;
+    this.glitterCount = mobile ? 34 : compact ? 58 : 88;
+    if (this.snowMesh) {
+      this.snowMesh.count = this.particleCount;
+    }
+    if (this.glitterMesh) {
+      this.glitterMesh.count = this.glitterCount;
+    }
+  }
+
+  private startAnimationLoop(): void {
+    if (!this.renderer || this.disposed || this.animationRunning) {
+      return;
+    }
+    this.animationRunning = true;
+    this.lastFrameTime = 0;
+    this.renderer.setAnimationLoop(this.handleAnimationFrame);
+  }
+
+  private stopAnimationLoop(): void {
+    if (!this.animationRunning) {
+      return;
+    }
+    this.renderer?.setAnimationLoop(null);
+    this.animationRunning = false;
+    this.lastFrameTime = 0;
+  }
+
+  private animate(time: number): void {
+    if (!this.renderer || this.disposed) {
+      return;
+    }
+    const delta = this.lastFrameTime === 0
+      ? 1 / 60
+      : THREE.MathUtils.clamp((time - this.lastFrameTime) / 1000, 0.001, 0.05);
+    this.lastFrameTime = time;
+    this.animationTime += delta;
+    this.updateMotion(delta);
+    this.updateSnowParticles(delta, this.animationTime);
+    this.updateAccumulation();
+    this.updateParticleMatrices(this.animationTime);
+    this.renderOnce();
+
+    if (
+      this.reducedMotion
+      && this.shakeElapsed <= 0
+      && !this.dragging
+      && Math.abs(this.worldYawVelocity) < 0.004
+      && Math.abs(this.worldPitchVelocity) < 0.004
+    ) {
+      this.stopAnimationLoop();
+      this.renderOnce();
+    }
+  }
+
+  private updateMotion(delta: number): void {
+    if (!this.dragging) {
+      this.worldYaw += this.worldYawVelocity * delta;
+      this.worldPitch = THREE.MathUtils.clamp(
+        this.worldPitch + this.worldPitchVelocity * delta,
+        -0.24,
+        0.24,
+      );
+      const damping = Math.exp(-(this.reducedMotion ? 8.5 : 2.8) * delta);
+      this.worldYawVelocity *= damping;
+      this.worldPitchVelocity *= damping;
+    }
+    this.worldYaw = THREE.MathUtils.clamp(this.worldYaw, -0.58, 0.58);
+
+    const impulseDamping = Math.exp(-(this.reducedMotion ? 6.4 : 3.6) * delta);
+    this.inputImpulse.multiplyScalar(impulseDamping);
+    const liquidTarget = new THREE.Vector3(
+      this.inputImpulse.x * 0.42,
+      this.inputImpulse.y * 0.28,
+      -this.inputImpulse.x * 0.16,
+    );
+    this.liquidVelocity.lerp(liquidTarget, 1 - Math.exp(-3.2 * delta));
+    this.liquidOffset.addScaledVector(this.liquidVelocity, delta);
+    this.liquidOffset.multiplyScalar(Math.exp(-1.25 * delta));
+    this.particleRoot.position.set(
+      this.liquidOffset.x * 0.18,
+      THREE.MathUtils.clamp(this.liquidOffset.y * 0.12, -0.015, 0.025),
+      this.liquidOffset.z * 0.12,
+    );
+    this.particleRoot.rotation.set(
+      this.liquidOffset.y * 0.08,
+      this.liquidOffset.x * 0.06,
+      this.liquidOffset.x * 0.11,
+    );
+
+    let shakeX = 0;
+    let shakeY = 0;
+    let shakeZ = 0;
+    if (this.shakeDuration > 0) {
+      this.shakeElapsed += delta;
+      const progress = THREE.MathUtils.clamp(this.shakeElapsed / this.shakeDuration, 0, 1);
+      const envelope = Math.sin(Math.PI * progress) ** 0.72 * (1 - progress * 0.52) * this.shakeEnergy;
+      const phase = progress * Math.PI * 9;
+      shakeX = Math.sin(phase * 1.08) * envelope * 0.085;
+      shakeY = Math.sin(phase * 0.92 + 0.7) * envelope * 0.13;
+      shakeZ = Math.cos(phase * 0.84) * envelope * 0.065;
+      if (progress >= 1) {
+        this.shakeElapsed = 0;
+        this.shakeDuration = 0;
+        this.shakeEnergy = 0;
+      }
+    }
+    this.motionRoot.rotation.set(this.worldPitch + shakeX, this.worldYaw + shakeY, shakeZ);
+  }
+
+  private updateSnowParticles(delta: number, time: number): void {
+    const boundaryX = 2.02;
+    const boundaryZ = 1.72;
+    const ceiling = 5.16;
+    const floor = 1.24;
+    const gravity = this.reducedMotion ? 0.42 : 0.88;
+    const flowX = this.liquidVelocity.x * 0.52;
+    const flowZ = this.liquidVelocity.z * 0.52;
+
+    for (let index = 0; index < this.particleCount; index += 1) {
+      const particle = this.snowParticles[index];
+      if (particle.isBurst) {
+        particle.burstAge += delta;
+        particle.velocity.y -= gravity * 1.9 * delta;
+        particle.velocity.x += flowX * delta;
+        particle.velocity.z += flowZ * delta;
+        particle.velocity.multiplyScalar(Math.exp(-0.18 * delta));
+        particle.position.addScaledVector(particle.velocity, delta);
+        if (particle.position.y <= floor || particle.burstAge >= 1.9) {
+          if (particle.zoneIndex >= 0 && particle.zoneIndex < this.accumulationZones.length) {
+            this.accumulationZones[particle.zoneIndex].amount = Math.min(
+              1,
+              this.accumulationZones[particle.zoneIndex].amount + 0.1,
+            );
+          }
+          particle.position.copy(particle.home);
+          particle.velocity.set(0, -0.02, 0);
+          particle.zoneIndex = -1;
+          particle.isBurst = false;
+          particle.burstAge = 0;
+        }
+        continue;
+      }
+
+      const driftX = Math.sin(time * 0.72 + particle.phase) * 0.012;
+      const driftZ = Math.cos(time * 0.54 + particle.phase * 1.13) * 0.011;
+      particle.velocity.x += (flowX + driftX - particle.velocity.x * 0.72) * delta;
+      particle.velocity.z += (flowZ + driftZ - particle.velocity.z * 0.72) * delta;
+      particle.velocity.y += (-0.018 - particle.velocity.y * 0.32) * delta;
+      particle.position.addScaledVector(particle.velocity, delta);
+
+      if (particle.position.y < floor) {
+        particle.position.y = ceiling;
+        particle.position.x += Math.sin(particle.phase) * 0.12;
+        particle.position.z += Math.cos(particle.phase) * 0.1;
+        particle.velocity.y = -0.018;
+      }
+      if (particle.position.x > boundaryX || particle.position.x < -boundaryX) {
+        particle.position.x = THREE.MathUtils.clamp(particle.position.x, -boundaryX, boundaryX);
+        particle.velocity.x *= -0.48;
+      }
+      if (particle.position.z > boundaryZ || particle.position.z < -boundaryZ) {
+        particle.position.z = THREE.MathUtils.clamp(particle.position.z, -boundaryZ, boundaryZ);
+        particle.velocity.z *= -0.48;
+      }
+      const normalizedHeight = (particle.position.y - 3.16) / 2.26;
+      const horizontalLimit = Math.sqrt(Math.max(0.06, 1 - normalizedHeight ** 2)) * 2.12;
+      const horizontalLength = Math.hypot(particle.position.x, particle.position.z);
+      if (horizontalLength > horizontalLimit) {
+        const horizontalScale = horizontalLimit / horizontalLength;
+        particle.position.x *= horizontalScale;
+        particle.position.z *= horizontalScale;
+        particle.velocity.x *= -0.42;
+        particle.velocity.z *= -0.42;
+      }
+    }
+  }
+
+  private updateParticleMatrices(time: number): void {
+    if (this.snowMesh) {
+      for (let index = 0; index < this.particleCount; index += 1) {
+        const particle = this.snowParticles[index];
+        const scale = particle.size * (particle.isBurst ? 1.34 : 1);
+        this.particleDummy.position.copy(particle.position);
+        this.particleDummy.rotation.set(
+          time * (0.28 + particle.phase * 0.02),
+          time * (0.18 + particle.phase * 0.01),
+          particle.phase,
+        );
+        this.particleDummy.scale.setScalar(scale);
+        this.particleDummy.updateMatrix();
+        this.snowMesh.setMatrixAt(index, this.particleDummy.matrix);
+      }
+      this.snowMesh.instanceMatrix.needsUpdate = true;
+    }
+
+    if (this.glitterMesh) {
+      const heroPulse = this.shakeDuration > 0
+        ? Math.exp(-((this.shakeElapsed - 0.48) ** 2) / 0.018) * this.shakeEnergy
+        : 0;
+      this.materials.glitter.opacity = 0.3 + heroPulse * 0.18;
+      for (let index = 0; index < this.glitterCount; index += 1) {
+        const glitter = this.glitterParticles[index];
+        const pulse = Math.max(0, Math.sin(time * glitter.speed + glitter.phase));
+        const glint = pulse ** 12;
+        const scale = glitter.size * (0.26 + glint * (1.15 + heroPulse * 1.4));
+        this.glitterDummy.position.copy(glitter.position);
+        this.glitterDummy.rotation.set(0, 0, glitter.phase + time * glitter.speed * 0.16);
+        this.glitterDummy.scale.setScalar(scale);
+        this.glitterDummy.updateMatrix();
+        this.glitterMesh.setMatrixAt(index, this.glitterDummy.matrix);
+      }
+      this.glitterMesh.instanceMatrix.needsUpdate = true;
+    }
+  }
+
+  private updateAccumulation(): void {
+    this.accumulationZones.forEach((zone) => {
+      const amount = THREE.MathUtils.clamp(zone.amount, 0.04, 1);
+      zone.mesh.visible = amount > 0.045;
+      zone.mesh.scale.set(
+        zone.baseScale.x,
+        zone.baseScale.y * amount,
+        zone.baseScale.z,
+      );
+    });
+  }
+
+  private beginShake(impulse: THREE.Vector3): void {
+    if (this.disposed) {
+      return;
+    }
+    this.shakeElapsed = 0;
+    this.shakeDuration = this.reducedMotion ? 0.95 : 2.6;
+    this.shakeEnergy = THREE.MathUtils.clamp(this.shakeEnergy + impulse.length() * 0.58, 0.72, 1.45);
+    this.inputImpulse.add(impulse);
+    this.worldYawVelocity += impulse.x * 0.12;
+    this.worldPitchVelocity -= impulse.y * 0.075;
+    this.releaseAccumulation();
+    this.startAnimationLoop();
+  }
+
+  private releaseAccumulation(): void {
+    if (this.accumulationZones.length === 0 || this.snowParticles.length === 0) {
+      return;
+    }
+    this.accumulationZones.forEach((zone, zoneIndex) => {
+      zone.amount *= 0.52 + this.effectRandom() * 0.12;
+      for (let release = 0; release < 2; release += 1) {
+        let particle = this.snowParticles[this.burstCursor % this.snowParticles.length];
+        this.burstCursor += 1;
+        for (let attempt = 0; attempt < this.snowParticles.length && particle.isBurst; attempt += 1) {
+          particle = this.snowParticles[this.burstCursor % this.snowParticles.length];
+          this.burstCursor += 1;
+        }
+        particle.position.copy(zone.anchor);
+        particle.position.x += (this.effectRandom() - 0.5) * 0.22;
+        particle.position.y += (this.effectRandom() - 0.5) * 0.12;
+        particle.position.z += (this.effectRandom() - 0.5) * 0.18;
+        particle.velocity.set(
+          (this.effectRandom() - 0.5) * 0.48 + this.inputImpulse.x * 0.3,
+          0.8 + this.effectRandom() * 0.9,
+          (this.effectRandom() - 0.5) * 0.42 + this.inputImpulse.z * 0.2,
+        );
+        particle.zoneIndex = zoneIndex;
+        particle.burstAge = 0;
+        particle.isBurst = true;
+      }
+    });
+  }
+
+  private pointerDown(event: PointerEvent): void {
+    if (this.disposed || this.pointerId !== null) {
+      return;
+    }
+    this.pointerId = event.pointerId;
+    this.dragging = true;
+    this.pointerMoved = false;
+    this.dragStartedAt = performance.now();
+    this.pointerLastTime = this.dragStartedAt;
+    this.pointerStart.set(event.clientX, event.clientY);
+    this.pointerLast.copy(this.pointerStart);
+    this.pointerVelocity.set(0, 0);
+    this.renderer?.domElement.setPointerCapture(event.pointerId);
+    this.renderer?.domElement.style.setProperty("cursor", "grabbing");
+    this.startAnimationLoop();
+  }
+
+  private pointerMove(event: PointerEvent): void {
+    if (!this.dragging || this.pointerId !== event.pointerId) {
+      return;
+    }
+    const now = performance.now();
+    const deltaSeconds = Math.max(0.008, (now - this.pointerLastTime) / 1000);
+    this.pointerLastTime = now;
+    const deltaX = event.clientX - this.pointerLast.x;
+    const deltaY = event.clientY - this.pointerLast.y;
+    this.pointerLast.set(event.clientX, event.clientY);
+    this.pointerVelocity.set(deltaX / deltaSeconds, deltaY / deltaSeconds);
+    if (this.pointerStart.distanceTo(this.pointerLast) > 5) {
+      this.pointerMoved = true;
+    }
+    this.worldYaw = THREE.MathUtils.clamp(this.worldYaw + deltaX * 0.0018, -0.58, 0.58);
+    this.worldPitch = THREE.MathUtils.clamp(this.worldPitch - deltaY * 0.0016, -0.16, 0.16);
+    this.worldYawVelocity = this.pointerVelocity.x * 0.00042;
+    this.worldPitchVelocity = -this.pointerVelocity.y * 0.00028;
+    this.inputImpulse.x += deltaX * 0.0012;
+    this.inputImpulse.y -= deltaY * 0.0008;
+    this.startAnimationLoop();
+  }
+
+  private pointerUp(event: PointerEvent): void {
+    if (this.pointerId !== event.pointerId) {
+      return;
+    }
+    const speed = this.pointerVelocity.length();
+    const duration = performance.now() - this.dragStartedAt;
+    const impulse = new THREE.Vector3(
+      THREE.MathUtils.clamp(this.pointerVelocity.x * 0.00165, -1.2, 1.2),
+      THREE.MathUtils.clamp(-this.pointerVelocity.y * 0.00125, -0.85, 0.85),
+      THREE.MathUtils.clamp(Math.abs(this.pointerVelocity.x) * 0.00042, 0, 0.32),
+    );
+    this.dragging = false;
+    this.pointerId = null;
+    const element = this.renderer?.domElement;
+    if (element?.hasPointerCapture(event.pointerId)) {
+      element.releasePointerCapture(event.pointerId);
+    }
+    this.renderer?.domElement.style.setProperty("cursor", "grab");
+    if (!this.pointerMoved || (speed < 70 && duration < 420)) {
+      this.beginShake(new THREE.Vector3(0.84, 0.48, 0.22));
+    } else if (speed > 260) {
+      this.beginShake(impulse);
+    } else {
+      this.startAnimationLoop();
+    }
+  }
+
+  private pointerCancel(event: PointerEvent): void {
+    if (this.pointerId !== event.pointerId) {
+      return;
+    }
+    this.dragging = false;
+    this.pointerId = null;
+    this.renderer?.domElement.style.setProperty("cursor", "grab");
+    this.startAnimationLoop();
+  }
+
+  private keyDown(event: KeyboardEvent): void {
+    if (event.target instanceof HTMLButtonElement) {
+      return;
+    }
+    if (event.code === "Space") {
+      event.preventDefault();
+      this.shake();
+      return;
+    }
+    if (event.code === "ArrowLeft" || event.code === "ArrowRight") {
+      event.preventDefault();
+      this.worldYaw += event.code === "ArrowLeft" ? -0.075 : 0.075;
+      this.worldYawVelocity = event.code === "ArrowLeft" ? -0.03 : 0.03;
+      this.startAnimationLoop();
+    }
   }
 
   private buildCabin(cabin: THREE.Group): void {
@@ -481,6 +1035,8 @@ export class SnowGlobeVisualScene {
     );
     leftSnow.name = "drifted left roof snow";
     rightSnow.name = "drifted right roof snow";
+    this.registerAccumulation(leftSnow);
+    this.registerAccumulation(rightSnow);
 
     [-1, 1].forEach((side) => {
       const eave = addBox(cabin, this.materials.cabinWoodDark, [0.09, 0.11, 1.48], [side * 0.93, 1.11, 0]);
@@ -546,7 +1102,7 @@ export class SnowGlobeVisualScene {
   private buildTree(spec: TreeSpec): void {
     const tree = new THREE.Group();
     tree.position.copy(spec.position);
-    this.globeRoot.add(tree);
+    this.motionRoot.add(tree);
     const random = seededRandom(spec.seed);
     const trunkHeight = spec.height * 0.83;
     const trunk = markShadow(
@@ -556,8 +1112,6 @@ export class SnowGlobeVisualScene {
     );
     trunk.name = spec.hero ? "hero tapered trunk" : "secondary tapered trunk";
 
-    const foliageGeometry = createFoliagePadGeometry();
-    const snowGeometry = createSnowPatchGeometry();
     for (let tier = 0; tier < spec.tierCount; tier += 1) {
       const progress = tier / Math.max(1, spec.tierCount - 1);
       const y = spec.height * (0.16 + progress * 0.68);
@@ -584,27 +1138,58 @@ export class SnowGlobeVisualScene {
         );
         branch.name = "irregular radial bough";
 
-        const padPosition = start.clone().addScaledVector(direction.normalize(), branchLength * 0.56);
-        padPosition.y -= 0.04 + progress * 0.03;
-        const foliagePad = markShadow(addMesh(tree, foliageGeometry.clone(), spec.material, padPosition), true, true);
-        foliagePad.scale.set(branchLength * 0.44, 0.105 + (1 - progress) * 0.035, 0.16 + (1 - progress) * 0.045);
-        foliagePad.rotation.y = angle;
-        foliagePad.rotation.z = (random() - 0.5) * 0.34;
+        const boughWidth = tierWidth * (0.32 - progress * 0.11);
+        const boughRotation = new THREE.Euler(
+          0,
+          angle,
+          -0.08 - progress * 0.13 + (random() - 0.5) * 0.045,
+        );
+        const foliageBough = markShadow(
+          addMesh(
+            tree,
+            createConiferBoughGeometry(branchLength, boughWidth, 0.16 - progress * 0.045),
+            spec.material,
+            start,
+          ),
+          true,
+          true,
+        );
+        foliageBough.name = "layered conifer bough";
+        foliageBough.rotation.copy(boughRotation);
 
-        const tipPosition = start.clone().addScaledVector(direction.normalize(), branchLength * 0.84);
-        tipPosition.y -= 0.065 + progress * 0.035;
-        const foliageTip = markShadow(addMesh(tree, foliageGeometry.clone(), spec.material, tipPosition), true, true);
-        foliageTip.scale.set(branchLength * 0.22, 0.075 + (1 - progress) * 0.025, 0.11 + (1 - progress) * 0.03);
-        foliageTip.rotation.y = angle + (random() - 0.5) * 0.22;
-        foliageTip.rotation.z = (random() - 0.5) * 0.42;
+        const tipPosition = start.clone().addScaledVector(direction.normalize(), branchLength * 0.52);
+        tipPosition.y -= 0.04 + progress * 0.035;
+        const foliageTip = markShadow(
+          addMesh(
+            tree,
+            createConiferBoughGeometry(branchLength * 0.48, boughWidth * 0.44, 0.1),
+            spec.material,
+            tipPosition,
+          ),
+          true,
+          true,
+        );
+        foliageTip.name = "pointed conifer tip bough";
+        foliageTip.rotation.copy(boughRotation);
+        foliageTip.rotation.z -= 0.035;
 
         if (random() > (spec.hero ? 0.48 : 0.58) && tier < spec.tierCount - 1) {
-          const snowPosition = padPosition.clone();
-          snowPosition.y += 0.12 + random() * 0.045;
-          const snowPatch = markShadow(addMesh(tree, snowGeometry.clone(), this.materials.snow, snowPosition), false, true);
-          snowPatch.scale.set(branchLength * 0.17, 0.045 + random() * 0.016, 0.09 + random() * 0.028);
-          snowPatch.rotation.y = angle;
-          snowPatch.rotation.z = (random() - 0.5) * 0.16;
+          const snowPosition = start.clone().addScaledVector(direction.normalize(), branchLength * 0.18);
+          snowPosition.y += boughWidth * 0.18 + random() * 0.025;
+          const snowPatch = markShadow(
+            addMesh(
+              tree,
+              createConiferBoughGeometry(branchLength * 0.58, boughWidth * 0.34, 0.065),
+              this.materials.snow,
+              snowPosition,
+            ),
+            false,
+            true,
+          );
+          snowPatch.name = "snow resting on conifer bough";
+          snowPatch.rotation.copy(boughRotation);
+          snowPatch.rotation.z -= 0.02;
+          this.registerAccumulation(snowPatch);
         }
 
         if (tier > 1 && branchIndex % (spec.hero ? 2 : 3) === 0) {
@@ -622,17 +1207,30 @@ export class SnowGlobeVisualScene {
     }
 
     const crown = markShadow(
-      addMesh(tree, new THREE.IcosahedronGeometry(0.22, 1), spec.material, [0, spec.height * 0.84, 0]),
+      addMesh(
+        tree,
+        createConiferBoughGeometry(spec.width * 0.26, spec.width * 0.16, 0.12),
+        spec.material,
+        [0, spec.height * 0.84, 0],
+      ),
       true,
       true,
     );
-    crown.scale.set(0.74, 1.42, 0.74);
+    crown.name = "pointed conifer crown";
+    crown.rotation.set(0, random() * Math.PI * 2, -0.22);
     const crownSnow = markShadow(
-      addMesh(tree, new THREE.IcosahedronGeometry(0.2, 1), this.materials.snow, [0, spec.height * 0.88, 0.01]),
+      addMesh(
+        tree,
+        createConiferBoughGeometry(spec.width * 0.16, spec.width * 0.08, 0.065),
+        this.materials.snow,
+        [0, spec.height * 0.88, 0.01],
+      ),
       false,
       true,
     );
-    crownSnow.scale.set(0.38, 0.26, 0.34);
+    crownSnow.name = "snow on pointed crown";
+    crownSnow.rotation.copy(crown.rotation);
+    this.registerAccumulation(crownSnow);
 
     const rootMound = markShadow(
       addMesh(tree, createSnowMoundGeometry(), this.materials.snowShadow, [0, 0.035, 0]),
@@ -672,6 +1270,7 @@ export class SnowGlobeVisualScene {
     const height = Math.max(1, this.container.clientHeight);
     this.lastWidth = width;
     this.lastHeight = height;
+    this.setParticleQuality(width);
     this.configureCamera(width, height);
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.7));
     this.renderer.setSize(width, height, false);
@@ -682,17 +1281,17 @@ export class SnowGlobeVisualScene {
     const mobile = width < 640;
     const crop = height < 720 && width / height > 1.35;
     if (mobile) {
-      this.camera.fov = 31;
-      this.camera.position.set(4.75, 4.95, 15.45);
-      this.globeRoot.scale.setScalar(0.78);
-      this.globeRoot.position.set(0, 0.12, 0);
-      this.camera.lookAt(0, 2.75, 0);
+      this.camera.fov = 32;
+      this.camera.position.set(4.9, 5.05, 16.15);
+      this.globeRoot.scale.setScalar(0.72);
+      this.globeRoot.position.set(-0.06, 0.1, 0);
+      this.camera.lookAt(-0.06, 2.75, 0);
     } else {
-      this.camera.fov = crop ? 31.2 : 33;
-      this.camera.position.set(6.45, 5.1, 12.85);
-      this.globeRoot.scale.setScalar(1);
-      this.globeRoot.position.set(0.2, 0, 0);
-      this.camera.lookAt(0.2, 2.78, 0);
+      this.camera.fov = crop ? 32.2 : 33.4;
+      this.camera.position.set(6.6, 5.18, 13.25);
+      this.globeRoot.scale.setScalar(crop ? 0.88 : 0.93);
+      this.globeRoot.position.set(crop ? 0.04 : 0.08, 0, 0);
+      this.camera.lookAt(crop ? 0.04 : 0.08, 2.78, 0);
     }
     this.camera.aspect = width / height;
     this.camera.updateProjectionMatrix();

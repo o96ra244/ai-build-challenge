@@ -68,7 +68,7 @@ export function SnowGlobeVisualPrototype() {
       <div
         ref={canvasHostRef}
         className={styles.canvasHost}
-        aria-describedby="snow-globe-description"
+        aria-describedby="snow-globe-description snow-globe-instructions"
       >
         {runtimeStatus === "loading" && (
           <div className={styles.canvasStatus} role="status">
@@ -93,6 +93,17 @@ export function SnowGlobeVisualPrototype() {
           </h1>
           <p id="snow-globe-description" className={styles.subtitle}>Winter in Suspension</p>
         </header>
+        <div className={styles.interactionBlock}>
+          <p id="snow-globe-instructions" className={styles.interactionHint}>DRAG TO TURN · FLICK / SPACE TO SHAKE</p>
+          <button
+            type="button"
+            className={styles.shakeButton}
+            aria-label="スノードームを振る"
+            onClick={() => sceneRef.current?.shake()}
+          >
+            SHAKE
+          </button>
+        </div>
         <p className={styles.prototypeLabel}>VISUAL PROTOTYPE</p>
       </div>
     </main>

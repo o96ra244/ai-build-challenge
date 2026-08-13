@@ -210,6 +210,28 @@ export function createSnowPatchGeometry(): THREE.OctahedronGeometry {
   return new THREE.OctahedronGeometry(1, 1);
 }
 
-export function createFoliagePadGeometry(): THREE.DodecahedronGeometry {
-  return new THREE.DodecahedronGeometry(1, 1);
+export function createConiferBoughGeometry(
+  length: number,
+  width: number,
+  depth: number,
+): THREE.ExtrudeGeometry {
+  const shape = new THREE.Shape();
+  shape.moveTo(-length * 0.06, 0);
+  shape.lineTo(length * 0.2, width * 0.48);
+  shape.lineTo(length * 0.58, width * 0.28);
+  shape.lineTo(length, 0);
+  shape.lineTo(length * 0.58, -width * 0.24);
+  shape.lineTo(length * 0.18, -width * 0.14);
+  shape.closePath();
+  const geometry = new THREE.ExtrudeGeometry(shape, {
+    depth,
+    bevelEnabled: true,
+    bevelSegments: 1,
+    bevelSize: 0.012,
+    bevelThickness: 0.01,
+    curveSegments: 2,
+  });
+  geometry.translate(0, 0, -depth / 2);
+  geometry.computeVertexNormals();
+  return geometry;
 }

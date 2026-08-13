@@ -29,6 +29,8 @@ export type SnowGlobeMaterials = {
   readonly twig: MeshStandardNodeMaterial;
   readonly snow: MeshPhysicalNodeMaterial;
   readonly snowShadow: MeshPhysicalNodeMaterial;
+  readonly particleSnow: MeshStandardNodeMaterial;
+  readonly glitter: MeshBasicNodeMaterial;
   readonly stone: MeshStandardNodeMaterial;
   readonly window: MeshPhysicalNodeMaterial;
   readonly door: MeshStandardNodeMaterial;
@@ -289,6 +291,21 @@ export function createSnowGlobeMaterials(): SnowGlobeMaterials {
     sheenColor: 0x9eb8bf,
     sheenRoughness: 0.8,
   });
+  const particleSnow = new MeshStandardNodeMaterial({
+    color: 0xc9dadd,
+    roughness: 0.6,
+    metalness: 0,
+    transparent: true,
+    opacity: 0.66,
+    depthWrite: false,
+  });
+  const glitter = new MeshBasicNodeMaterial({
+    color: 0xeaf4f1,
+    transparent: true,
+    opacity: 0.36,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+  });
   const stone = new MeshStandardNodeMaterial({
     color: 0x4a4c4a,
     roughness: 0.94,
@@ -352,6 +369,8 @@ export function createSnowGlobeMaterials(): SnowGlobeMaterials {
     twig,
     snow,
     snowShadow,
+    particleSnow,
+    glitter,
     stone,
     window,
     door,
