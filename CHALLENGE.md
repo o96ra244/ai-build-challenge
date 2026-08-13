@@ -199,6 +199,27 @@
 - **退行防止:** `metadata.test.ts`で本番canonical、OG画像path、PNG signature、1200×630、website、ja_JP、alt、`summary_large_image`を確認します。
 - **既知の未確認事項:** X実投稿後のタイムライン表示、X側のキャッシュ更新、Facebook／LinkedIn等のクローラー表示差、Vercel Protection越しのPreviewページHTML／画像取得は未確認です。local productionの実HTMLと画像HTTP応答、Vercel Preview deploymentのpassまでは確認済みです。
 
+## 作品10
+
+- **作品番号:** 10
+- **作品名:** SNOW GLOBE — Winter in Suspension
+- **制作日:** 2026-08-13
+- **対象ユーザー:** ブラウザで、短時間でも何度も触りたくなるWeb toyやインタラクティブ作品を楽しみたい人、Three.js・WebGPUの物理表現に関心がある人
+- **解決する問題:** 雪が降るだけの冬景色ではなく、液体の遅れ、粒子の流れ、衝突、積雪、再飛散までを一つの履歴として感じられるスノードーム体験を作ります。
+- **差別化:** `ゆっくりドラッグ`はドームを眺める操作、`flick`／`SHAKE`／`Space`は液体へ強い入力を与える操作として分かれ、雪片・グリッター・微細ダストが異なる速度と反射で流れます。屋根・枝・地面への積雪を次のShakeで一部剥がし、約0.5〜1秒の渦と暖色窓明かりをHero momentにしました。
+- **主な機能:** ガラス球、dark walnut台座、brass ring、小屋、主木と小木、雪丘、雪山、WebGPU優先のThree.jsシーン、WebGL2 fallback、液体風の流れ場、3層粒子、ガラス内壁・屋根・枝・地面との簡易衝突、積雪・再飛散、idleの残留雪、reduced-motion、Space／矢印キー、accessible SHAKE button
+- **操作方法:** ゆっくりドラッグでスノードームを眺め、速いドラッグで振ります。クリック／タップ相当の`SHAKE`、`Space`でもcanonical shakeを再生します。左／右ボタンとArrowキーで微調整できます。
+- **技術構成:** Next.js App Router、Server Componentのmetadata page、必要な範囲だけClient Component、Three.js 0.185.1 `WebGPURenderer`、`forceWebGL` WebGL2 backend、MeshPhysicalMaterial、InstancedMesh、Points、CSS Modules、Vitest
+- **外部asset:** なし。外部3Dモデル・テクスチャは使わず、Three.js primitivesと自作構成で冬景色を生成しています。
+- **GitHub上のパス:** `app/works/10-snow-globe-winter-in-suspension/`
+- **公開URL:** https://ai-build-challenge.vercel.app/works/10-snow-globe-winter-in-suspension
+- **検証結果:** `npm run lint`（警告なし）、`npm run typecheck`、`npm run test`（26ファイル・368件）、`npm run build`、`git diff --check`に成功しました。作品登録、作品固有metadata、canonical、Open Graph、X Card、OGP画像pathとaltを追加しました。
+- **ブラウザ確認結果:** ローカルproduction serverで1440×900、390×844、1200×630を確認しました。初期表示、idle、SHAKE、Space、左右ボタン、slow drag、flick、reduced-motion、forced WebGL2 fallback、visibilitychangeのhidden→visible、canvas存在、document/body幅、console error・warningなしを確認しています。390pxではcanvas 390×844、document/body widthも390pxで横overflowはありません。最終Hero frameを1200×630で撮影し、`public/og/10-snow-globe-winter-in-suspension.png`へ保存しました。
+- **Visual self-review:** 初回production screenshotで雪丘が小屋を隠し、ガラスハイライトが強すぎることを確認しました。雪丘の高さを下げ、ガラスハイライトの半径・太さ・opacityを絞り、初回ヒントを約6.4秒または操作後に消す修正を行いました。修正後は小屋の窓明かり、台座の木とbrass、ガラス輪郭、粒子の流れがdesktop/mobileの両方で読み取れます。
+- **既知の制約:** 粒子は完全流体／永久堆積の厳密シミュレーションではなく、流れ場・衝突・accumulation stateによるphysically-inspired表現です。実機スマートフォンのタッチ、実機トラックパッド、複数ブラウザ、長時間のGPU負荷、数値CLS、XやSNSクローラーでの最終表示は未確認です。forced WebGL2はブラウザの初期化スクリプトで`navigator.gpu`を無効化する経路を確認しており、GPU非対応実機そのものの確認ではありません。
+- **学んだこと:** WebGPU中心の作品でも、particle layer・quality profile・gesture classification・accumulationを純粋関数へ分けると、視覚表現を壊さずに入力差・モバイル負荷・積雪の境界をテストできます。主役を守るには、物理演出だけでなく、初回ヒントと静止画の構図もproduction screenshotで確認する必要があります。
+- **次回への改善点:** 実機タッチ／トラックパッド、WebGPU非対応機、複数ブラウザ、長時間セッションのGPU負荷を追加確認し、可能なら粒子の枝・屋根ごとの接触位置をさらに読み取りやすくします。
+
 次の作品を追加する際は、以下のテンプレートを複製して記録します。
 
 ---

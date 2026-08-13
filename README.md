@@ -44,7 +44,7 @@ npm run dev
 
 ## 作品一覧
 
-現在の作品数: **9件**
+現在の作品数: **10件**
 
 ### 01 画像比率リサイズ計算機
 
@@ -122,6 +122,16 @@ SVG本体を変更せず、同じ内蔵アイコンまたは任意のSVGで12種
 - 主な機能: GALLERY／CHIAROSCURO／SPECTRUMの3照明モード、彫刻上のマウス移動・スマートフォンのタップによる主光源操作、native LIGHT POSITION開示によるキーボード操作、初回デバイス別ヒント、reduced-motion、WebGPUとWebGL 2のフォールバック
 - 使用技術: Three.js 0.185.1 `WebGPURenderer`、`MeshStandardNodeMaterial`、TSL、RenderPipelineの選択的Bloom、CSS Modules、Vitest
 - モデル素材: Wikimedia CommonsのScan the Worldによる《The Thinker》STLをローカルへ配置し、決定的な空間グリッド方式で約84万から約7万三角形へ削減したバイナリSTLを使用しています。画面内creditと [`/works/09-thinker-light-study/attribution`](app/works/09-thinker-light-study/attribution/page.tsx) から、出典・ライセンス・改変内容を確認できます。
+
+### 10 SNOW GLOBE — Winter in Suspension
+
+小さな山小屋と冬景色を透明なスノードームへ閉じ込め、液体の慣性、雪片、グリッター、積雪、再飛散を一つの操作体験にしたインタラクティブ3D作品です。
+
+- GitHub上のパス: [`app/works/10-snow-globe-winter-in-suspension/`](app/works/10-snow-globe-winter-in-suspension/)
+- 公開予定URL: https://ai-build-challenge.vercel.app/works/10-snow-globe-winter-in-suspension
+- 主な機能: ゆっくりドラッグによる鑑賞、flick / SHAKE / Spaceによる canonical shake、液体風の流れ場、雪片・グリッター・微細ダストの3層粒子、屋根・枝・地面への積雪と次のShakeでの再飛散、reduced-motion、WebGPU優先とWebGL2 fallback
+- 使用技術: Three.js 0.185.1 `WebGPURenderer`、`forceWebGL`によるWebGL2 backend、MeshPhysicalMaterial、CSS Modules、Vitest
+- 外部asset: 使用していません。冬景色はすべてThree.jsのprimitivesと自作構成で生成しています。
 
 ## 公開URL
 

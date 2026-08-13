@@ -62,4 +62,10 @@ export const works: readonly Work[] = [
     description: "《考える人》へ光を当て、3つの照明モードで影と輪郭の変化を観察するインタラクティブ3D作品です。",
     href: "/works/09-thinker-light-study",
   },
+  {
+    number: 10,
+    title: "SNOW GLOBE — Winter in Suspension",
+    description: "小さな冬景色を液体ごと揺らし、雪の積雪と再飛散を楽しむインタラクティブ・スノードームです。",
+    href: "/works/10-snow-globe-winter-in-suspension",
+  },
 ];
