@@ -199,6 +199,29 @@
 - **退行防止:** `metadata.test.ts`で本番canonical、OG画像path、PNG signature、1200×630、website、ja_JP、alt、`summary_large_image`を確認します。
 - **既知の未確認事項:** X実投稿後のタイムライン表示、X側のキャッシュ更新、Facebook／LinkedIn等のクローラー表示差、Vercel Protection越しのPreviewページHTML／画像取得は未確認です。local productionの実HTMLと画像HTTP応答、Vercel Preview deploymentのpassまでは確認済みです。
 
+## 作品10
+
+- **作品番号:** 10
+- **作品名:** Gaussian Splat Explorer
+- **制作日:** 2026-08-13
+- **対象ユーザー:** Gaussian Splattingや新しいWeb 3D表現を、専用viewerなしでブラウザ上から触ってみたい人
+- **解決する問題:** 設定UI中心の技術demoではなく、実写由来のGaussian Splatそのものを大きく表示し、ドラッグとズームだけで視点依存の質感を観察できるようにします。
+- **差別化:** Three.js公式exampleのInspectorやsource selectorを持ち込まず、SPZ v4の実データ、固定commitのaddon bridge、local asset、event-driven rendering、最小UIに絞りました。
+- **主な機能:** Tomatoes SPZ v4のdecodeとGaussianSplatMesh表示、drag orbit、wheel・pinch zoom、pan無効、HOME、Loading / Error / Unsupported、実値splat count、WebGPU / WebGL 2 fallback表示、keyboard HOME、focus-visible、常時表示attribution
+- **Gaussian Splatting / SPZ v4を選んだ理由:** 実写由来の点群表現を、専用viewerなしで大きく見せながら、視点を変えたときの色と形の変化を体験してもらうためです。
+- **Three.js方針:** root dependencyのThree.js正式版`0.185.1`と`@types/three@0.185.1`を維持し、r186向けGaussian addonだけを次のcommitへ固定したscoped bridgeとしてvendorしました。
+- **Upstream commit:** `7f855a77b4b1733c923b8201fd1d202ea99b2d16`
+- **Vendor files:** `CountingSort.js`、`SPZLoader.js`、`GaussianSplatMesh.js`、`GaussianSplatUtils.js`。SPZLoaderの圧縮ライブラリimportはstable `three@0.185.1` の`three/addons/libs/`へ向けています。
+- **Asset / license / attribution:** `examples/models/spz/tomatoes.v4.spz`を`public/works/10-gaussian-splat-explorer/tomatoes.v4.spz`へ無加工で配置しました。サイズは9,360,535 bytes、Git blob SHAは`87fc51c424f387ec6830be2b4af5c62d9dc8d1cc`です。Scan by Grail、SourceはSuperSplat scene `2826d2c0`、licenseはCC BY 4.0です。
+- **GitHub上のパス:** `app/works/10-gaussian-splat-explorer/`
+- **公開URL:** https://ai-build-challenge.vercel.app/works/10-gaussian-splat-explorer
+- **検証結果:** `npm run lint`、`npm run typecheck`、`npm run test`（32ファイル・384件）、`npm run build`、`git diff --check`に成功しました。unit testではcapability、DPR cap、camera fit、state、metadata、asset Git blob SHA、attribution、cleanup、event-driven rendering、作品登録、1200×630 OGPを確認しています。実画面のlocal production serverでSPZ v4 decode、445,409 splats、metadata、WebGPU backend、desktop / mobileの表示も確認しました。OGPは実画面から1200×630 PNGを生成しました。
+- **ブラウザ確認:** 1440×900相当と390×844で初期表示、drag orbit、wheel zoom、HOME、resize、focus-visible、keyboard HOME、canvas accessible name、`touch-action: none`、attribution、console error / warningなしを確認しました。実機pinch、WebGL 2強制fallback、hidden tabの実ブラウザ切替、数値CPU計測はこの環境では未確認です。
+- **Rendering architecture:** 常時animation loopを使わず、`requestRender()`でRAFをcoalesceし、初回ready、OrbitControls change、HOME、resize、visible復帰だけrenderします。DPR capはdesktop 1.5、mobile 1.0です。fetch AbortController、loader、controls、observer、visibility listener、geometry、material、rendererをdisposeします。
+- **既知の制約:** 複数scan切替、編集・保存、pan、postprocessing、音声、WebXR、実機touch、WebGL 2強制切替、長時間GPU負荷計測には対応していません。
+- **学び:** WebGPU専用のGaussian addonをstable Three.jsへ狭くbridgeする場合、root dependencyを動かさず、upstream provenanceとTypeScript declarationを作品スコープへ閉じることが重要です。また、splat countやcamera fitをloaded geometryから導くことで、固定値に頼らずlocal assetへ適応できます。
+- **次回への改善点:** WebGL 2 fallbackの実機負荷比較、real-device pinch、hidden tabのtracing、long-session GPU計測、複数のlocal SPZ assetを同じevent-driven viewerへ安全に差し替える検証を追加します。
+
 次の作品を追加する際は、以下のテンプレートを複製して記録します。
 
 ---

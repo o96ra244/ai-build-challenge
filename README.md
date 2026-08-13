@@ -44,7 +44,7 @@ npm run dev
 
 ## 作品一覧
 
-現在の作品数: **9件**
+現在の作品数: **10件**
 
 ### 01 画像比率リサイズ計算機
 
@@ -122,6 +122,16 @@ SVG本体を変更せず、同じ内蔵アイコンまたは任意のSVGで12種
 - 主な機能: GALLERY／CHIAROSCURO／SPECTRUMの3照明モード、彫刻上のマウス移動・スマートフォンのタップによる主光源操作、native LIGHT POSITION開示によるキーボード操作、初回デバイス別ヒント、reduced-motion、WebGPUとWebGL 2のフォールバック
 - 使用技術: Three.js 0.185.1 `WebGPURenderer`、`MeshStandardNodeMaterial`、TSL、RenderPipelineの選択的Bloom、CSS Modules、Vitest
 - モデル素材: Wikimedia CommonsのScan the Worldによる《The Thinker》STLをローカルへ配置し、決定的な空間グリッド方式で約84万から約7万三角形へ削減したバイナリSTLを使用しています。画面内creditと [`/works/09-thinker-light-study/attribution`](app/works/09-thinker-light-study/attribution/page.tsx) から、出典・ライセンス・改変内容を確認できます。
+
+### 10 Gaussian Splat Explorer
+
+Three.jsのGaussian Splatting / SPZ v4対応を使い、写真から再構成されたTomatoesの3Dスキャンをブラウザ上で回転・ズームして観察する一画面作品です。
+
+- GitHub上のパス: [`app/works/10-gaussian-splat-explorer/`](app/works/10-gaussian-splat-explorer/)
+- 公開URL: https://ai-build-challenge.vercel.app/works/10-gaussian-splat-explorer
+- 主な機能: ドラッグorbit、wheel・pinch zoom、HOME、Loading / Error / Unsupported表示、WebGPUとWebGL 2 fallback、実値splat metadata、常時表示のGrail / Source / CC BY 4.0 attribution
+- 使用技術: Three.js 0.185.1 `WebGPURenderer`、r186向けGaussian addonのcommit固定bridge、SPZ v4、CSS Modules、Vitest
+- モデル素材: Three.js公式repositoryの`tomatoes.v4.spz`をローカル配信しています。Scan by Grail、SuperSplat、CC BY 4.0の情報は画面内creditと [`public/works/10-gaussian-splat-explorer/ATTRIBUTION.md`](public/works/10-gaussian-splat-explorer/ATTRIBUTION.md) に記録しています。
 
 ## 公開URL
 
