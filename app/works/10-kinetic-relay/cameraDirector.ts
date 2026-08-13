@@ -38,6 +38,45 @@ const MOBILE_HOME: CameraPreset = {
   maxPolarAngle: Math.PI * 0.49,
 };
 
+const FOLLOW_PRESETS: Partial<Record<ChainStageId, CameraPreset>> = {
+  stopper: {
+    position: [-7.0, 3.0, 3.4],
+    target: [-7.6, 1.25, -1.35],
+    fov: 42,
+    minDistance: 2,
+    maxDistance: 12,
+    minPolarAngle: 0.3,
+    maxPolarAngle: Math.PI * 0.49,
+  },
+  "red-ramp": {
+    position: [1.8, 1.4, -4.0],
+    target: [-5.0, 1.1, -1.7],
+    fov: 50,
+    minDistance: 2.4,
+    maxDistance: 10,
+    minPolarAngle: 0.3,
+    maxPolarAngle: Math.PI * 0.49,
+  },
+  "red-impact": {
+    position: [1.8, 1.2, -4.0],
+    target: [-3.0, 0.72, -1.7],
+    fov: 46,
+    minDistance: 2.4,
+    maxDistance: 10,
+    minPolarAngle: 0.3,
+    maxPolarAngle: Math.PI * 0.49,
+  },
+  clothespin: {
+    position: [1.8, 1.1, -4.0],
+    target: [-2.7, 0.68, -1.7],
+    fov: 42,
+    minDistance: 2.2,
+    maxDistance: 9,
+    minPolarAngle: 0.3,
+    maxPolarAngle: Math.PI * 0.49,
+  },
+};
+
 export const ORBIT_TARGET_BOUNDS: TargetBounds = {
   min: [-8.8, 0.1, -4.8],
   max: [8.2, 5.1, 3.4],
@@ -53,6 +92,10 @@ export function getHeroCamera(width: number, height: number): CameraPreset {
 
 export function getFollowTarget(stage: ChainStageId): Vector3Tuple {
   return CHAIN_STAGES.find((candidate) => candidate.id === stage)?.focus ?? HOME.target;
+}
+
+export function getFollowCamera(stage: ChainStageId): CameraPreset {
+  return FOLLOW_PRESETS[stage] ?? HOME;
 }
 
 export function clampTarget(target: Vector3Tuple, bounds: TargetBounds = ORBIT_TARGET_BOUNDS): Vector3Tuple {

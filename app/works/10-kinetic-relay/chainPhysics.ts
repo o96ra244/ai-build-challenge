@@ -3,6 +3,7 @@ import * as THREE from "three";
 import {
   CHAIN_MOTIONS,
   CHAIN_RUNTIME_TARGET_SECONDS,
+  CLOTHESPIN_LAYOUT,
   ERASER_PAD,
   ERASER_SIZE,
   MARBLE_RADIUS,
@@ -47,6 +48,15 @@ export type Act1DebugSnapshot = {
   readonly eraserPosition: Vector3Tuple;
   readonly eraserDisplacement: number;
   readonly eraserContacted: boolean;
+  readonly eraserClothespinContacted: boolean;
+  readonly eraserClothespinContactPoint: Vector3Tuple | null;
+  readonly eraserClothespinContactNormal: Vector3Tuple | null;
+  readonly eraserClothespinContactForce: number;
+  readonly clothespinPosition: Vector3Tuple;
+  readonly clothespinOpeningAngle: number;
+  readonly clothespinMaxOpeningAngle: number;
+  readonly clothespinAngularVelocity: number;
+  readonly clothespinOpeningComplete: boolean;
   readonly stopperOpeningProgress: number;
   readonly stopperOpeningComplete: boolean;
 };
@@ -56,6 +66,8 @@ export type DynamicSettleSnapshot = {
   readonly eraserLinearSpeed: number;
   readonly marbleAngularSpeed: number;
   readonly eraserAngularSpeed: number;
+  readonly clothespinLinearSpeed: number;
+  readonly clothespinAngularSpeed: number;
   readonly allSleeping: boolean;
 };
 
@@ -72,7 +84,7 @@ export type MechanismSnapshot = {
 
 export const PHYSICS_MATERIALS = {
   // Marble rolls without instantly spinning out, while still transferring a visible push.
-  marble: { friction: 0.34, restitution: 0.12, mass: 0.055 },
+  marble: { friction: 0.55, restitution: 0, mass: 0.055 },
   // Plastic ruler is smoother than the desk, so gravity produces a readable roll.
   ruler: { friction: 0.28, restitution: 0.04 },
   // Rubber eraser absorbs the impact instead of bouncing away.
@@ -83,7 +95,7 @@ export const PHYSICS_MATERIALS = {
 
 const ZERO_QUATERNION: readonly [number, number, number, number] = [0, 0, 0, 1];
 const MARBLE_IDS = new Set<MotionObjectId>(["redMarble", "blueMarble", "thirdMarble"]);
-const ACT1_DYNAMIC_IDS = new Set<MotionObjectId>(["redMarble", "eraser"]);
+const ACT1_DYNAMIC_IDS = new Set<MotionObjectId>(["redMarble", "eraser", "clothespin"]);
 
 function finite(value: number, fallback = 0): number {
   return Number.isFinite(value) ? value : fallback;
@@ -110,6 +122,10 @@ function pairMatches(first: number, second: number, expectedFirst: number, expec
   return (first === expectedFirst && second === expectedSecond) || (first === expectedSecond && second === expectedFirst);
 }
 
+function signedRotationAroundZ(rotation: { readonly x: number; readonly y: number; readonly z: number; readonly w: number }): number {
+  return 2 * Math.atan2(rotation.z, rotation.w);
+}
+
 export async function loadRapier(): Promise<RapierModule> {
   const rapier = await import("@dimforge/rapier3d-compat");
   const originalWarn = console.warn;
@@ -119,10 +135,10 @@ export async function loadRapier(): Promise<RapierModule> {
   };
   try {
     await rapier.init();
+    return rapier;
   } finally {
     console.warn = originalWarn;
   }
-  return rapier;
 }
 
 export class ChainPhysicsWorld {
@@ -136,6 +152,7 @@ export class ChainPhysicsWorld {
   private readonly staticColliders: RapierCollider[] = [];
   private readonly dynamicBodies = new Set<MotionObjectId>();
   private readonly stopperBody: RapierBody;
+  private readonly clothespinArmCollider: RapierCollider;
   private readonly rampExitSensor: RapierCollider;
   private readonly redMarbleCollider: RapierCollider;
   private readonly eraserCollider: RapierCollider;
@@ -147,7 +164,13 @@ export class ChainPhysicsWorld {
   private activeStageIndex = -1;
   private pendingEvents: ChainPhysicsEvent[] = [];
   private eraserContactObserved = false;
+  private eraserClothespinContactObserved = false;
+  private eraserClothespinContactPoint: Vector3Tuple | null = null;
+  private eraserClothespinContactNormal: Vector3Tuple | null = null;
+  private eraserClothespinContactForce = 0;
+  private maximumClothespinOpeningAngle = 0;
   private impactEventEmitted = false;
+  private clothespinEventEmitted = false;
   private stopperOpeningElapsed = 0;
   private stopperEventEmitted = false;
   private minimumRampClearance = Number.POSITIVE_INFINITY;
@@ -174,7 +197,11 @@ export class ChainPhysicsWorld {
     this.addRulerRamp();
     this.rampExitSensor = this.addRampExitSensor();
     this.stopperBody = this.addStopper();
-    Object.entries(MOTION_OBJECT_STARTS).forEach(([objectId, position]) => this.createMotionBody(objectId as MotionObjectId, position));
+    Object.entries(MOTION_OBJECT_STARTS).forEach(([objectId, position]) => {
+      if (objectId === "clothespin") return;
+      this.createMotionBody(objectId as MotionObjectId, position);
+    });
+    this.clothespinArmCollider = this.addClothespinMechanism();
     this.redMarbleCollider = this.bodyColliders.get("redMarble")!;
     this.eraserCollider = this.bodyColliders.get("eraser")!;
     CHAIN_MOTIONS.filter((motion) => motion.control !== "physics").forEach((motion) => this.addEndpointSensor(motion));
@@ -209,7 +236,13 @@ export class ChainPhysicsWorld {
     this.accumulator = 0;
     this.pendingEvents = [];
     this.eraserContactObserved = false;
+    this.eraserClothespinContactObserved = false;
+    this.eraserClothespinContactPoint = null;
+    this.eraserClothespinContactNormal = null;
+    this.eraserClothespinContactForce = 0;
+    this.maximumClothespinOpeningAngle = 0;
     this.impactEventEmitted = false;
+    this.clothespinEventEmitted = false;
     this.stopperOpeningElapsed = 0;
     this.stopperEventEmitted = false;
     this.minimumRampClearance = Number.POSITIVE_INFINITY;
@@ -280,14 +313,19 @@ export class ChainPhysicsWorld {
     const eraser = this.bodies.get("eraser");
     const marbleLinear = marble?.linvel();
     const eraserLinear = eraser?.linvel();
+    const clothespin = this.bodies.get("clothespin");
+    const clothespinLinear = clothespin?.linvel();
     const marbleAngular = marble?.angvel();
     const eraserAngular = eraser?.angvel();
+    const clothespinAngular = clothespin?.angvel();
     return {
       marbleLinearSpeed: marbleLinear ? Math.hypot(marbleLinear.x, marbleLinear.y, marbleLinear.z) : 0,
       eraserLinearSpeed: eraserLinear ? Math.hypot(eraserLinear.x, eraserLinear.y, eraserLinear.z) : 0,
       marbleAngularSpeed: marbleAngular ? Math.hypot(marbleAngular.x, marbleAngular.y, marbleAngular.z) : 0,
       eraserAngularSpeed: eraserAngular ? Math.hypot(eraserAngular.x, eraserAngular.y, eraserAngular.z) : 0,
-      allSleeping: Boolean(marble?.isSleeping() && eraser?.isSleeping()),
+      clothespinLinearSpeed: clothespinLinear ? Math.hypot(clothespinLinear.x, clothespinLinear.y, clothespinLinear.z) : 0,
+      clothespinAngularSpeed: clothespinAngular ? Math.hypot(clothespinAngular.x, clothespinAngular.y, clothespinAngular.z) : 0,
+      allSleeping: Boolean(marble?.isSleeping() && eraser?.isSleeping() && clothespin?.isSleeping()),
     };
   }
 
@@ -331,6 +369,15 @@ export class ChainPhysicsWorld {
   public getAct1DebugSnapshot(): Act1DebugSnapshot {
     const marble = this.getSnapshot("redMarble");
     const eraser = this.getSnapshot("eraser");
+    const clothespin = this.getSnapshot("clothespin");
+    const clothespinBody = this.bodies.get("clothespin");
+    const clothespinAngular = clothespinBody?.angvel();
+    const clothespinOpeningAngle = Math.min(CLOTHESPIN_LAYOUT.maxOpeningAngle, Math.abs(signedRotationAroundZ({
+      x: clothespin.rotation[0],
+      y: clothespin.rotation[1],
+      z: clothespin.rotation[2],
+      w: clothespin.rotation[3],
+    })));
     const local = worldToRampLocal(marble.position);
     const onRamp = local[0] >= -RULER_RAMP.length / 2 + MARBLE_RADIUS
       && local[0] <= RULER_RAMP.length / 2 - MARBLE_RADIUS
@@ -349,6 +396,15 @@ export class ChainPhysicsWorld {
         eraser.position[2] - MOTION_OBJECT_STARTS.eraser[2],
       ),
       eraserContacted: this.eraserContactObserved,
+      eraserClothespinContacted: this.eraserClothespinContactObserved,
+      eraserClothespinContactPoint: this.eraserClothespinContactPoint,
+      eraserClothespinContactNormal: this.eraserClothespinContactNormal,
+      eraserClothespinContactForce: this.eraserClothespinContactForce,
+      clothespinPosition: clothespin.position,
+      clothespinOpeningAngle,
+      clothespinMaxOpeningAngle: this.maximumClothespinOpeningAngle,
+      clothespinAngularVelocity: clothespinAngular ? Math.hypot(clothespinAngular.x, clothespinAngular.y, clothespinAngular.z) : 0,
+      clothespinOpeningComplete: this.clothespinEventEmitted,
       stopperOpeningProgress: getStopperOpeningProgress(this.stopperOpeningElapsed),
       stopperOpeningComplete: this.stopperEventEmitted,
     };
@@ -390,7 +446,22 @@ export class ChainPhysicsWorld {
         this.pendingEvents.push("red-ramp");
       }
       if (pairMatches(first, second, this.redMarbleCollider.handle, this.eraserCollider.handle)) this.eraserContactObserved = true;
+      if (pairMatches(first, second, this.eraserCollider.handle, this.clothespinArmCollider.handle)) {
+        this.eraserClothespinContactObserved = true;
+      }
     });
+    this.eventQueue.drainContactForceEvents((event) => {
+      if (!pairMatches(event.collider1(), event.collider2(), this.eraserCollider.handle, this.clothespinArmCollider.handle)) return;
+      this.eraserClothespinContactObserved = true;
+      this.eraserClothespinContactForce = Math.max(this.eraserClothespinContactForce, finite(event.totalForceMagnitude()));
+    });
+    this.observeClothespinContact();
+    const clothespinBody = this.bodies.get("clothespin");
+    if (clothespinBody) {
+      const rotation = clothespinBody.rotation();
+      const openingAngle = Math.min(CLOTHESPIN_LAYOUT.maxOpeningAngle, Math.abs(signedRotationAroundZ(rotation)));
+      this.maximumClothespinOpeningAngle = Math.max(this.maximumClothespinOpeningAngle, openingAngle);
+    }
     const marbleBody = this.bodies.get("redMarble");
     if (marbleBody) {
       const position = marbleBody.translation();
@@ -413,6 +484,25 @@ export class ChainPhysicsWorld {
       this.pendingEvents.push("red-impact");
       this.impactEventEmitted = true;
     }
+    if (this.activeStageId === "clothespin"
+      && this.eraserClothespinContactObserved
+      && this.maximumClothespinOpeningAngle >= CLOTHESPIN_LAYOUT.openingThreshold
+      && !this.clothespinEventEmitted) {
+      this.pendingEvents.push("clothespin");
+      this.clothespinEventEmitted = true;
+    }
+  }
+
+  private observeClothespinContact(): void {
+    this.world.contactPair(this.eraserCollider, this.clothespinArmCollider, (manifold) => {
+      if (manifold.numContacts() <= 0 && manifold.numSolverContacts() <= 0) return;
+      this.eraserClothespinContactObserved = true;
+      if (manifold.numSolverContacts() <= 0) return;
+      const point = manifold.solverContactPoint(0);
+      const normal = manifold.normal();
+      this.eraserClothespinContactPoint = [finite(point.x), finite(point.y), finite(point.z)];
+      this.eraserClothespinContactNormal = [finite(normal.x), finite(normal.y), finite(normal.z)];
+    });
   }
 
   private advanceStopperOpening(): boolean {
@@ -467,7 +557,10 @@ export class ChainPhysicsWorld {
         shape
           .setFriction(role.friction)
           .setRestitution(role.restitution)
-          .setActiveEvents(this.rapier.ActiveEvents.COLLISION_EVENTS),
+          .setActiveEvents(isMarble
+            ? this.rapier.ActiveEvents.COLLISION_EVENTS
+            : this.rapier.ActiveEvents.COLLISION_EVENTS | this.rapier.ActiveEvents.CONTACT_FORCE_EVENTS)
+          .setContactForceEventThreshold(isMarble ? 1 : 0.001),
         body,
       );
       this.bodies.set(objectId, body);
@@ -482,6 +575,79 @@ export class ChainPhysicsWorld {
       : this.world.createCollider(this.rapier.ColliderDesc.cuboid(...halfExtents(motionObjectSize(objectId))).setFriction(0.6).setRestitution(0.08), body);
     this.bodies.set(objectId, body);
     this.bodyColliders.set(objectId, collider);
+  }
+
+  private addClothespinMechanism(): RapierCollider {
+    const baseBody = this.world.createRigidBody(
+      this.rapier.RigidBodyDesc.fixed().setTranslation(...CLOTHESPIN_LAYOUT.pivotPosition),
+    );
+    this.world.createCollider(
+      this.rapier.ColliderDesc.cuboid(...halfExtents(CLOTHESPIN_LAYOUT.baseSize))
+        .setTranslation(...CLOTHESPIN_LAYOUT.baseOffset)
+        .setFriction(PHYSICS_MATERIALS.desk.friction)
+        .setRestitution(PHYSICS_MATERIALS.desk.restitution),
+      baseBody,
+    );
+    this.world.createCollider(
+      this.rapier.ColliderDesc.cuboid(...halfExtents(CLOTHESPIN_LAYOUT.lowerArmSize))
+        .setTranslation(...CLOTHESPIN_LAYOUT.lowerArmCenterOffset)
+        .setFriction(PHYSICS_MATERIALS.ruler.friction)
+        .setRestitution(PHYSICS_MATERIALS.ruler.restitution),
+      baseBody,
+    );
+    const armBody = this.world.createRigidBody(
+      this.rapier.RigidBodyDesc.dynamic()
+        .setTranslation(...CLOTHESPIN_LAYOUT.pivotPosition)
+        .setGravityScale(0)
+        .setCanSleep(false)
+        .setCcdEnabled(true)
+        .setAdditionalSolverIterations(4),
+    );
+    const joint = this.world.createImpulseJoint(
+      this.rapier.JointData.revolute(
+        new this.rapier.Vector3(0, 0, 0),
+        new this.rapier.Vector3(0, 0, 0),
+        new this.rapier.Vector3(...CLOTHESPIN_LAYOUT.pivotAxis),
+      ),
+      baseBody,
+      armBody,
+      true,
+    ) as import("@dimforge/rapier3d-compat").RevoluteImpulseJoint;
+    joint.setLimits(-CLOTHESPIN_LAYOUT.maxOpeningAngle, CLOTHESPIN_LAYOUT.maxOpeningAngle);
+    joint.configureMotorModel(this.rapier.MotorModel.ForceBased);
+    joint.configureMotorPosition(CLOTHESPIN_LAYOUT.restAngle, CLOTHESPIN_LAYOUT.motorStiffness, CLOTHESPIN_LAYOUT.motorDamping);
+
+    const activeEvents = this.rapier.ActiveEvents.COLLISION_EVENTS | this.rapier.ActiveEvents.CONTACT_FORCE_EVENTS;
+    this.world.createCollider(
+      this.rapier.ColliderDesc.cuboid(...halfExtents(CLOTHESPIN_LAYOUT.armSize))
+        .setTranslation(...CLOTHESPIN_LAYOUT.armCenterOffset)
+        .setDensity(0.0001)
+        .setFriction(PHYSICS_MATERIALS.eraser.friction)
+        .setRestitution(PHYSICS_MATERIALS.eraser.restitution),
+      armBody,
+    );
+    this.world.createCollider(
+      this.rapier.ColliderDesc.cuboid(...halfExtents(CLOTHESPIN_LAYOUT.jawSize))
+        .setTranslation(...CLOTHESPIN_LAYOUT.jawOffset)
+        .setDensity(0.0001)
+        .setFriction(PHYSICS_MATERIALS.eraser.friction)
+        .setRestitution(PHYSICS_MATERIALS.eraser.restitution),
+      armBody,
+    );
+    const armCollider = this.world.createCollider(
+      this.rapier.ColliderDesc.cuboid(...halfExtents(CLOTHESPIN_LAYOUT.handleSize))
+        .setTranslation(...CLOTHESPIN_LAYOUT.handleOffset)
+        .setMass(CLOTHESPIN_LAYOUT.armMass)
+        .setFriction(PHYSICS_MATERIALS.eraser.friction)
+        .setRestitution(PHYSICS_MATERIALS.eraser.restitution)
+        .setActiveEvents(activeEvents)
+        .setContactForceEventThreshold(0.001),
+      armBody,
+    );
+    this.bodies.set("clothespin", armBody);
+    this.bodyColliders.set("clothespin", armCollider);
+    this.dynamicBodies.add("clothespin");
+    return armCollider;
   }
 
   private addRulerRamp(): void {

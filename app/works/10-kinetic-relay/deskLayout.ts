@@ -113,6 +113,33 @@ export const STOPPER_LAYOUT = {
   openingDuration: 0.4,
 } as const;
 
+// The clothespin uses one shared pivot definition for the Rapier joint and the Three.js groups.
+// The upper arm sits above the fixed lower arm; the eraser approaches the upper arm from the left.
+export const CLOTHESPIN_LAYOUT = {
+  pivotPosition: [-2.4, 0.5, -1.7] as const,
+  pivotAxis: [0, 0, 1] as const,
+  armSize: [0.88, 0.18, 0.16] as const,
+  armCenterOffset: [0, 0.24, 0] as const,
+  lowerArmSize: [0.88, 0.16, 0.14] as const,
+  lowerArmCenterOffset: [0, -0.08, 0] as const,
+  handleSize: [0.24, 0.22, 0.2] as const,
+  handleOffset: [-0.36, 0.24, 0] as const,
+  jawSize: [0.2, 0.22, 0.18] as const,
+  jawOffset: [0.38, 0.24, 0] as const,
+  lowerHandleOffset: [-0.36, -0.08, 0] as const,
+  lowerJawOffset: [0.38, -0.08, 0] as const,
+  baseSize: [0.42, 0.16, 0.58] as const,
+  baseOffset: [0, -0.2, 0] as const,
+  axleRadius: 0.09,
+  axleLength: 0.34,
+  restAngle: 0,
+  maxOpeningAngle: (Math.PI * 26) / 180,
+  openingThreshold: (Math.PI * 12) / 180,
+  armMass: 0.045,
+  motorStiffness: 0.01,
+  motorDamping: 0.003,
+} as const;
+
 export function getStopperOpeningProgress(elapsedSeconds: number): number {
   if (!Number.isFinite(elapsedSeconds)) return 0;
   return Math.min(1, Math.max(0, elapsedSeconds / STOPPER_LAYOUT.openingDuration));
@@ -192,7 +219,7 @@ export const TRACK_LAYOUT: readonly BoxDefinition[] = [
 export const MOTION_OBJECT_STARTS: Readonly<Record<MotionObjectId, Vector3Tuple>> = {
   redMarble: getMarbleInitialCenter(),
   eraser: ERASER_START,
-  clothespin: [-2.65, 0.42, -1.45],
+  clothespin: CLOTHESPIN_LAYOUT.pivotPosition,
   rubberBand: [-1.95, 0.38, -1.45],
   pencil: [-1.15, 0.36, -1.45],
   firstBlock: [0.65, 0.62, -1.45],
@@ -218,7 +245,7 @@ export const CHAIN_MOTIONS: readonly ChainMotion[] = [
   { id: "red-ramp", act: "ACT 1 / LEFT DESK", label: "RED MARBLE / RULER RAMP", shortLabel: "RULER RAMP", cause: "gravity rolls the red marble down the shared ruler surface", objectId: "redMarble", path: [], speed: 1, settle: 6, physicsDuration: 6, focus: RULER_RAMP.position, kind: "travel", control: "physics" },
   { id: "red-impact", act: "ACT 1 / LEFT DESK", label: "RED MARBLE → ERASER", shortLabel: "ERASER IMPACT", cause: "the rolling marble collides with the dynamic eraser", objectId: "eraser", path: [], speed: 1, settle: 2.5, physicsDuration: 2.5, focus: ERASER_START, kind: "travel", control: "physics" },
   { id: "eraser-drop", act: "ACT 1 / LEFT DESK", label: "ERASER / SHORT DROP", shortLabel: "ERASER DROP", cause: "the eraser slips from the desk ledge", objectId: "eraser", path: [[-3.55, 0.92, -1.7], [-3.25, 0.52, -1.55], [-2.9, 0.3, -1.45]], speed: 0.5, settle: 0.6, focus: [-3.1, 0.55, -1.5], kind: "travel" },
-  { id: "clothespin", act: "ACT 1 / LEFT DESK", label: "ERASER → CLOTHESPIN", shortLabel: "CLOTHESPIN", cause: "the falling eraser pushes the wooden clothespin", objectId: "clothespin", path: [[-2.65, 0.42, -1.45], [-2.05, 0.42, -1.45]], speed: 0.45, settle: 0.6, focus: [-2.35, 0.5, -1.45], kind: "clothespin" },
+  { id: "clothespin", act: "ACT 1 / LEFT DESK", label: "ERASER → CLOTHESPIN / JAW OPENS", shortLabel: "CLOTHESPIN OPEN", cause: "the eraser makes physical contact and overcomes the clothespin spring motor", objectId: "clothespin", path: [], speed: 1, settle: 0.6, physicsDuration: 4, focus: CLOTHESPIN_LAYOUT.pivotPosition, kind: "clothespin", control: "physics" },
   { id: "rubber-band", act: "ACT 1 / LEFT DESK", label: "CLOTHESPIN → RUBBER BAND", shortLabel: "RUBBER BAND", cause: "the clothespin releases a stretched rubber band", objectId: "rubberBand", path: [[-1.95, 0.38, -1.45], [-0.65, 0.38, -1.45]], speed: 0.65, settle: 0.5, focus: [-1.3, 0.45, -1.45], kind: "rubberBand" },
   { id: "pencil", act: "ACT 1 / LEFT DESK", label: "RUBBER BAND → PENCIL", shortLabel: "PENCIL", cause: "the contracting band touches and moves the pencil", objectId: "pencil", path: [[-1.15, 0.36, -1.45], [-0.25, 0.36, -1.45], [1.5, 0.36, -1.45]], speed: 0.75, settle: 0.6, focus: [0.2, 0.4, -1.45], kind: "travel" },
   { id: "first-block", act: "ACT 2 / CENTER DESK", label: "PENCIL → FIRST BLOCK", shortLabel: "FIRST BLOCK", cause: "the pencil touches the first wooden block", objectId: "firstBlock", path: [[0.65, 0.62, -1.45], [1.15, 0.42, -1.45]], speed: 0.6, settle: 0.4, focus: [0.95, 0.5, -1.45], kind: "blocks" },

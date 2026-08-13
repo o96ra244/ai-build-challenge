@@ -1,6 +1,6 @@
 import { CHAIN_MOTIONS, getMotionDuration } from "./deskLayout";
 
-const ACT1_PHYSICS_STAGE_IDS = new Set(["stopper", "red-ramp", "red-impact"]);
+const ACT1_PHYSICS_STAGE_IDS = new Set(["stopper", "red-ramp", "red-impact", "clothespin"]);
 
 export const CHAIN_STAGES = CHAIN_MOTIONS.filter((motion) => ACT1_PHYSICS_STAGE_IDS.has(motion.id)).map((motion) => ({
   ...motion,

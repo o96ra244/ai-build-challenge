@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   CHAIN_MOTIONS,
+  CLOTHESPIN_LAYOUT,
   ERASER_SIZE,
   MARBLE_RADIUS,
   RAMP_CLEARANCE,
@@ -24,9 +25,9 @@ describe("ACT 1 physics prototype contract", () => {
     return 2 * Math.acos(Math.min(1, Math.max(-1, dot)));
   }
 
-  it("runs only stopper, ruler ramp, and eraser impact", () => {
-    expect(CHAIN_STAGES.map((stage) => stage.id)).toEqual(["stopper", "red-ramp", "red-impact"]);
-    expect(CHAIN_MOTIONS.slice(0, 3).every((motion) => motion.control === "physics")).toBe(true);
+  it("runs only the first physical link through clothespin opening", () => {
+    expect(CHAIN_STAGES.map((stage) => stage.id)).toEqual(["stopper", "red-ramp", "red-impact", "clothespin"]);
+    expect(CHAIN_MOTIONS.filter((motion) => CHAIN_STAGES.some((stage) => stage.id === motion.id)).every((motion) => motion.control === "physics")).toBe(true);
   });
 
   it("derives the marble start above the shared ruler surface", () => {
@@ -42,6 +43,7 @@ describe("ACT 1 physics prototype contract", () => {
     expect(RAMP_SUPPORT_BOOKS).toHaveLength(3);
     expect(ERASER_SIZE).toEqual([0.72, 0.3, 0.48]);
     expect(MARBLE_RADIUS).toBe(0.225);
+    expect(CLOTHESPIN_LAYOUT.armSize[0]).toBeGreaterThan(0.6);
   });
 
   it("does not retain fake ACT 1 movement or impulse chaining", async () => {
@@ -59,7 +61,7 @@ describe("ACT 1 physics prototype contract", () => {
 
   it("defines dynamic visuals independently of the active stage", async () => {
     const sceneSource = await readFile(new URL("./DeskChainReactionScene.ts", import.meta.url), "utf8");
-    expect(ACT1_DYNAMIC_VISUAL_IDS).toEqual(["redMarble", "eraser"]);
+    expect(ACT1_DYNAMIC_VISUAL_IDS).toEqual(["redMarble", "eraser", "clothespin"]);
     expect(getVisualPhysicsDelta([1, 2, 3], [1.0005, 2, 3])).toBeCloseTo(0.0005, 7);
     expect(sceneSource).toContain("ACT1_DYNAMIC_VISUAL_IDS");
     expect(sceneSource).toContain("getVisualPhysicsDelta");
@@ -67,9 +69,35 @@ describe("ACT 1 physics prototype contract", () => {
     expect(sceneSource).toContain('this.chainState.phase === "settling"');
   });
 
+  it("defines the eraser-to-clothespin link as a physical revolute mechanism", async () => {
+    const [layoutSource, physicsSource, sceneSource] = await Promise.all([
+      readFile(new URL("./deskLayout.ts", import.meta.url), "utf8"),
+      readFile(new URL("./chainPhysics.ts", import.meta.url), "utf8"),
+      readFile(new URL("./DeskChainReactionScene.ts", import.meta.url), "utf8"),
+    ]);
+    expect(CLOTHESPIN_LAYOUT.pivotAxis).toEqual([0, 0, 1]);
+    expect(CLOTHESPIN_LAYOUT.openingThreshold).toBeGreaterThan(0);
+    expect(CLOTHESPIN_LAYOUT.openingThreshold).toBeLessThan(CLOTHESPIN_LAYOUT.maxOpeningAngle);
+    expect(layoutSource).toContain("CLOTHESPIN_LAYOUT");
+    expect(physicsSource).toContain("JointData.revolute");
+    expect(physicsSource).toContain("configureMotorPosition");
+    expect(physicsSource).toContain("CONTACT_FORCE_EVENTS");
+    expect(physicsSource).toContain("contactPair");
+    expect(physicsSource).toContain("CLOTHESPIN_LAYOUT.armSize");
+    expect(physicsSource).toContain("CLOTHESPIN_LAYOUT.jawSize");
+    expect(physicsSource).toContain("setDensity(0.0001)");
+    expect(physicsSource).toContain("CLOTHESPIN_LAYOUT.handleSize");
+    expect(physicsSource).toContain("CLOTHESPIN_LAYOUT.handleOffset");
+    expect(physicsSource).not.toContain("applyImpulse");
+    expect(physicsSource).not.toContain("setNextKinematicTranslation(...MOTION_OBJECT_STARTS.clothespin");
+    expect(sceneSource).toContain("CLOTHESPIN_LAYOUT.armSize");
+    expect(sceneSource).not.toContain('if (motion.kind === "clothespin") mesh.rotation');
+  });
+
   it("opens the stopper through visible pivot steps before emitting its event", async () => {
     const rapier = await loadRapier();
-    const physics = new ChainPhysicsWorld(rapier, getQualityProfile(1440, 900, 1));
+    const quality = getQualityProfile(1440, 900, 1);
+    const physics = new ChainPhysicsWorld(rapier, quality);
     try {
       physics.start();
       physics.setStage("stopper");
@@ -124,7 +152,7 @@ describe("ACT 1 physics prototype contract", () => {
     const marblePositions: number[][] = [];
     const marbleRotations: number[][] = [];
     const eraserPositions: number[][] = [];
-    let currentStage: "stopper" | "red-ramp" | "red-impact" = "stopper";
+    let currentStage: "stopper" | "red-ramp" | "red-impact" | "clothespin" = "stopper";
     let rampContactEvent = false;
     let eraserContactEvent = false;
     let eraserBeforeImpact: number[] | null = null;
@@ -156,6 +184,8 @@ describe("ACT 1 physics prototype contract", () => {
         } else if (event === "red-impact") {
           eraserContactEvent = true;
           eraserAtImpact = [...physics.getSnapshot("eraser").position];
+          currentStage = "clothespin";
+          physics.setStage(currentStage);
         }
       }
       if (eraserContactEvent) {
@@ -169,7 +199,7 @@ describe("ACT 1 physics prototype contract", () => {
         lastPostImpactEraser = [...eraser.position];
         lastPostImpactMarble = [...marble.position];
       }
-      if (postImpactSteps >= 30) break;
+      if (postImpactSteps >= 240) break;
     }
 
     const initialMarble = marblePositions[0]!;
@@ -191,5 +221,84 @@ describe("ACT 1 physics prototype contract", () => {
     expect(finiteSnapshots).toBe(true);
     expect(worldToRampLocal(getMarbleInitialCenter())[1]).toBeGreaterThan(RULER_RAMP.thickness / 2 + MARBLE_RADIUS);
     physics.dispose();
+  });
+
+  it("opens the clothespin only after physical eraser contact and resets to rest", async () => {
+    const rapier = await loadRapier();
+    const physics = new ChainPhysicsWorld(rapier, getQualityProfile(1440, 900, 1));
+    let currentStage: "stopper" | "red-ramp" | "red-impact" | "clothespin" = "stopper";
+    let impactEvent = false;
+    let impactFrame = -1;
+    let clothespinEvent = false;
+    let maximumAngleBeforeContact = 0;
+    let maximumAngleAfterContact = 0;
+    let contactFrame = -1;
+    let clothespinEventFrame = -1;
+
+    try {
+      physics.start();
+      physics.setStage(currentStage);
+      for (let frame = 0; frame < 900; frame += 1) {
+        physics.advance(1 / 60, true);
+        const debug = physics.getAct1DebugSnapshot();
+        if (debug.eraserClothespinContacted && contactFrame < 0) contactFrame = frame;
+        if (debug.eraserClothespinContacted) {
+          maximumAngleAfterContact = Math.max(maximumAngleAfterContact, debug.clothespinOpeningAngle);
+        } else {
+          maximumAngleBeforeContact = Math.max(maximumAngleBeforeContact, debug.clothespinOpeningAngle);
+        }
+        for (const event of physics.consumeEvents()) {
+          if (event === "stopper") {
+            currentStage = "red-ramp";
+            physics.setStage(currentStage);
+          } else if (event === "red-ramp") {
+            currentStage = "red-impact";
+            physics.setStage(currentStage);
+          } else if (event === "red-impact") {
+            impactEvent = true;
+            impactFrame = frame;
+            currentStage = "clothespin";
+            physics.setStage(currentStage);
+          } else if (event === "clothespin") {
+            clothespinEvent = true;
+            clothespinEventFrame = frame;
+          }
+        }
+        if (clothespinEvent && frame > clothespinEventFrame + 240) break;
+      }
+
+      const debug = physics.getAct1DebugSnapshot();
+      const clothespin = physics.getSnapshot("clothespin");
+      const pivotDelta = Math.hypot(
+        clothespin.position[0] - CLOTHESPIN_LAYOUT.pivotPosition[0],
+        clothespin.position[1] - CLOTHESPIN_LAYOUT.pivotPosition[1],
+        clothespin.position[2] - CLOTHESPIN_LAYOUT.pivotPosition[2],
+      );
+      expect(impactEvent).toBe(true);
+      expect(contactFrame).toBeGreaterThan(0);
+      expect(contactFrame).toBeGreaterThan(impactFrame);
+      expect(debug.eraserClothespinContactPoint?.every(Number.isFinite)).toBe(true);
+      expect(debug.eraserClothespinContactNormal?.every(Number.isFinite)).toBe(true);
+      expect(debug.eraserClothespinContactForce).toBeGreaterThan(0);
+      expect(maximumAngleBeforeContact).toBeLessThan(0.02);
+      expect(maximumAngleAfterContact).toBeGreaterThanOrEqual(CLOTHESPIN_LAYOUT.openingThreshold);
+      expect(clothespinEvent).toBe(true);
+      expect(clothespinEventFrame).toBeGreaterThan(contactFrame);
+      expect(debug.clothespinOpeningAngle).toBeLessThan(0.08);
+      expect(debug.clothespinAngularVelocity).toBeLessThan(0.02);
+      expect(pivotDelta).toBeLessThan(0.02);
+
+      physics.reset();
+      const resetDebug = physics.getAct1DebugSnapshot();
+      const resetClothespin = physics.getSnapshot("clothespin");
+      expect(resetDebug.eraserClothespinContacted).toBe(false);
+      expect(resetDebug.clothespinOpeningAngle).toBeCloseTo(CLOTHESPIN_LAYOUT.restAngle, 4);
+      expect(resetClothespin.position[0]).toBeCloseTo(CLOTHESPIN_LAYOUT.pivotPosition[0], 5);
+      expect(resetClothespin.position[1]).toBeCloseTo(CLOTHESPIN_LAYOUT.pivotPosition[1], 5);
+      expect(resetClothespin.position[2]).toBeCloseTo(CLOTHESPIN_LAYOUT.pivotPosition[2], 5);
+      expect(resetDebug.clothespinOpeningComplete).toBe(false);
+    } finally {
+      physics.dispose();
+    }
   });
 });

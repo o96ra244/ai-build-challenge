@@ -6,6 +6,7 @@ import {
   CHAIN_MOTIONS,
   BLOCK_COLORS,
   BLOCK_STARTS,
+  CLOTHESPIN_LAYOUT,
   ERASER_PAD,
   ERASER_SIZE,
   GOAL_LAYOUT,
@@ -36,7 +37,7 @@ import {
   type ChainState,
 } from "./chainSequence";
 import { ChainPhysicsWorld, loadRapier, type BodySnapshot, type DebugRenderSnapshot } from "./chainPhysics";
-import { clampTarget, getFollowTarget, getHomeCamera, type CameraMode, type CameraPreset } from "./cameraDirector";
+import { clampTarget, getFollowCamera, getHomeCamera, type CameraMode, type CameraPreset } from "./cameraDirector";
 import { addBeam, addBox, addCylinder, createMaterial, createPhysicalMaterial, disposeSceneResources, type GeometryCache, type MaterialSet } from "./sceneObjects";
 import { getDrawingBufferSize, getQualityProfile, type QualityProfile } from "./qualityProfile";
 import { ACT1_DYNAMIC_VISUAL_IDS, getVisualPhysicsDelta, getVisualPhysicsRotationDelta } from "./visualSync";
@@ -154,6 +155,7 @@ export class DeskChainReactionScene {
   private controlsActiveUntil = 0;
   private celebrationProgress = 0;
   private maxVisualPhysicsDelta = 0;
+  private maxVisualPhysicsRotationDelta = 0;
   private cameraMode: CameraMode = "follow";
   private suppressControlInput = false;
   private cameraHome: CameraPreset;
@@ -255,6 +257,7 @@ export class DeskChainReactionScene {
     this.physics.setStage(getCurrentStage(this.chainState).id);
     this.celebrationProgress = 0;
     this.maxVisualPhysicsDelta = 0;
+    this.maxVisualPhysicsRotationDelta = 0;
     this.publishState(true);
     this.updateLoopState();
   }
@@ -265,6 +268,7 @@ export class DeskChainReactionScene {
     this.chainState = resetChain();
     this.celebrationProgress = 0;
     this.maxVisualPhysicsDelta = 0;
+    this.maxVisualPhysicsRotationDelta = 0;
     this.cameraMode = "follow";
     this.setHomeCamera();
     this.publishState(true);
@@ -538,13 +542,39 @@ export class DeskChainReactionScene {
     this.motionRoot.add(pencil);
     this.motionMeshes.set("pencil", pencil);
 
-    const clothespin = new THREE.Group();
-    addBox(clothespin, this.geometryCache, this.materials.wood, "clothespin-a", [0.72, 0.12, 0.22], [-0.2, 0, 0], [0, 0, 0.08]);
-    addBox(clothespin, this.geometryCache, this.materials.wood, "clothespin-b", [0.72, 0.12, 0.22], [0.2, 0, 0], [0, 0, -0.08]);
-    addCylinder(clothespin, this.materials.metal, 0.09, 0.09, 0.32, [0, 0, 0], [Math.PI / 2, 0, 0], 10);
-    clothespin.position.set(...MOTION_OBJECT_STARTS.clothespin);
-    this.motionRoot.add(clothespin);
-    this.motionMeshes.set("clothespin", clothespin);
+    const clothespinFixed = new THREE.Group();
+    clothespinFixed.position.set(...CLOTHESPIN_LAYOUT.pivotPosition);
+    addBox(clothespinFixed, this.geometryCache, this.materials.woodDark, "clothespin-base", CLOTHESPIN_LAYOUT.baseSize, CLOTHESPIN_LAYOUT.baseOffset, [0, 0, 0], true);
+    const addRoundedWoodPart = (
+      parent: THREE.Group,
+      id: string,
+      size: readonly [number, number, number],
+      position: readonly [number, number, number],
+      material: THREE.Material,
+    ): void => {
+      const part = new THREE.Mesh(new RoundedBoxGeometry(...size, 3, 0.035), material);
+      part.name = id;
+      part.position.set(...position);
+      part.castShadow = true;
+      part.receiveShadow = true;
+      parent.add(part);
+    };
+    addRoundedWoodPart(clothespinFixed, "clothespin-lower-arm", CLOTHESPIN_LAYOUT.lowerArmSize, CLOTHESPIN_LAYOUT.lowerArmCenterOffset, this.materials.wood);
+    addRoundedWoodPart(clothespinFixed, "clothespin-lower-handle", CLOTHESPIN_LAYOUT.handleSize, CLOTHESPIN_LAYOUT.lowerHandleOffset, this.materials.wood);
+    addRoundedWoodPart(clothespinFixed, "clothespin-lower-jaw", CLOTHESPIN_LAYOUT.jawSize, CLOTHESPIN_LAYOUT.lowerJawOffset, this.materials.woodDark);
+    addCylinder(clothespinFixed, this.materials.metal, CLOTHESPIN_LAYOUT.axleRadius, CLOTHESPIN_LAYOUT.axleRadius, CLOTHESPIN_LAYOUT.axleLength, [0, 0, 0], [Math.PI / 2, 0, 0], 12);
+    const spring = new THREE.Mesh(new THREE.TorusGeometry(0.11, 0.022, 8, 18), this.materials.metal);
+    spring.castShadow = true;
+    clothespinFixed.add(spring);
+    this.motionRoot.add(clothespinFixed);
+
+    const clothespinArm = new THREE.Group();
+    clothespinArm.position.set(...CLOTHESPIN_LAYOUT.pivotPosition);
+    addRoundedWoodPart(clothespinArm, "clothespin-upper-arm", CLOTHESPIN_LAYOUT.armSize, CLOTHESPIN_LAYOUT.armCenterOffset, this.materials.wood);
+    addRoundedWoodPart(clothespinArm, "clothespin-upper-handle", CLOTHESPIN_LAYOUT.handleSize, CLOTHESPIN_LAYOUT.handleOffset, this.materials.wood);
+    addRoundedWoodPart(clothespinArm, "clothespin-upper-jaw", CLOTHESPIN_LAYOUT.jawSize, CLOTHESPIN_LAYOUT.jawOffset, this.materials.woodDark);
+    this.motionRoot.add(clothespinArm);
+    this.motionMeshes.set("clothespin", clothespinArm);
 
     const band = new THREE.Mesh(new THREE.TorusGeometry(0.44, 0.025, 6, 20), this.materials.rubber);
     band.rotation.x = Math.PI / 2;
@@ -695,8 +725,8 @@ export class DeskChainReactionScene {
         const minimumTimeReached = this.chainState.settlingElapsed >= MIN_SETTLE_SECONDS;
         const maximumTimeReached = this.chainState.settlingElapsed >= MAX_SETTLE_SECONDS;
         const lowSpeed = settle.allSleeping
-          || (Math.max(settle.marbleLinearSpeed, settle.eraserLinearSpeed) <= SETTLE_LINEAR_SPEED
-            && Math.max(settle.marbleAngularSpeed, settle.eraserAngularSpeed) <= SETTLE_ANGULAR_SPEED);
+          || (Math.max(settle.marbleLinearSpeed, settle.eraserLinearSpeed, settle.clothespinLinearSpeed) <= SETTLE_LINEAR_SPEED
+            && Math.max(settle.marbleAngularSpeed, settle.eraserAngularSpeed, settle.clothespinAngularSpeed) <= SETTLE_ANGULAR_SPEED);
         if ((minimumTimeReached && lowSpeed) || maximumTimeReached) this.chainState = completeSettling(this.chainState);
       }
       if (result.timedOut) this.publishState(true);
@@ -743,8 +773,15 @@ export class DeskChainReactionScene {
         );
         this.maxVisualPhysicsDelta = Math.max(this.maxVisualPhysicsDelta, visualPhysicsDelta);
         if (this.debugPhysics) {
-          const visualKey = objectId === "redMarble" ? "marble" : "eraser";
+          const visualKey = objectId === "redMarble" ? "marble" : objectId === "eraser" ? "eraser" : "clothespin";
+          const visualRotation = mesh.getWorldQuaternion(new THREE.Quaternion());
+          const visualRotationDelta = getVisualPhysicsRotationDelta(
+            [visualRotation.x, visualRotation.y, visualRotation.z, visualRotation.w],
+            snapshot.rotation,
+          );
+          this.maxVisualPhysicsRotationDelta = Math.max(this.maxVisualPhysicsRotationDelta, visualRotationDelta);
           this.container.dataset[`${visualKey}VisualPhysicsDelta`] = visualPhysicsDelta.toFixed(6);
+          this.container.dataset[`${visualKey}RotationDelta`] = visualRotationDelta.toFixed(6);
           this.container.dataset[`${visualKey}VisualPosition`] = [visualPosition.x, visualPosition.y, visualPosition.z].map((value) => value.toFixed(4)).join(",");
           this.container.dataset[`${visualKey}PhysicsPosition`] = snapshot.position.map((value) => value.toFixed(4)).join(",");
         }
@@ -766,13 +803,23 @@ export class DeskChainReactionScene {
       this.container.dataset.eraserContact = String(debug.eraserContacted);
       this.container.dataset.eraserDisplacement = debug.eraserDisplacement.toFixed(4);
       this.container.dataset.maxVisualPhysicsDelta = this.maxVisualPhysicsDelta.toFixed(6);
+      this.container.dataset.maxVisualPhysicsRotationDelta = this.maxVisualPhysicsRotationDelta.toFixed(6);
       this.container.dataset.settleElapsed = this.chainState.settlingElapsed.toFixed(3);
       const settle = physics.getDynamicSettleSnapshot();
-      this.container.dataset.settleLinearSpeed = Math.max(settle.marbleLinearSpeed, settle.eraserLinearSpeed).toFixed(4);
-      this.container.dataset.settleAngularSpeed = Math.max(settle.marbleAngularSpeed, settle.eraserAngularSpeed).toFixed(4);
+      this.container.dataset.settleLinearSpeed = Math.max(settle.marbleLinearSpeed, settle.eraserLinearSpeed, settle.clothespinLinearSpeed).toFixed(4);
+      this.container.dataset.settleAngularSpeed = Math.max(settle.marbleAngularSpeed, settle.eraserAngularSpeed, settle.clothespinAngularSpeed).toFixed(4);
       this.container.dataset.settleComplete = String(this.chainState.phase === "complete");
       this.container.dataset.stopperOpeningProgress = debug.stopperOpeningProgress.toFixed(4);
       this.container.dataset.stopperOpeningComplete = String(debug.stopperOpeningComplete);
+      this.container.dataset.eraserClothespinContact = String(debug.eraserClothespinContacted);
+      this.container.dataset.eraserClothespinContactPoint = debug.eraserClothespinContactPoint?.map((value) => value.toFixed(4)).join(",") ?? "none";
+      this.container.dataset.eraserClothespinContactNormal = debug.eraserClothespinContactNormal?.map((value) => value.toFixed(4)).join(",") ?? "none";
+      this.container.dataset.eraserClothespinContactForce = debug.eraserClothespinContactForce.toFixed(4);
+      this.container.dataset.clothespinOpeningAngle = debug.clothespinOpeningAngle.toFixed(4);
+      this.container.dataset.clothespinMaxOpeningAngle = debug.clothespinMaxOpeningAngle.toFixed(4);
+      this.container.dataset.clothespinAngularVelocity = debug.clothespinAngularVelocity.toFixed(4);
+      this.container.dataset.clothespinOpeningComplete = String(debug.clothespinOpeningComplete);
+      this.container.dataset.clothespinPhysicsPosition = debug.clothespinPosition.map((value) => value.toFixed(4)).join(",");
     }
     if (this.physicsDebugLines) this.updatePhysicsDebugLines(physics.getDebugRenderSnapshot());
   }
@@ -789,7 +836,6 @@ export class DeskChainReactionScene {
   private applyMechanismMotion(motion: ChainMotion, progress: number): void {
     const mesh = this.motionMeshes.get(motion.objectId);
     if (!mesh) return;
-    if (motion.kind === "clothespin") mesh.rotation.z = progress * -0.26;
     if (motion.kind === "rubberBand") mesh.scale.set(1 - progress * 0.5, 1, 1 - progress * 0.25);
     if (motion.kind === "blocks") mesh.rotation.z = progress * 0.18;
     if (motion.kind === "seesaw") mesh.rotation.z = progress * -0.38;
@@ -810,8 +856,18 @@ export class DeskChainReactionScene {
 
   private updateFollowTarget(delta: number): void {
     if (this.cameraMode !== "follow" || !this.controls || (this.chainState.phase !== "running" && this.chainState.phase !== "settling")) return;
-    const target = clampTarget(getFollowTarget(getCurrentStage(this.chainState).id));
-    this.controls.target.lerp(new THREE.Vector3(...target), Math.min(1, delta * (this.reducedMotion ? 1.2 : 0.65)));
+    const stageId = getCurrentStage(this.chainState).id;
+    const followCamera = getFollowCamera(stageId);
+    const target = clampTarget(followCamera.target);
+    const amount = Math.min(1, delta * (this.reducedMotion ? 2.4 : 3.5));
+    this.camera.position.lerp(new THREE.Vector3(...followCamera.position), amount);
+    this.camera.fov = THREE.MathUtils.lerp(this.camera.fov, followCamera.fov, amount);
+    this.camera.updateProjectionMatrix();
+    this.controls.target.lerp(new THREE.Vector3(...target), amount);
+    this.controls.minDistance = THREE.MathUtils.lerp(this.controls.minDistance, followCamera.minDistance, amount);
+    this.controls.maxDistance = THREE.MathUtils.lerp(this.controls.maxDistance, followCamera.maxDistance, amount);
+    this.controls.minPolarAngle = THREE.MathUtils.lerp(this.controls.minPolarAngle, followCamera.minPolarAngle, amount);
+    this.controls.maxPolarAngle = THREE.MathUtils.lerp(this.controls.maxPolarAngle, followCamera.maxPolarAngle, amount);
   }
 
   private setHomeCamera(): void {

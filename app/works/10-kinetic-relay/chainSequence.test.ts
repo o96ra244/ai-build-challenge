@@ -4,9 +4,9 @@ import { CHAIN_STAGES, advanceChain, completeSettling, createInitialChain, getRu
 
 describe("chainSequence", () => {
   it("exposes the current ACT 1 physics prototype stages", () => {
-    expect(CHAIN_STAGES).toHaveLength(3);
+    expect(CHAIN_STAGES).toHaveLength(4);
     expect(CHAIN_STAGES[0]?.id).toBe("stopper");
-    expect(CHAIN_STAGES.at(-1)?.id).toBe("red-impact");
+    expect(CHAIN_STAGES.at(-1)?.id).toBe("clothespin");
   });
 
   it("waits for the current visible contact event instead of elapsed time", () => {

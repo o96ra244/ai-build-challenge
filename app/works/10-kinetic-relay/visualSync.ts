@@ -1,6 +1,6 @@
 import type { MotionObjectId, Vector3Tuple } from "./deskLayout";
 
-export const ACT1_DYNAMIC_VISUAL_IDS = ["redMarble", "eraser"] as const satisfies readonly MotionObjectId[];
+export const ACT1_DYNAMIC_VISUAL_IDS = ["redMarble", "eraser", "clothespin"] as const satisfies readonly MotionObjectId[];
 
 export type Act1DynamicVisualId = (typeof ACT1_DYNAMIC_VISUAL_IDS)[number];
 
