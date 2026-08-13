@@ -177,7 +177,7 @@ export function createBranchGeometry(
   const shoulder = start.clone().addScaledVector(normalized, length * 0.5);
   shoulder.y += 0.025;
   const curve = new THREE.CatmullRomCurve3([start, shoulder, end]);
-  return new THREE.TubeGeometry(curve, 5, radius, 5, false);
+  return new THREE.TubeGeometry(curve, 6, radius, 6, false);
 }
 
 export function createSnowMoundGeometry(): THREE.SphereGeometry {
@@ -189,5 +189,5 @@ export function createSnowPatchGeometry(): THREE.OctahedronGeometry {
 }
 
 export function createFoliagePadGeometry(): THREE.OctahedronGeometry {
-  return new THREE.OctahedronGeometry(1, 1);
+  return new THREE.OctahedronGeometry(1, 2);
 }

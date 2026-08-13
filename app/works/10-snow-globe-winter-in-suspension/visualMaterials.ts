@@ -212,20 +212,20 @@ export function createSnowGlobeMaterials(): SnowGlobeMaterials {
   const environment = createEnvironmentTexture();
 
   const walnut = new MeshPhysicalNodeMaterial({
-    color: 0x553321,
+    color: 0x4c2d20,
     map: walnutTexture,
-    roughness: 0.44,
-    metalness: 0.08,
-    clearcoat: 0.14,
-    clearcoatRoughness: 0.28,
+    roughness: 0.58,
+    metalness: 0.03,
+    clearcoat: 0.08,
+    clearcoatRoughness: 0.34,
   });
   const walnutDark = new MeshPhysicalNodeMaterial({
-    color: 0x352015,
+    color: 0x2b1912,
     map: walnutTexture,
-    roughness: 0.56,
-    metalness: 0.06,
-    clearcoat: 0.12,
-    clearcoatRoughness: 0.35,
+    roughness: 0.64,
+    metalness: 0.03,
+    clearcoat: 0.06,
+    clearcoatRoughness: 0.4,
   });
   const brass = new MeshPhysicalNodeMaterial({
     color: 0x8b785f,
