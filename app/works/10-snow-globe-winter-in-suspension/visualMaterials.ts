@@ -76,10 +76,10 @@ function createWalnutTexture(): THREE.CanvasTexture {
 
   const random = seededRandom(0x10a5e);
   const base = context.createLinearGradient(0, 0, canvas.width, canvas.height);
-  base.addColorStop(0, "#2d1a13");
-  base.addColorStop(0.36, "#47281b");
-  base.addColorStop(0.68, "#382016");
-  base.addColorStop(1, "#21110d");
+  base.addColorStop(0, "#3a2118");
+  base.addColorStop(0.36, "#593321");
+  base.addColorStop(0.68, "#47261b");
+  base.addColorStop(1, "#2b1711");
   context.fillStyle = base;
   context.fillRect(0, 0, canvas.width, canvas.height);
 
@@ -118,11 +118,11 @@ function createCabinWoodTexture(): THREE.CanvasTexture {
     throw new Error("キャビン木材テクスチャの描画コンテキストを作成できませんでした。");
   }
   const random = seededRandom(0xcab10);
-  context.fillStyle = "#40342c";
+  context.fillStyle = "#584335";
   context.fillRect(0, 0, canvas.width, canvas.height);
   for (let index = 0; index < 38; index += 1) {
     const y = random() * canvas.height;
-    context.strokeStyle = index % 3 === 0 ? "rgba(222, 190, 145, 0.12)" : "rgba(20, 13, 10, 0.18)";
+    context.strokeStyle = index % 3 === 0 ? "rgba(236, 201, 155, 0.17)" : "rgba(20, 13, 10, 0.2)";
     context.lineWidth = 1 + random() * 2;
     context.beginPath();
     context.moveTo(0, y);
@@ -212,7 +212,7 @@ export function createSnowGlobeMaterials(): SnowGlobeMaterials {
   const environment = createEnvironmentTexture();
 
   const walnut = new MeshPhysicalNodeMaterial({
-    color: 0x4c2d20,
+    color: 0x6a4530,
     map: walnutTexture,
     roughness: 0.58,
     metalness: 0.03,
@@ -220,7 +220,7 @@ export function createSnowGlobeMaterials(): SnowGlobeMaterials {
     clearcoatRoughness: 0.34,
   });
   const walnutDark = new MeshPhysicalNodeMaterial({
-    color: 0x2b1912,
+    color: 0x3c251a,
     map: walnutTexture,
     roughness: 0.64,
     metalness: 0.03,
@@ -235,19 +235,19 @@ export function createSnowGlobeMaterials(): SnowGlobeMaterials {
     clearcoatRoughness: 0.2,
   });
   const cabinWood = new MeshStandardNodeMaterial({
-    color: 0x8b694f,
+    color: 0x9e7858,
     map: cabinWoodTexture,
     roughness: 0.72,
     metalness: 0.02,
   });
   const cabinWoodDark = new MeshStandardNodeMaterial({
-    color: 0x4b3326,
+    color: 0x654732,
     map: cabinWoodTexture,
     roughness: 0.8,
     metalness: 0.01,
   });
   const roof = new MeshStandardNodeMaterial({
-    color: 0x343739,
+    color: 0x34383d,
     roughness: 0.72,
     metalness: 0.04,
   });
@@ -302,7 +302,7 @@ export function createSnowGlobeMaterials(): SnowGlobeMaterials {
     metalness: 0,
   });
   const door = new MeshStandardNodeMaterial({
-    color: 0x251913,
+    color: 0x65432c,
     map: cabinWoodTexture,
     roughness: 0.78,
     metalness: 0,

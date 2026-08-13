@@ -211,7 +211,7 @@ export class SnowGlobeVisualScene {
     fill.position.set(-4.5, 2.3, 4.2);
     this.scene.add(fill);
 
-    const baseFill = new THREE.SpotLight(0xa9bac6, 1.25, 9, Math.PI / 4.2, 0.8, 1.45);
+    const baseFill = new THREE.SpotLight(0xa9bac6, 1.85, 9, Math.PI / 4.2, 0.8, 1.45);
     baseFill.position.set(1.2, 3.7, 4.4);
     baseFill.target.position.set(0.1, 0.55, 0);
     this.scene.add(baseFill, baseFill.target);
