@@ -164,6 +164,28 @@ export function createSlopedSlabGeometry(
   return geometry;
 }
 
+export function createSnowEaveGeometry(length: number, width: number, height: number): THREE.ExtrudeGeometry {
+  const shape = new THREE.Shape();
+  shape.moveTo(-width / 2, 0);
+  shape.quadraticCurveTo(-width * 0.38, height * 0.08, -width * 0.28, height * 0.64);
+  shape.quadraticCurveTo(0, height * 1.08, width * 0.28, height * 0.64);
+  shape.quadraticCurveTo(width * 0.38, height * 0.08, width / 2, 0);
+  shape.lineTo(width / 2, -height * 0.12);
+  shape.lineTo(-width / 2, -height * 0.12);
+  shape.closePath();
+  const geometry = new THREE.ExtrudeGeometry(shape, {
+    depth: length,
+    bevelEnabled: true,
+    bevelSegments: 2,
+    bevelSize: 0.018,
+    bevelThickness: 0.018,
+    curveSegments: 4,
+  });
+  geometry.translate(0, 0, -length / 2);
+  geometry.computeVertexNormals();
+  return geometry;
+}
+
 export function createBranchGeometry(
   start: THREE.Vector3,
   direction: THREE.Vector3,
@@ -188,6 +210,6 @@ export function createSnowPatchGeometry(): THREE.OctahedronGeometry {
   return new THREE.OctahedronGeometry(1, 1);
 }
 
-export function createFoliagePadGeometry(): THREE.OctahedronGeometry {
-  return new THREE.OctahedronGeometry(1, 2);
+export function createFoliagePadGeometry(): THREE.DodecahedronGeometry {
+  return new THREE.DodecahedronGeometry(1, 1);
 }

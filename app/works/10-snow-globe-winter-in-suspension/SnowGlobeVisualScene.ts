@@ -9,6 +9,7 @@ import {
   createFoliagePadGeometry,
   createGableGeometry,
   createSlopedSlabGeometry,
+  createSnowEaveGeometry,
   createSnowMoundGeometry,
   createSnowPatchGeometry,
   createTerrainGeometry,
@@ -487,14 +488,14 @@ export class SnowGlobeVisualScene {
       const snowOverhang = markShadow(
         addMesh(
           cabin,
-          createSnowMoundGeometry(),
+          createSnowEaveGeometry(1.05, 0.16, 0.1),
           this.materials.snow,
-          [side * 0.72, 1.17, 0.49],
+          [side * 0.97, 1.17, 0],
         ),
         false,
         true,
       );
-      snowOverhang.scale.set(0.36, 0.1, 0.34);
+      snowOverhang.name = "rounded eave snow load";
     });
 
     const windowRecess = addBox(cabin, this.materials.cabinWoodDark, [0.62, 0.5, 0.09], [0.38, 0.66, 0.555]);
