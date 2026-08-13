@@ -12,6 +12,9 @@ describe("Work 10 SEO and social metadata", () => {
   it("keeps the production canonical and social card settings", () => {
     expect(pageSource).toContain("https://ai-build-challenge.vercel.app/works/10-gaussian-splat-explorer");
     expect(pageSource).toContain("Gaussian Splat Explorer | AI Build Challenge");
+    expect(pageSource).toContain("Japanese Bee");
+    expect(pageSource).toContain("Meadow");
+    expect(pageSource).not.toContain("Tomatoes");
     expect(pageSource).toContain("SPZ v4");
     expect(pageSource).toContain("type: \"website\"");
     expect(pageSource).toContain("locale: \"ja_JP\"");
@@ -27,12 +30,12 @@ describe("Work 10 SEO and social metadata", () => {
   });
 
   it("formats runtime metadata from actual values", () => {
-    expect(formatFileSize(9_360_535)).toBe("9.36 MB");
-    expect(createRuntimeMetadata(445_409, "WebGPU")).toEqual({
+    expect(formatFileSize(13_242_688)).toBe("13.24 MB");
+    expect(createRuntimeMetadata(978_285, "WebGPU")).toEqual({
       version: "SPZ v4",
-      splatCount: 445_409,
+      splatCount: 978_285,
       renderer: "WebGPU",
-      fileSize: "9.36 MB",
+      fileSize: "13.24 MB",
     });
   });
 });

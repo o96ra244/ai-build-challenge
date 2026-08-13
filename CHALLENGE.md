@@ -205,22 +205,24 @@
 - **作品名:** Gaussian Splat Explorer
 - **制作日:** 2026-08-13
 - **対象ユーザー:** Gaussian Splattingや新しいWeb 3D表現を、専用viewerなしでブラウザ上から触ってみたい人
-- **解決する問題:** 設定UI中心の技術demoではなく、実写由来のGaussian Splatそのものを大きく表示し、ドラッグとズームだけで視点依存の質感を観察できるようにします。
-- **差別化:** Three.js公式exampleのInspectorやsource selectorを持ち込まず、SPZ v4の実データ、固定commitのaddon bridge、local asset、event-driven rendering、最小UIに絞りました。
-- **主な機能:** Tomatoes SPZ v4のdecodeとGaussianSplatMesh表示、drag orbit、wheel・pinch zoom、pan無効、HOME、Loading / Error / Unsupported、実値splat count、WebGPU / WebGL 2 fallback表示、keyboard HOME、focus-visible、常時表示attribution
-- **Gaussian Splatting / SPZ v4を選んだ理由:** 実写由来の点群表現を、専用viewerなしで大きく見せながら、視点を変えたときの色と形の変化を体験してもらうためです。
+- **解決する問題:** 設定UI中心の技術demoではなく、ニホンミツバチの実写由来Gaussian Splatを自然環境の中で大きく表示し、ドラッグとズームだけで体毛・翅・複眼などの視点依存の質感を観察できるようにします。
+- **差別化:** 公式exampleの表現を踏襲せず、Japanese Beeの独自asset、Poly Haven Meadowの実写equirectangular背景、固定commitのaddon bridge、event-driven rendering、最小UIで体験を仕上げました。
+- **主な機能:** Japanese Bee SPZ v4のdecodeとGaussianSplatMesh表示、Meadow背景、drag orbit、wheel・pinch zoom、pan無効、HOME、Loading / Error / Unsupported、実値splat count、WebGPU / WebGL 2 fallback表示、keyboard HOME、focus-visible、常時表示attribution
+- **Gaussian Splatting / SPZ v4を選んだ理由:** 実写由来の点群表現を専用viewerなしで大きく見せ、ニホンミツバチの微細な構造を視点変更で観察してもらうためです。背景を加えることで、単色の技術demoではなく自然環境でのマクロ観察として伝わる構図にしました。
 - **Three.js方針:** root dependencyのThree.js正式版`0.185.1`と`@types/three@0.185.1`を維持し、r186向けGaussian addonだけを次のcommitへ固定したscoped bridgeとしてvendorしました。
 - **Upstream commit:** `7f855a77b4b1733c923b8201fd1d202ea99b2d16`
 - **Vendor files:** `CountingSort.js`、`SPZLoader.js`、`GaussianSplatMesh.js`、`GaussianSplatUtils.js`。SPZLoaderの圧縮ライブラリimportはstable `three@0.185.1` の`three/addons/libs/`へ向けています。
-- **Asset / license / attribution:** `examples/models/spz/tomatoes.v4.spz`を`public/works/10-gaussian-splat-explorer/tomatoes.v4.spz`へ無加工で配置しました。サイズは9,360,535 bytes、Git blob SHAは`87fc51c424f387ec6830be2b4af5c62d9dc8d1cc`です。Scan by Grail、SourceはSuperSplat scene `2826d2c0`、licenseはCC BY 4.0です。
+- **Japanese Bee asset / license / attribution:** SuperSplat scene [`ae58ed2c`](https://superspl.at/scene/ae58ed2c)のJapanese Bee（作者 yyouzhen、CC BY 4.0）を採用しました。source pageのviewer bundleはSOG形式（`sog`、11,482,650 bytes）で、公開された`meta.json`と7枚のWebPデータを取得し、`@playcanvas/splat-transform@3.3.0`（CLI commit `57883c2`）でSPZ v4へ変換しました。出力は`japanese-bee.v4.spz`、13,242,688 bytes、978,285 splats、Git blob SHA `c22ecb6c62e8b54d3829942f526ba22c861926ac`です。再現コマンドは次のとおりです。
+  `npx --yes @playcanvas/splat-transform@3.3.0 source/meta.json japanese-bee.v4.spz --spz-version 4`
+- **Background asset / license / provenance:** Poly Haven [`Meadow`](https://polyhaven.com/a/meadow)（作者 Sergej Majboroda、CC0）の公式8K tonemapped JPG（8192 × 4096）を取得し、既存の`sharp@0.35.3`で2048 × 1024、JPEG quality 82、progressive / mozjpeg有効の`meadow-2k.jpg`（553,041 bytes）へ縮小しました。背景はruntime外部CDNではなく、静的なlocal equirectangular textureとして配信します。
 - **GitHub上のパス:** `app/works/10-gaussian-splat-explorer/`
 - **公開URL:** https://ai-build-challenge.vercel.app/works/10-gaussian-splat-explorer
-- **検証結果:** `npm run lint`、`npm run typecheck`、`npm run test`（32ファイル・384件）、`npm run build`、`git diff --check`に成功しました。unit testではcapability、DPR cap、camera fit、state、metadata、asset Git blob SHA、attribution、cleanup、event-driven rendering、作品登録、1200×630 OGPを確認しています。実画面のlocal production serverでSPZ v4 decode、445,409 splats、metadata、WebGPU backend、desktop / mobileの表示も確認しました。OGPは実画面から1200×630 PNGを生成しました。
-- **ブラウザ確認:** 1440×900相当と390×844で初期表示、drag orbit、wheel zoom、HOME、resize、focus-visible、keyboard HOME、canvas accessible name、`touch-action: none`、attribution、console error / warningなしを確認しました。実機pinch、WebGL 2強制fallback、hidden tabの実ブラウザ切替、数値CPU計測はこの環境では未確認です。
-- **Rendering architecture:** 常時animation loopを使わず、`requestRender()`でRAFをcoalesceし、初回ready、OrbitControls change、HOME、resize、visible復帰だけrenderします。DPR capはdesktop 1.5、mobile 1.0です。fetch AbortController、loader、controls、observer、visibility listener、geometry、material、rendererをdisposeします。
-- **既知の制約:** 複数scan切替、編集・保存、pan、postprocessing、音声、WebXR、実機touch、WebGL 2強制切替、長時間GPU負荷計測には対応していません。
-- **学び:** WebGPU専用のGaussian addonをstable Three.jsへ狭くbridgeする場合、root dependencyを動かさず、upstream provenanceとTypeScript declarationを作品スコープへ閉じることが重要です。また、splat countやcamera fitをloaded geometryから導くことで、固定値に頼らずlocal assetへ適応できます。
-- **次回への改善点:** WebGL 2 fallbackの実機負荷比較、real-device pinch、hidden tabのtracing、long-session GPU計測、複数のlocal SPZ assetを同じevent-driven viewerへ安全に差し替える検証を追加します。
+- **検証結果:** `npm run lint`（警告なし）、`npm run typecheck`、`npm run test`（32ファイル・385件）、`npm run build`、`git diff --check`に成功しました。unit testではcapability、DPR cap、camera fit、state、metadata、Bee asset Git blob SHA、Bee / Meadow attribution、cleanup、event-driven rendering、背景path、作品登録、1200×630 OGPを確認しています。実画面ではSPZ v4 decode、978,285 splats、metadata、WebGPU backend、Meadow背景、desktop / mobileの表示を確認しています。
+- **ブラウザ確認:** local production serverのCodex In-app Browserで1440×900と390×844を確認しました。初期構図、Beeの体毛・翅・胴体ストライプ、Meadow背景、drag orbit、wheel zoom、HOME、resize、キーボードfocus outline、keyboard HOME、canvas accessible name、`touch-action: none`、attribution、横overflowなし、通常表示のconsole error / warning 0件を確認しています。一時的な503 routeでSPZ取得失敗時のJapanese Beeエラー、Retry、Unavailable metadata、disabled HOMEも確認し、route解除後の正常復帰を確認しました。実機pinch、WebGL 2強制fallback、hidden tabの実ブラウザ切替、数値CPU計測は未確認です。
+- **Rendering architecture:** 常時animation loopを使わず、`requestRender()`でRAFをcoalesceし、初回ready、OrbitControls change、HOME、resize、visible復帰だけrenderします。Meadowは`Scene.background`へ一度設定する静的equirectangular textureで、背景追加のための常時再描画は行いません。DPR capはdesktop 1.5、mobile 1.0です。fetch AbortController、background texture、loader、controls、observer、visibility listener、geometry、material、rendererをdisposeします。
+- **既知の制約:** 複数scan切替、編集・保存、pan、postprocessing、音声、WebXR、実機touch、WebGL 2強制切替、長時間GPU負荷計測には対応していません。Japanese BeeのSPZは公開viewer SOG bundleからローカル変換した派生assetで、元のSuperSplat download APIにruntime依存しません。
+- **学び:** Gaussian Splatを作品として見せるには、loaderと描画基盤だけでなく、主役のasset、視線を受け止める背景、attribution、初期構図を一体で設計する必要があります。SOGからSPZ v4へ変換する再現手順を残し、root dependencyを増やさずlocal assetへ閉じました。
+- **次回への改善点:** WebGL 2 fallbackの実機負荷比較、real-device pinch、hidden tabのtracing、long-session GPU計測、背景の視点追従を含む複数のlocal SPZ asset切り替えを追加検証します。
 
 次の作品を追加する際は、以下のテンプレートを複製して記録します。
 

@@ -8,9 +8,9 @@ import {
 
 const metadata = {
   version: "SPZ v4" as const,
-  splatCount: 445_409,
+  splatCount: 978_285,
   renderer: "WebGPU" as const,
-  fileSize: "9.36 MB",
+  fileSize: "13.24 MB",
 };
 
 describe("Gaussian Splat viewer state", () => {

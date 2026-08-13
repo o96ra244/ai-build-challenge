@@ -125,13 +125,13 @@ SVG本体を変更せず、同じ内蔵アイコンまたは任意のSVGで12種
 
 ### 10 Gaussian Splat Explorer
 
-Three.jsのGaussian Splatting / SPZ v4対応を使い、写真から再構成されたTomatoesの3Dスキャンをブラウザ上で回転・ズームして観察する一画面作品です。
+Three.jsのGaussian Splatting / SPZ v4対応を使い、写真から再構成されたJapanese Beeの3DスキャンをMeadowの実写背景の中で回転・ズームして観察する一画面作品です。
 
 - GitHub上のパス: [`app/works/10-gaussian-splat-explorer/`](app/works/10-gaussian-splat-explorer/)
 - 公開URL: https://ai-build-challenge.vercel.app/works/10-gaussian-splat-explorer
-- 主な機能: ドラッグorbit、wheel・pinch zoom、HOME、Loading / Error / Unsupported表示、WebGPUとWebGL 2 fallback、実値splat metadata、常時表示のGrail / Source / CC BY 4.0 attribution
+- 主な機能: ドラッグorbit、wheel・pinch zoom、HOME、Loading / Error / Unsupported表示、WebGPUとWebGL 2 fallback、実値splat metadata、Meadowの静的equirectangular背景、常時表示のScan by yyouzhen / Source / CC BY 4.0 attribution
 - 使用技術: Three.js 0.185.1 `WebGPURenderer`、r186向けGaussian addonのcommit固定bridge、SPZ v4、CSS Modules、Vitest
-- モデル素材: Three.js公式repositoryの`tomatoes.v4.spz`をローカル配信しています。Scan by Grail、SuperSplat、CC BY 4.0の情報は画面内creditと [`public/works/10-gaussian-splat-explorer/ATTRIBUTION.md`](public/works/10-gaussian-splat-explorer/ATTRIBUTION.md) に記録しています。
+- モデル素材: SuperSplatのJapanese Bee（作者 yyouzhen）を公開SOG viewer bundleからSPZ v4へ変換し、`japanese-bee.v4.spz`としてローカル配信しています。背景にはPoly Haven Meadow（Sergej Majboroda / CC0）を2048×1024の軽量JPGへ変換して使用しています。出典・変換手順・ライセンスは [`public/works/10-gaussian-splat-explorer/ATTRIBUTION.md`](public/works/10-gaussian-splat-explorer/ATTRIBUTION.md) に記録しています。
 
 ## 公開URL
 

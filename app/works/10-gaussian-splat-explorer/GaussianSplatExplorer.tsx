@@ -11,7 +11,7 @@ import {
 } from "./viewerState";
 import styles from "./page.module.css";
 
-const SOURCE_URL = "https://superspl.at/scene/2826d2c0";
+const SOURCE_URL = "https://superspl.at/scene/ae58ed2c";
 const LICENSE_URL = "https://creativecommons.org/licenses/by/4.0/";
 
 export function GaussianSplatExplorer() {
@@ -90,13 +90,13 @@ export function GaussianSplatExplorer() {
         aria-describedby="gaussian-splat-description gaussian-splat-controls"
       >
         <p id="gaussian-splat-description" className={styles.srOnly}>
-          Tomatoesという実写由来のSPZ v4 Gaussian Splatを、ドラッグで回転し、スクロールまたはピンチで拡大縮小して観察できます。パン操作は無効です。
+          ニホンミツバチの写真から再構成されたSPZ v4 Gaussian Splatを、ドラッグで回転し、スクロールまたはピンチで拡大縮小して観察できます。パン操作は無効です。
         </p>
         {isLoading && (
           <div className={styles.stateOverlay} role="status" aria-live="polite">
             <div className={styles.loadingCard}>
               <span className={styles.loadingMark} aria-hidden="true" />
-              <span>Loading Gaussian splat…</span>
+              <span>Loading Japanese Bee…</span>
               <small>{formatFileSize(ASSET_SIZE_BYTES)}</small>
             </div>
           </div>
@@ -104,7 +104,7 @@ export function GaussianSplatExplorer() {
         {state.status === "error" && (
           <div className={styles.stateOverlay} role="alert" aria-live="assertive">
             <div className={styles.messageCard}>
-              <strong>Gaussian Splatを表示できませんでした。</strong>
+              <strong>Japanese Beeを表示できませんでした。</strong>
               <span>{state.message}</span>
               <button type="button" className={styles.retryButton} onClick={retry}>
                 Retry
@@ -115,7 +115,7 @@ export function GaussianSplatExplorer() {
         {state.status === "unsupported" && (
           <div className={styles.stateOverlay} role="alert" aria-live="assertive">
             <div className={styles.messageCard}>
-              <strong>Gaussian Splatを表示できません。</strong>
+              <strong>Japanese Beeを表示できません。</strong>
               <span>{state.message}</span>
             </div>
           </div>
@@ -126,7 +126,7 @@ export function GaussianSplatExplorer() {
         <header className={styles.headerBlock}>
           <span className={styles.eyebrow}>WORK 10</span>
           <h1 id="gaussian-splat-title" className={styles.title}>Gaussian Splat Explorer</h1>
-          <p className={styles.description}>写真から再構成された3Dスキャンを、ドラッグして自由に観察できます。</p>
+          <p className={styles.description}>ニホンミツバチの高精細3Dスキャンを、自然の中で自由に観察できます。</p>
           <p id="gaussian-splat-controls" className={styles.controlsHint}>Drag to orbit · Scroll / pinch to zoom</p>
         </header>
 
@@ -157,7 +157,7 @@ export function GaussianSplatExplorer() {
         </div>
 
         <div className={styles.attribution}>
-          <span>Scan by Grail</span>
+          <span>Scan by yyouzhen</span>
           <span aria-hidden="true"> · </span>
           <a href={SOURCE_URL} target="_blank" rel="noopener noreferrer">Source</a>
           <span aria-hidden="true"> · </span>

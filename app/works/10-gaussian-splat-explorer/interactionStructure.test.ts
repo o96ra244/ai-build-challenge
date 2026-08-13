@@ -19,6 +19,11 @@ describe("Work 10 interaction architecture", () => {
     expect(sceneSource).toContain("controls.enablePan = false");
     expect(sceneSource).toContain("controls.enableDamping = false");
     expect(sceneSource).toContain("new GaussianSplatMesh(geometry, { autoSort: true })");
+    expect(sceneSource).toContain("new THREE.TextureLoader().loadAsync(BACKGROUND_URL)");
+    expect(sceneSource).toContain("THREE.EquirectangularReflectionMapping");
+    expect(sceneSource).toContain("this.scene.backgroundIntensity = 0.46");
+    expect(sceneSource).toContain("renderer.toneMappingExposure = 0.68");
+    expect(sceneSource).toContain("this.splatMesh.material.toneMapped = false");
   });
 
   it("keeps retry and HOME as native buttons", () => {

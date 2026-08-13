@@ -22,8 +22,9 @@ import {
 import { ASSET_SIZE_BYTES } from "./metadata";
 import { getQualityProfile, type QualityProfile } from "./qualityProfile";
 
-const ASSET_URL = "/works/10-gaussian-splat-explorer/tomatoes.v4.spz";
-const CANVAS_LABEL = "TomatoesのGaussian Splatをドラッグとズームで観察する3Dビューア";
+const ASSET_URL = "/works/10-gaussian-splat-explorer/japanese-bee.v4.spz";
+const BACKGROUND_URL = "/works/10-gaussian-splat-explorer/meadow-2k.jpg";
+const CANVAS_LABEL = "Japanese BeeのGaussian Splatを自然背景の中でドラッグとズームで観察する3Dビューア";
 
 export type GaussianSplatSceneInitResult =
   | {
@@ -111,6 +112,7 @@ export class GaussianSplatScene {
   private renderer: WebGPURenderer | null = null;
   private controls: OrbitControls | null = null;
   private sourceGeometry: THREE.BufferGeometry | null = null;
+  private backgroundTexture: THREE.Texture | null = null;
   private splatMesh: GaussianSplatMesh | null = null;
   private resizeObserver: ResizeObserver | null = null;
   private abortController: AbortController | null = null;
@@ -126,6 +128,7 @@ export class GaussianSplatScene {
   public constructor(container: HTMLElement) {
     this.container = container;
     this.scene.background = new THREE.Color(0x070c10);
+    this.scene.backgroundIntensity = 0.46;
     this.cleanup.add(() => this.disposeSceneResources());
   }
 
@@ -152,14 +155,33 @@ export class GaussianSplatScene {
       this.requestRender();
 
       const geometry = await this.loadGeometry();
+      let backgroundTexture: THREE.Texture;
+      try {
+        backgroundTexture = await this.loadBackground();
+      } catch (error: unknown) {
+        geometry.dispose();
+        throw error;
+      }
       if (this.disposed) {
         geometry.dispose();
+        backgroundTexture.dispose();
         return { status: "disposed" };
       }
       this.sourceGeometry = geometry;
+      this.backgroundTexture = backgroundTexture;
+      this.scene.background = backgroundTexture;
+      this.scene.backgroundIntensity = 0.46;
       this.loadedSphere = getBoundingSphere(geometry);
       this.applyResponsiveCameraFit();
       this.splatMesh = new GaussianSplatMesh(geometry, { autoSort: true });
+      // SPZ colors are already scene-linear; keep ACES tone mapping on the background only.
+      if (Array.isArray(this.splatMesh.material)) {
+        this.splatMesh.material.forEach((material) => {
+          material.toneMapped = false;
+        });
+      } else {
+        this.splatMesh.material.toneMapped = false;
+      }
       this.scene.add(this.splatMesh);
       this.requestRender();
 
@@ -205,6 +227,7 @@ export class GaussianSplatScene {
     this.renderer = null;
     this.controls = null;
     this.sourceGeometry = null;
+    this.backgroundTexture = null;
     this.splatMesh = null;
     this.resizeObserver = null;
     this.abortController = null;
@@ -246,7 +269,7 @@ export class GaussianSplatScene {
     renderer.setSize(viewport.width, viewport.height, false);
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1;
+    renderer.toneMappingExposure = 0.68;
     renderer.domElement.setAttribute("role", "img");
     renderer.domElement.setAttribute("aria-label", CANVAS_LABEL);
     renderer.domElement.setAttribute("aria-describedby", "gaussian-splat-description");
@@ -310,6 +333,18 @@ export class GaussianSplatScene {
     const loader = new SPZLoader();
     const parsed = loader.parse(buffer);
     return Promise.resolve(parsed);
+  }
+
+  private async loadBackground(): Promise<THREE.Texture> {
+    try {
+      const texture = await new THREE.TextureLoader().loadAsync(BACKGROUND_URL);
+      texture.colorSpace = THREE.SRGBColorSpace;
+      texture.mapping = THREE.EquirectangularReflectionMapping;
+      return texture;
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Unknown background error";
+      throw new Error(`Background request failed: ${message}`);
+    }
   }
 
   private applyResponsiveCameraFit(): void {
@@ -387,6 +422,7 @@ export class GaussianSplatScene {
       disposeMaterial(this.splatMesh.material);
     }
     this.sourceGeometry?.dispose();
+    this.backgroundTexture?.dispose();
     this.scene.clear();
     this.renderer?.domElement.remove();
     this.renderer?.dispose();
@@ -394,13 +430,16 @@ export class GaussianSplatScene {
 
   private getUserFacingErrorMessage(message: string): string {
     if (message.startsWith("Asset request failed")) {
-      return "TomatoesのローカルSPZ assetを取得できませんでした。接続を確認して再試行してください。";
+      return "Japanese BeeのローカルSPZ assetを取得できませんでした。接続を確認して再試行してください。";
     }
     if (message.startsWith("Asset size mismatch")) {
       return "SPZ assetのサイズを確認できませんでした。ページを再読み込みしてください。";
     }
     if (message.includes("SPZ") || message.includes("decoded")) {
-      return "SPZ v4のdecodeに失敗しました。対応ブラウザで再試行してください。";
+      return "Japanese BeeのSPZ v4 decodeに失敗しました。対応ブラウザで再試行してください。";
+    }
+    if (message.startsWith("Background request failed")) {
+      return "Meadowのローカル背景を取得できませんでした。ページを再読み込みしてください。";
     }
     if (message.includes("WebGPU") || message.includes("WebGL") || message.includes("renderer")) {
       return "3D rendererの初期化に失敗しました。WebGPUまたはWebGL 2に対応したブラウザで再試行してください。";

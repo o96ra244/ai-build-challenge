@@ -1,7 +1,7 @@
 import type { RendererBackend } from "./capability";
 
 export const SPZ_VERSION_LABEL = "SPZ v4";
-export const ASSET_SIZE_BYTES = 9_360_535;
+export const ASSET_SIZE_BYTES = 13_242_688;
 
 export type RuntimeMetadata = {
   readonly version: typeof SPZ_VERSION_LABEL;

@@ -4,9 +4,9 @@ import { GaussianSplatExplorer } from "./GaussianSplatExplorer";
 
 const WORK_URL = "https://ai-build-challenge.vercel.app/works/10-gaussian-splat-explorer";
 const WORK_TITLE = "Gaussian Splat Explorer | AI Build Challenge";
-const WORK_DESCRIPTION = "SPZ v4のGaussian Splattingによる実写由来3Dスキャンを、ブラウザ上でドラッグとズームで360度観察できるThree.js作品。";
+const WORK_DESCRIPTION = "ニホンミツバチのSPZ v4 Gaussian Splatを、Meadowの実写背景の中でドラッグとズームにより観察できるThree.js作品。";
 const OG_IMAGE_PATH = "/og/10-gaussian-splat-explorer.png";
-const OG_IMAGE_ALT = "暗い背景の中央にTomatoesのGaussian Splatを表示したGaussian Splat Explorerの画面";
+const OG_IMAGE_ALT = "Meadowの実写背景の中央にJapanese BeeのGaussian Splatを表示したGaussian Splat Explorerの画面";
 
 export const metadata: Metadata = {
   title: WORK_TITLE,

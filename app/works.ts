@@ -65,7 +65,7 @@ export const works: readonly Work[] = [
   {
     number: 10,
     title: "Gaussian Splat Explorer",
-    description: "SPZ v4の実写由来3Dスキャンをドラッグとズームで360度観察できるインタラクティブ3D作品です。",
+    description: "Japanese BeeのSPZ v4スキャンをMeadowの実写背景の中で観察できるインタラクティブ3D作品です。",
     href: "/works/10-gaussian-splat-explorer",
   },
 ];

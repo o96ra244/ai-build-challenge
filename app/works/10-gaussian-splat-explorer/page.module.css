@@ -18,8 +18,20 @@
   background: radial-gradient(circle at 50% 44%, #18242a 0%, #0b1318 44%, #070c10 100%);
 }
 
+.canvasHost::after {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  pointer-events: none;
+  content: "";
+  background:
+    radial-gradient(circle at 50% 46%, transparent 12%, rgb(4 10 7 / 12%) 64%, rgb(3 8 6 / 48%) 100%),
+    linear-gradient(180deg, rgb(3 8 6 / 42%) 0%, transparent 24%, transparent 72%, rgb(3 8 6 / 60%) 100%);
+}
+
 .canvasHost canvas {
   position: absolute;
+  z-index: 0;
   inset: 0;
   width: 100%;
   height: 100%;
