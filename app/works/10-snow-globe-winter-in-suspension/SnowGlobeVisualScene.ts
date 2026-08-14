@@ -93,6 +93,7 @@ export class SnowGlobeVisualScene {
   private readonly scene = new THREE.Scene();
   private readonly camera = new THREE.PerspectiveCamera(33, 1, 0.1, 80);
   private readonly globeRoot = new THREE.Group();
+  private readonly globeBody = new THREE.Group();
   private readonly motionRoot = new THREE.Group();
   private readonly particleRoot = new THREE.Group();
   private readonly materials = createSnowGlobeMaterials();
@@ -113,17 +114,21 @@ export class SnowGlobeVisualScene {
   private animationRunning = false;
   private lastFrameTime = 0;
   private animationTime = 0;
-  private particleCount = 520;
+  private particleCount = 420;
   private glitterCount = 88;
+  private ambientSnowCount = 5;
+  private ambientGlitterCount = 12;
   private pointerId: number | null = null;
   private dragging = false;
   private pointerMoved = false;
   private dragStartedAt = 0;
   private pointerLastTime = 0;
-  private worldYaw = 0;
-  private worldPitch = 0;
-  private worldYawVelocity = 0;
-  private worldPitchVelocity = 0;
+  private globeYaw = 0;
+  private globePitch = 0;
+  private globeRoll = 0;
+  private globeYawVelocity = 0;
+  private globePitchVelocity = 0;
+  private globeRollVelocity = 0;
   private shakeElapsed = 0;
   private shakeDuration = 0;
   private shakeEnergy = 0;
@@ -150,8 +155,10 @@ export class SnowGlobeVisualScene {
     this.scene.environmentIntensity = 0.48;
     this.scene.fog = new THREE.Fog(0x050608, 9, 22);
     this.scene.add(this.globeRoot);
-    this.globeRoot.add(this.motionRoot, this.particleRoot);
-    this.motionRoot.name = "interactive interior world";
+    this.globeRoot.add(this.globeBody);
+    this.globeBody.add(this.motionRoot, this.particleRoot);
+    this.globeBody.name = "globe body tilt and settle";
+    this.motionRoot.name = "fixed interior world inside globe";
     this.particleRoot.name = "liquid lag particle field";
     this.buildBackdrop();
     this.buildLighting();
@@ -317,12 +324,12 @@ export class SnowGlobeVisualScene {
   }
 
   private buildBase(): void {
-    const base = markShadow(addMesh(this.globeRoot, createBaseProfile(), this.materials.walnut), true, true);
+    const base = markShadow(addMesh(this.globeBody, createBaseProfile(), this.materials.walnut), true, true);
     base.name = "dark walnut lathed base";
 
     const lowerShadowRing = markShadow(
       addMesh(
-        this.globeRoot,
+        this.globeBody,
         new THREE.TorusGeometry(2.08, 0.055, 12, 96),
         this.materials.walnutDark,
         [0, 0.25, 0],
@@ -333,7 +340,7 @@ export class SnowGlobeVisualScene {
     lowerShadowRing.rotation.x = Math.PI / 2;
 
     const shoulderRing = addMesh(
-      this.globeRoot,
+      this.globeBody,
       new THREE.TorusGeometry(2.01, 0.035, 12, 96),
       this.materials.walnutDark,
       [0, 0.83, 0],
@@ -341,7 +348,7 @@ export class SnowGlobeVisualScene {
     shoulderRing.rotation.x = Math.PI / 2;
 
     const brassRing = addMesh(
-      this.globeRoot,
+      this.globeBody,
       new THREE.TorusGeometry(1.84, 0.026, 12, 96),
       this.materials.brass,
       [0, 0.98, 0],
@@ -351,7 +358,7 @@ export class SnowGlobeVisualScene {
 
     const topInset = markShadow(
       addMesh(
-        this.globeRoot,
+        this.globeBody,
         new THREE.CylinderGeometry(1.72, 1.72, 0.1, 96),
         this.materials.walnutDark,
         [0, 1.0, 0],
@@ -426,17 +433,17 @@ export class SnowGlobeVisualScene {
       hero: true,
     });
     this.buildTree({
-      position: new THREE.Vector3(-1.18, 1.01, -0.75),
-      height: 1.86,
-      width: 1.28,
+      position: new THREE.Vector3(-1.12, 1.01, -0.82),
+      height: 1.82,
+      width: 1.18,
       material: this.materials.treeDeep,
       tierCount: 4,
       seed: 0x20b,
     });
     this.buildTree({
-      position: new THREE.Vector3(1.45, 1.0, -0.83),
-      height: 1.64,
-      width: 1.14,
+      position: new THREE.Vector3(1.32, 1.0, -0.92),
+      height: 1.56,
+      width: 1.04,
       material: this.materials.treePale,
       tierCount: 4,
       seed: 0x30d,
@@ -463,8 +470,10 @@ export class SnowGlobeVisualScene {
   }
 
   private registerAccumulation(mesh: THREE.Mesh): void {
-    const anchor = mesh.getWorldPosition(new THREE.Vector3());
-    this.globeRoot.worldToLocal(anchor);
+    const bounds = new THREE.Box3().setFromObject(mesh);
+    const anchor = bounds.getCenter(new THREE.Vector3());
+    anchor.y = bounds.max.y - Math.max(0.015, (bounds.max.y - bounds.min.y) * 0.12);
+    this.globeBody.worldToLocal(anchor);
     this.accumulationZones.push({
       mesh,
       anchor,
@@ -487,17 +496,18 @@ export class SnowGlobeVisualScene {
     this.particleRoot.add(snowMesh);
 
     for (let index = 0; index < 420; index += 1) {
+      const quietFleck = index < 12;
       const position = new THREE.Vector3(
-        (random() - 0.5) * 3.55,
-        1.34 + random() * 3.58,
-        (random() - 0.5) * 3.0,
+        (random() - 0.5) * (quietFleck ? 2.5 : 3.55),
+        quietFleck ? 2.2 + random() * 2.25 : 1.34 + random() * 3.58,
+        (random() - 0.5) * (quietFleck ? 2.1 : 3.0),
       );
       this.snowParticles.push({
         position,
         home: position.clone(),
-        velocity: new THREE.Vector3((random() - 0.5) * 0.035, -0.02 - random() * 0.045, (random() - 0.5) * 0.035),
+        velocity: new THREE.Vector3(),
         phase: random() * Math.PI * 2,
-        size: 0.011 + random() * 0.018 + (random() > 0.86 ? 0.014 : 0),
+        size: 0.009 + random() * 0.015 + (random() > 0.9 ? 0.012 : 0),
         burstAge: 0,
         zoneIndex: -1,
         isBurst: false,
@@ -537,6 +547,8 @@ export class SnowGlobeVisualScene {
     const compact = width < 1100;
     this.particleCount = mobile ? 180 : compact ? 270 : 420;
     this.glitterCount = mobile ? 34 : compact ? 58 : 88;
+    this.ambientSnowCount = mobile ? 2 : compact ? 3 : 5;
+    this.ambientGlitterCount = mobile ? 6 : compact ? 8 : 12;
     if (this.snowMesh) {
       this.snowMesh.count = this.particleCount;
     }
@@ -582,8 +594,9 @@ export class SnowGlobeVisualScene {
       this.reducedMotion
       && this.shakeElapsed <= 0
       && !this.dragging
-      && Math.abs(this.worldYawVelocity) < 0.004
-      && Math.abs(this.worldPitchVelocity) < 0.004
+      && Math.abs(this.globeYawVelocity) < 0.004
+      && Math.abs(this.globePitchVelocity) < 0.004
+      && Math.abs(this.globeRollVelocity) < 0.004
     ) {
       this.stopAnimationLoop();
       this.renderOnce();
@@ -592,17 +605,21 @@ export class SnowGlobeVisualScene {
 
   private updateMotion(delta: number): void {
     if (!this.dragging) {
-      this.worldYaw += this.worldYawVelocity * delta;
-      this.worldPitch = THREE.MathUtils.clamp(
-        this.worldPitch + this.worldPitchVelocity * delta,
-        -0.24,
-        0.24,
+      this.globeYaw += this.globeYawVelocity * delta;
+      this.globePitch = THREE.MathUtils.clamp(
+        this.globePitch + this.globePitchVelocity * delta,
+        -0.12,
+        0.12,
       );
+      this.globeRoll += this.globeRollVelocity * delta;
       const damping = Math.exp(-(this.reducedMotion ? 8.5 : 2.8) * delta);
-      this.worldYawVelocity *= damping;
-      this.worldPitchVelocity *= damping;
+      this.globeYawVelocity *= damping;
+      this.globePitchVelocity *= damping;
+      this.globeRollVelocity *= damping;
     }
-    this.worldYaw = THREE.MathUtils.clamp(this.worldYaw, -0.58, 0.58);
+    this.globeYaw = THREE.MathUtils.clamp(this.globeYaw, -0.22, 0.22);
+    this.globePitch = THREE.MathUtils.clamp(this.globePitch, -0.12, 0.12);
+    this.globeRoll = THREE.MathUtils.clamp(this.globeRoll, -0.07, 0.07);
 
     const impulseDamping = Math.exp(-(this.reducedMotion ? 6.4 : 3.6) * delta);
     this.inputImpulse.multiplyScalar(impulseDamping);
@@ -625,53 +642,69 @@ export class SnowGlobeVisualScene {
       this.liquidOffset.x * 0.11,
     );
 
-    let shakeX = 0;
-    let shakeY = 0;
-    let shakeZ = 0;
+    let shakePitch = 0;
+    let shakeYaw = 0;
+    let shakeRoll = 0;
+    let bodyShiftX = 0;
+    let bodyShiftY = 0;
     if (this.shakeDuration > 0) {
       this.shakeElapsed += delta;
       const progress = THREE.MathUtils.clamp(this.shakeElapsed / this.shakeDuration, 0, 1);
       const envelope = Math.sin(Math.PI * progress) ** 0.72 * (1 - progress * 0.52) * this.shakeEnergy;
       const phase = progress * Math.PI * 9;
-      shakeX = Math.sin(phase * 1.08) * envelope * 0.085;
-      shakeY = Math.sin(phase * 0.92 + 0.7) * envelope * 0.13;
-      shakeZ = Math.cos(phase * 0.84) * envelope * 0.065;
+      shakePitch = Math.sin(phase * 1.08) * envelope * 0.024;
+      shakeYaw = Math.sin(phase * 0.92 + 0.7) * envelope * 0.032;
+      shakeRoll = Math.cos(phase * 0.84) * envelope * 0.028;
+      bodyShiftX = Math.sin(phase * 1.08) * envelope * 0.018;
+      bodyShiftY = Math.sin(phase * 0.92 + 0.7) * envelope * 0.012;
       if (progress >= 1) {
         this.shakeElapsed = 0;
         this.shakeDuration = 0;
         this.shakeEnergy = 0;
       }
     }
-    this.motionRoot.rotation.set(this.worldPitch + shakeX, this.worldYaw + shakeY, shakeZ);
+    this.globeBody.position.set(
+      THREE.MathUtils.clamp(this.inputImpulse.x * 0.008 + bodyShiftX, -0.026, 0.026),
+      THREE.MathUtils.clamp(this.inputImpulse.y * 0.005 + bodyShiftY, -0.018, 0.018),
+      0,
+    );
+    this.globeBody.rotation.set(
+      THREE.MathUtils.clamp(this.globePitch + shakePitch, -0.14, 0.14),
+      THREE.MathUtils.clamp(this.globeYaw + shakeYaw, -0.24, 0.24),
+      THREE.MathUtils.clamp(this.globeRoll + shakeRoll, -0.07, 0.07),
+    );
+    this.motionRoot.rotation.set(0, 0, 0);
   }
 
   private updateSnowParticles(delta: number, time: number): void {
-    const boundaryX = 2.02;
-    const boundaryZ = 1.72;
     const ceiling = 5.16;
-    const floor = 1.24;
+    const floor = 1.08;
     const gravity = this.reducedMotion ? 0.42 : 0.88;
-    const flowX = this.liquidVelocity.x * 0.52;
-    const flowZ = this.liquidVelocity.z * 0.52;
+    const flowX = this.liquidVelocity.x * 0.62;
+    const flowZ = this.liquidVelocity.z * 0.62;
 
     for (let index = 0; index < this.particleCount; index += 1) {
       const particle = this.snowParticles[index];
       if (particle.isBurst) {
         particle.burstAge += delta;
-        particle.velocity.y -= gravity * 1.9 * delta;
+        particle.velocity.y -= gravity * (particle.burstAge < 0.28 ? 0.72 : 1.7) * delta;
         particle.velocity.x += flowX * delta;
         particle.velocity.z += flowZ * delta;
-        particle.velocity.multiplyScalar(Math.exp(-0.18 * delta));
+        particle.velocity.multiplyScalar(Math.exp(-0.28 * delta));
         particle.position.addScaledVector(particle.velocity, delta);
-        if (particle.position.y <= floor || particle.burstAge >= 1.9) {
+        if (particle.position.y > ceiling) {
+          particle.position.y = ceiling;
+          particle.velocity.y *= -0.24;
+        }
+        if (particle.position.y <= floor || particle.burstAge >= (this.reducedMotion ? 0.95 : 2.4)) {
           if (particle.zoneIndex >= 0 && particle.zoneIndex < this.accumulationZones.length) {
-            this.accumulationZones[particle.zoneIndex].amount = Math.min(
-              1,
-              this.accumulationZones[particle.zoneIndex].amount + 0.1,
-            );
+            const zone = this.accumulationZones[particle.zoneIndex];
+            zone.amount = Math.min(1, zone.amount + 0.08);
+            particle.position.copy(zone.anchor);
+          } else {
+            particle.position.copy(particle.home);
           }
-          particle.position.copy(particle.home);
-          particle.velocity.set(0, -0.02, 0);
+          particle.velocity.set(0, 0, 0);
           particle.zoneIndex = -1;
           particle.isBurst = false;
           particle.burstAge = 0;
@@ -679,45 +712,24 @@ export class SnowGlobeVisualScene {
         continue;
       }
 
-      const driftX = Math.sin(time * 0.72 + particle.phase) * 0.012;
-      const driftZ = Math.cos(time * 0.54 + particle.phase * 1.13) * 0.011;
-      particle.velocity.x += (flowX + driftX - particle.velocity.x * 0.72) * delta;
-      particle.velocity.z += (flowZ + driftZ - particle.velocity.z * 0.72) * delta;
-      particle.velocity.y += (-0.018 - particle.velocity.y * 0.32) * delta;
-      particle.position.addScaledVector(particle.velocity, delta);
-
-      if (particle.position.y < floor) {
-        particle.position.y = ceiling;
-        particle.position.x += Math.sin(particle.phase) * 0.12;
-        particle.position.z += Math.cos(particle.phase) * 0.1;
-        particle.velocity.y = -0.018;
-      }
-      if (particle.position.x > boundaryX || particle.position.x < -boundaryX) {
-        particle.position.x = THREE.MathUtils.clamp(particle.position.x, -boundaryX, boundaryX);
-        particle.velocity.x *= -0.48;
-      }
-      if (particle.position.z > boundaryZ || particle.position.z < -boundaryZ) {
-        particle.position.z = THREE.MathUtils.clamp(particle.position.z, -boundaryZ, boundaryZ);
-        particle.velocity.z *= -0.48;
-      }
-      const normalizedHeight = (particle.position.y - 3.16) / 2.26;
-      const horizontalLimit = Math.sqrt(Math.max(0.06, 1 - normalizedHeight ** 2)) * 2.12;
-      const horizontalLength = Math.hypot(particle.position.x, particle.position.z);
-      if (horizontalLength > horizontalLimit) {
-        const horizontalScale = horizontalLimit / horizontalLength;
-        particle.position.x *= horizontalScale;
-        particle.position.z *= horizontalScale;
-        particle.velocity.x *= -0.42;
-        particle.velocity.z *= -0.42;
+      particle.position.copy(particle.home);
+      particle.velocity.set(0, 0, 0);
+      if (index < this.ambientSnowCount) {
+        particle.position.x += Math.sin(time * 0.16 + particle.phase) * 0.004;
+        particle.position.z += Math.cos(time * 0.13 + particle.phase) * 0.003;
       }
     }
   }
 
   private updateParticleMatrices(time: number): void {
     if (this.snowMesh) {
+      const burstScale = this.lastWidth < 640 ? 2.1 : 1.42;
       for (let index = 0; index < this.particleCount; index += 1) {
         const particle = this.snowParticles[index];
-        const scale = particle.size * (particle.isBurst ? 1.34 : 1);
+        const visible = particle.isBurst || index < this.ambientSnowCount;
+        const scale = visible
+          ? particle.size * (particle.isBurst ? burstScale : 0.72)
+          : 0.0001;
         this.particleDummy.position.copy(particle.position);
         this.particleDummy.rotation.set(
           time * (0.28 + particle.phase * 0.02),
@@ -735,12 +747,15 @@ export class SnowGlobeVisualScene {
       const heroPulse = this.shakeDuration > 0
         ? Math.exp(-((this.shakeElapsed - 0.48) ** 2) / 0.018) * this.shakeEnergy
         : 0;
-      this.materials.glitter.opacity = 0.3 + heroPulse * 0.18;
+      this.materials.glitter.opacity = 0.16 + heroPulse * 0.3;
       for (let index = 0; index < this.glitterCount; index += 1) {
         const glitter = this.glitterParticles[index];
         const pulse = Math.max(0, Math.sin(time * glitter.speed + glitter.phase));
         const glint = pulse ** 12;
-        const scale = glitter.size * (0.26 + glint * (1.15 + heroPulse * 1.4));
+        const visible = this.shakeDuration > 0 || index < this.ambientGlitterCount;
+        const scale = visible
+          ? glitter.size * (0.2 + glint * (0.95 + heroPulse * 2))
+          : 0.0001;
         this.glitterDummy.position.copy(glitter.position);
         this.glitterDummy.rotation.set(0, 0, glitter.phase + time * glitter.speed * 0.16);
         this.glitterDummy.scale.setScalar(scale);
@@ -771,8 +786,9 @@ export class SnowGlobeVisualScene {
     this.shakeDuration = this.reducedMotion ? 0.95 : 2.6;
     this.shakeEnergy = THREE.MathUtils.clamp(this.shakeEnergy + impulse.length() * 0.58, 0.72, 1.45);
     this.inputImpulse.add(impulse);
-    this.worldYawVelocity += impulse.x * 0.12;
-    this.worldPitchVelocity -= impulse.y * 0.075;
+    this.globeYawVelocity += impulse.x * 0.045;
+    this.globePitchVelocity -= impulse.y * 0.028;
+    this.globeRollVelocity += impulse.x * 0.06;
     this.releaseAccumulation();
     this.startAnimationLoop();
   }
@@ -781,18 +797,33 @@ export class SnowGlobeVisualScene {
     if (this.accumulationZones.length === 0 || this.snowParticles.length === 0) {
       return;
     }
-    this.accumulationZones.forEach((zone, zoneIndex) => {
-      zone.amount *= 0.52 + this.effectRandom() * 0.12;
-      for (let release = 0; release < 2; release += 1) {
-        let particle = this.snowParticles[this.burstCursor % this.snowParticles.length];
-        this.burstCursor += 1;
-        for (let attempt = 0; attempt < this.snowParticles.length && particle.isBurst; attempt += 1) {
-          particle = this.snowParticles[this.burstCursor % this.snowParticles.length];
+    const releaseLimit = Math.floor(this.particleCount * 0.72);
+    let releasedCount = 0;
+    for (let zoneIndex = 0; zoneIndex < this.accumulationZones.length; zoneIndex += 1) {
+      if (releasedCount >= releaseLimit) {
+        break;
+      }
+      const zone = this.accumulationZones[zoneIndex];
+      if (zone.amount <= 0.08) {
+        continue;
+      }
+      zone.amount *= 0.4 + this.effectRandom() * 0.1;
+      for (let release = 0; release < 2 && releasedCount < releaseLimit; release += 1) {
+        let particle: SnowParticle | null = null;
+        for (let attempt = 0; attempt < this.snowParticles.length; attempt += 1) {
+          const candidate = this.snowParticles[this.burstCursor % this.snowParticles.length];
           this.burstCursor += 1;
+          if (!candidate.isBurst) {
+            particle = candidate;
+            break;
+          }
+        }
+        if (!particle) {
+          continue;
         }
         particle.position.copy(zone.anchor);
         particle.position.x += (this.effectRandom() - 0.5) * 0.22;
-        particle.position.y += (this.effectRandom() - 0.5) * 0.12;
+        particle.position.y += this.effectRandom() * 0.08;
         particle.position.z += (this.effectRandom() - 0.5) * 0.18;
         particle.velocity.set(
           (this.effectRandom() - 0.5) * 0.48 + this.inputImpulse.x * 0.3,
@@ -802,8 +833,9 @@ export class SnowGlobeVisualScene {
         particle.zoneIndex = zoneIndex;
         particle.burstAge = 0;
         particle.isBurst = true;
+        releasedCount += 1;
       }
-    });
+    }
   }
 
   private pointerDown(event: PointerEvent): void {
@@ -837,10 +869,11 @@ export class SnowGlobeVisualScene {
     if (this.pointerStart.distanceTo(this.pointerLast) > 5) {
       this.pointerMoved = true;
     }
-    this.worldYaw = THREE.MathUtils.clamp(this.worldYaw + deltaX * 0.0018, -0.58, 0.58);
-    this.worldPitch = THREE.MathUtils.clamp(this.worldPitch - deltaY * 0.0016, -0.16, 0.16);
-    this.worldYawVelocity = this.pointerVelocity.x * 0.00042;
-    this.worldPitchVelocity = -this.pointerVelocity.y * 0.00028;
+    this.globeYaw = THREE.MathUtils.clamp(this.globeYaw + deltaX * 0.0007, -0.18, 0.18);
+    this.globePitch = THREE.MathUtils.clamp(this.globePitch - deltaY * 0.00065, -0.1, 0.1);
+    this.globeYawVelocity = this.pointerVelocity.x * 0.00016;
+    this.globePitchVelocity = -this.pointerVelocity.y * 0.00012;
+    this.globeRollVelocity = -this.pointerVelocity.x * 0.00004;
     this.inputImpulse.x += deltaX * 0.0012;
     this.inputImpulse.y -= deltaY * 0.0008;
     this.startAnimationLoop();
@@ -894,8 +927,12 @@ export class SnowGlobeVisualScene {
     }
     if (event.code === "ArrowLeft" || event.code === "ArrowRight") {
       event.preventDefault();
-      this.worldYaw += event.code === "ArrowLeft" ? -0.075 : 0.075;
-      this.worldYawVelocity = event.code === "ArrowLeft" ? -0.03 : 0.03;
+      this.globeYaw = THREE.MathUtils.clamp(
+        this.globeYaw + (event.code === "ArrowLeft" ? -0.035 : 0.035),
+        -0.18,
+        0.18,
+      );
+      this.globeYawVelocity = event.code === "ArrowLeft" ? -0.015 : 0.015;
       this.startAnimationLoop();
     }
   }
@@ -1242,7 +1279,7 @@ export class SnowGlobeVisualScene {
 
   private buildGlass(): void {
     const glass = addMesh(
-      this.globeRoot,
+      this.globeBody,
       new THREE.SphereGeometry(2.58, 96, 64),
       this.materials.glass,
       [0, 3.16, 0],
@@ -1253,7 +1290,7 @@ export class SnowGlobeVisualScene {
     glass.receiveShadow = false;
 
     const collar = addMesh(
-      this.globeRoot,
+      this.globeBody,
       new THREE.TorusGeometry(1.79, 0.016, 10, 96),
       this.materials.brass,
       [0, 1.01, 0],
@@ -1271,6 +1308,7 @@ export class SnowGlobeVisualScene {
     this.lastWidth = width;
     this.lastHeight = height;
     this.setParticleQuality(width);
+    this.updateParticleMatrices(this.animationTime);
     this.configureCamera(width, height);
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.7));
     this.renderer.setSize(width, height, false);
